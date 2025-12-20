@@ -48,6 +48,7 @@ export default function CreateCampaignPage() {
       setGroups([]);
       setSelectedGroups([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConnection]);
 
   const loadGroups = async (connectionId) => {
