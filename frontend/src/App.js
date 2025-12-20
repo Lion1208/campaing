@@ -122,6 +122,7 @@ const Layout = ({ children }) => {
   // Add all users page for admin only
   if (user?.role === 'admin') {
     navItems.push({ path: '/users', label: 'Usuários', icon: Shield });
+    navItems.push({ path: '/logs', label: 'Logs', icon: Terminal });
   }
 
   return (
