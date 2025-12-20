@@ -1217,11 +1217,24 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
     if connection['status'] != 'connected':
         raise HTTPException(status_code=400, detail="Conexão não está ativa")
     
+    # Process single image
     image_url = None
     if data.image_id:
         image = await db.images.find_one({'id': data.image_id})
         if image:
             image_url = image['url']
+    
+    # Process multiple messages with images
+    messages_with_urls = None
+    if data.messages:
+        messages_with_urls = []
+        for msg in data.messages:
+            msg_data = {'message': msg.message, 'image_id': msg.image_id, 'image_url': None}
+            if msg.image_id:
+                img = await db.images.find_one({'id': msg.image_id})
+                if img:
+                    msg_data['image_url'] = img['url']
+            messages_with_urls.append(msg_data)
     
     campaign = {
         'id': str(uuid.uuid4()),
@@ -1232,6 +1245,7 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
         'message': data.message,
         'image_id': data.image_id,
         'image_url': image_url,
+        'messages': messages_with_urls,
         'schedule_type': data.schedule_type,
         'scheduled_time': data.scheduled_time,
         'interval_hours': data.interval_hours,
@@ -1239,32 +1253,19 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
         'delay_seconds': data.delay_seconds,
         'start_date': data.start_date,
         'end_date': data.end_date,
-        'status': 'pending',
+        'status': 'paused',  # Campaigns start paused
         'sent_count': 0,
         'total_count': len(data.group_ids),
+        'current_message_index': 0,
         'last_run': None,
         'next_run': None,
+        'paused_at': None,
+        'remaining_time_on_pause': None,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     
     await db.campaigns.insert_one(campaign)
-    
-    # Schedule the campaign
-    try:
-        if data.schedule_type == 'once':
-            scheduled_dt = datetime.fromisoformat(data.scheduled_time.replace('Z', '+00:00'))
-            now = datetime.now(timezone.utc)
-            
-            if scheduled_dt <= now + timedelta(minutes=1):
-                background_tasks.add_task(execute_campaign, campaign['id'])
-            else:
-                schedule_campaign(campaign)
-        else:
-            schedule_campaign(campaign)
-            campaign['status'] = 'active'
-            await db.campaigns.update_one({'id': campaign['id']}, {'$set': {'status': 'active'}})
-    except Exception as e:
-        logger.error(f"Erro ao agendar campanha: {str(e)}")
+    await log_activity(user['id'], user['username'], 'create', 'campaign', campaign['id'], data.title, 'Campanha criada')
     
     return campaign
 
