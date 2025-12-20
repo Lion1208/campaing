@@ -223,11 +223,8 @@ const Layout = ({ children }) => {
             })}
           </nav>
 
-          {/* Activity Log */}
-          <ActivityLog />
-
           {/* Theme Toggle (Desktop) */}
-          <div className="hidden lg:block px-4 pb-2">
+          <div className="hidden lg:block px-4 pb-2 mt-auto">
             <button
               onClick={toggleTheme}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
