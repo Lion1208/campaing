@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useConnectionsStore, useAuthStore } from '@/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,24 +23,52 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
+import { Plus, Wifi, Trash2, RefreshCw, X, Smartphone } from 'lucide-react';
 
 export default function ConnectionsPage() {
-  const { connections, fetchConnections, createConnection, connectWhatsApp, simulateConnect, disconnectWhatsApp, deleteConnection, loading } = useConnectionsStore();
+  const { connections, fetchConnections, createConnection, connectWhatsApp, getQRCode, refreshGroups, disconnectWhatsApp, deleteConnection, loading } = useConnectionsStore();
   const { user } = useAuthStore();
   const [newConnectionName, setNewConnectionName] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState(null);
-  const [qrCode, setQrCode] = useState(null);
+  const [qrData, setQrData] = useState({ qr_code: null, qr_image: null, status: 'connecting' });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
 
   useEffect(() => {
     fetchConnections();
   }, [fetchConnections]);
+
+  // Poll for QR code and connection status
+  const pollQRCode = useCallback(async () => {
+    if (!selectedConnection || !pollingActive) return;
+    
+    try {
+      const result = await getQRCode(selectedConnection.id);
+      setQrData(result);
+      
+      if (result.status === 'connected') {
+        setPollingActive(false);
+        setQrDialogOpen(false);
+        toast.success('WhatsApp conectado com sucesso!');
+        fetchConnections();
+      }
+    } catch (error) {
+      console.error('Erro ao obter QR:', error);
+    }
+  }, [selectedConnection, pollingActive, getQRCode, fetchConnections]);
+
+  useEffect(() => {
+    let interval;
+    if (pollingActive && qrDialogOpen) {
+      interval = setInterval(pollQRCode, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [pollingActive, qrDialogOpen, pollQRCode]);
 
   const handleCreateConnection = async () => {
     if (!newConnectionName.trim()) {
@@ -65,8 +93,9 @@ export default function ConnectionsPage() {
     setSelectedConnection(connection);
     setActionLoading(true);
     try {
-      const result = await connectWhatsApp(connection.id);
-      setQrCode(result.qr_code);
+      await connectWhatsApp(connection.id);
+      setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
+      setPollingActive(true);
       setQrDialogOpen(true);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao conectar');
@@ -75,16 +104,13 @@ export default function ConnectionsPage() {
     }
   };
 
-  const handleSimulateConnect = async () => {
-    if (!selectedConnection) return;
+  const handleRefreshGroups = async (connection) => {
     setActionLoading(true);
     try {
-      await simulateConnect(selectedConnection.id);
-      toast.success('Conexão estabelecida com sucesso!');
-      setQrDialogOpen(false);
-      setQrCode(null);
+      const result = await refreshGroups(connection.id);
+      toast.success(`${result.count} grupos sincronizados`);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao conectar');
+      toast.error(error.response?.data?.detail || 'Erro ao sincronizar grupos');
     } finally {
       setActionLoading(false);
     }
@@ -117,20 +143,23 @@ export default function ConnectionsPage() {
     }
   };
 
+  const closeQRDialog = () => {
+    setPollingActive(false);
+    setQrDialogOpen(false);
+    setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
+  };
+
   const getStatusBadge = (status) => {
-    const styles = {
-      connected: 'status-connected',
-      connecting: 'status-connecting',
-      disconnected: 'status-disconnected',
+    const config = {
+      connected: { class: 'status-connected', label: 'Conectado' },
+      connecting: { class: 'status-connecting', label: 'Conectando' },
+      waiting_qr: { class: 'status-connecting', label: 'Aguardando QR' },
+      disconnected: { class: 'status-disconnected', label: 'Desconectado' },
     };
-    const labels = {
-      connected: 'Conectado',
-      connecting: 'Conectando',
-      disconnected: 'Desconectado',
-    };
+    const c = config[status] || config.disconnected;
     return (
-      <Badge variant="outline" className={`${styles[status]} font-mono text-[10px] uppercase tracking-wider`}>
-        {labels[status] || status}
+      <Badge variant="outline" className={`${c.class} text-[10px] uppercase tracking-wider`}>
+        {c.label}
       </Badge>
     );
   };
@@ -139,12 +168,12 @@ export default function ConnectionsPage() {
   const canCreateMore = user?.role === 'admin' || connections.length < user?.max_connections;
 
   return (
-    <div data-testid="connections-page" className="space-y-8 animate-fade-in">
+    <div data-testid="connections-page" className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-3xl text-foreground tracking-tight">Conexões WhatsApp</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-heading font-bold text-2xl md:text-3xl">Conexões WhatsApp</h1>
+          <p className="text-muted-foreground text-sm mt-1">
             {connections.length} de {maxConnections} conexões
           </p>
         </div>
@@ -155,37 +184,33 @@ export default function ConnectionsPage() {
               disabled={!canCreateMore}
               className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus className="w-4 h-4 mr-2" />
               Nova Conexão
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-card border-white/10">
+          <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
             <DialogHeader>
-              <DialogTitle className="font-heading">Criar Nova Conexão</DialogTitle>
+              <DialogTitle className="font-heading">Nova Conexão</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Dê um nome para identificar esta conexão WhatsApp.
+                Dê um nome para identificar esta conexão.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Nome da Conexão
-                </Label>
+                <Label>Nome da Conexão</Label>
                 <Input
                   data-testid="connection-name-input"
-                  placeholder="Ex: Marketing, Vendas, etc."
+                  placeholder="Ex: Marketing, Vendas..."
                   value={newConnectionName}
                   onChange={(e) => setNewConnectionName(e.target.value)}
-                  className="h-12 bg-black/40 border-white/10"
+                  className="bg-background/50"
                 />
               </div>
               <Button
                 data-testid="confirm-create-connection"
                 onClick={handleCreateConnection}
                 disabled={actionLoading}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {actionLoading ? 'Criando...' : 'Criar Conexão'}
               </Button>
@@ -197,99 +222,87 @@ export default function ConnectionsPage() {
       {/* Connections Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-pulse text-primary font-mono">Carregando...</div>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : connections.length === 0 ? (
         <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-              </svg>
-            </div>
-            <h3 className="font-heading font-semibold text-xl text-foreground mb-2">
-              Nenhuma conexão encontrada
+          <CardContent className="p-8 text-center">
+            <Wifi className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="font-heading font-semibold text-lg mb-2">
+              Nenhuma conexão
             </h3>
-            <p className="text-muted-foreground mb-6">
-              Crie sua primeira conexão para começar a enviar campanhas
+            <p className="text-muted-foreground text-sm mb-4">
+              Crie sua primeira conexão para começar
             </p>
-            <Button
-              onClick={() => setCreateDialogOpen(true)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-            >
-              Criar Primeira Conexão
+            <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary text-primary-foreground">
+              Criar Conexão
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {connections.map((connection, index) => (
             <Card
               key={connection.id}
               data-testid={`connection-card-${connection.id}`}
               className={`glass-card hover-lift animate-fade-in stagger-${(index % 5) + 1}`}
-              style={{ opacity: 0 }}
             >
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      connection.status === 'connected' ? 'bg-primary/10 animate-pulse-green' : 'bg-white/5'
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      connection.status === 'connected' ? 'bg-primary/15 animate-pulse-green' : 'bg-white/5'
                     }`}>
-                      <svg className={`w-6 h-6 ${connection.status === 'connected' ? 'text-primary' : 'text-muted-foreground'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
+                      <Wifi className={`w-5 h-5 ${connection.status === 'connected' ? 'text-primary' : 'text-muted-foreground'}`} />
                     </div>
-                    <div>
-                      <CardTitle className="font-heading font-semibold text-lg">{connection.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground font-mono mt-1">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold truncate">{connection.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">
                         {connection.phone_number || 'Aguardando conexão'}
                       </p>
                     </div>
                   </div>
                   {getStatusBadge(connection.status)}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Criado em</span>
-                  <span className="font-mono text-xs">
-                    {new Date(connection.created_at).toLocaleDateString('pt-BR')}
-                  </span>
+
+                <div className="text-xs text-muted-foreground mb-4">
+                  Criado em {new Date(connection.created_at).toLocaleDateString('pt-BR')}
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2">
                   {connection.status === 'disconnected' && (
                     <Button
                       data-testid={`connect-btn-${connection.id}`}
                       onClick={() => handleConnect(connection)}
-                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
+                      disabled={actionLoading}
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                      size="sm"
                     >
                       Conectar
                     </Button>
                   )}
                   {connection.status === 'connected' && (
-                    <Button
-                      data-testid={`disconnect-btn-${connection.id}`}
-                      onClick={() => handleDisconnect(connection)}
-                      variant="outline"
-                      className="flex-1 border-white/10 hover:bg-white/5"
-                    >
-                      Desconectar
-                    </Button>
-                  )}
-                  {connection.status === 'connecting' && (
-                    <Button
-                      onClick={() => {
-                        setSelectedConnection(connection);
-                        setQrCode(connection.qr_code);
-                        setQrDialogOpen(true);
-                      }}
-                      variant="outline"
-                      className="flex-1 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/10"
-                    >
-                      Ver QR Code
-                    </Button>
+                    <>
+                      <Button
+                        onClick={() => handleRefreshGroups(connection)}
+                        disabled={actionLoading}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-white/10"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-1.5" />
+                        Grupos
+                      </Button>
+                      <Button
+                        data-testid={`disconnect-btn-${connection.id}`}
+                        onClick={() => handleDisconnect(connection)}
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10"
+                      >
+                        Desconectar
+                      </Button>
+                    </>
                   )}
                   <Button
                     data-testid={`delete-btn-${connection.id}`}
@@ -299,11 +312,9 @@ export default function ConnectionsPage() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="border-destructive/20 text-destructive hover:bg-destructive/10"
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10 flex-shrink-0"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </CardContent>
@@ -313,48 +324,46 @@ export default function ConnectionsPage() {
       )}
 
       {/* QR Code Dialog */}
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
-        <DialogContent className="glass-card border-white/10 max-w-md">
+      <Dialog open={qrDialogOpen} onOpenChange={closeQRDialog}>
+        <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-heading">Conectar WhatsApp</DialogTitle>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-primary" />
+              Conectar WhatsApp
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Escaneie o QR Code com seu WhatsApp para conectar.
+              Escaneie o QR Code com seu WhatsApp
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center py-8">
-            {qrCode && (
-              <div className="p-4 bg-white rounded-xl">
-                <QRCodeSVG value={qrCode} size={200} />
+          <div className="flex flex-col items-center py-4">
+            {qrData.qr_image ? (
+              <div className="p-3 bg-white rounded-xl">
+                <img src={qrData.qr_image} alt="QR Code" className="w-56 h-56" />
+              </div>
+            ) : (
+              <div className="w-56 h-56 bg-white/5 rounded-xl flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">Gerando QR Code...</p>
+                </div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-4 text-center font-mono">
-              Abra o WhatsApp &gt; Dispositivos conectados &gt; Conectar dispositivo
-            </p>
-            <div className="mt-6 w-full space-y-2">
-              <Button
-                data-testid="simulate-connect-btn"
-                onClick={handleSimulateConnect}
-                disabled={actionLoading}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-              >
-                {actionLoading ? 'Conectando...' : 'Simular Conexão (Demo)'}
-              </Button>
-              <p className="text-[10px] text-center text-muted-foreground">
-                Em produção, a conexão acontece automaticamente após escanear
+            <div className="mt-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                Abra o WhatsApp → Configurações → Dispositivos conectados → Conectar dispositivo
               </p>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="glass-card border-white/10">
+        <AlertDialogContent className="glass-card border-white/10 mx-4 max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">Deletar Conexão</AlertDialogTitle>
+            <AlertDialogTitle>Deletar Conexão</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Tem certeza que deseja deletar a conexão "{connectionToDelete?.name}"? 
-              Esta ação não pode ser desfeita e todos os grupos associados serão removidos.
+              Tem certeza que deseja deletar "{connectionToDelete?.name}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
