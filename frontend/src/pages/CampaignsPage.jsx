@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaignsStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,23 +18,41 @@ import { toast } from 'sonner';
 import { Plus, Clock, CheckCircle, XCircle, Send, Trash2, Pause, Play, Image, Copy, Zap, Calendar, Users, Edit2, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/store';
 
-// Hook para countdown em tempo real
-function useCountdown(targetDate) {
+// Componente de timer em tempo real para cada card
+function CampaignTimer({ campaign }) {
   const [timeLeft, setTimeLeft] = useState('');
-
+  
   useEffect(() => {
-    if (!targetDate) {
+    // Só mostra timer para campanhas ativas com intervalo
+    if (campaign.status !== 'active' && campaign.status !== 'running') {
       setTimeLeft('');
       return;
     }
-
+    
+    // Calcula o próximo envio baseado no last_run ou next_run
+    const calculateNextRun = () => {
+      if (campaign.next_run) {
+        return new Date(campaign.next_run).getTime();
+      }
+      
+      // Se tem last_run e interval_hours, calcula
+      if (campaign.last_run && campaign.interval_hours) {
+        const lastRun = new Date(campaign.last_run).getTime();
+        return lastRun + (campaign.interval_hours * 60 * 60 * 1000);
+      }
+      
+      return null;
+    };
+    
     const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const target = new Date(targetDate).getTime();
-      const diff = target - now;
+      const targetTime = calculateNextRun();
+      if (!targetTime) return '';
+      
+      const now = Date.now();
+      const diff = targetTime - now;
 
       if (diff <= 0) {
-        return 'Agora';
+        return 'Enviando...';
       }
 
       const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -59,21 +77,12 @@ function useCountdown(targetDate) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [targetDate]);
+  }, [campaign.next_run, campaign.last_run, campaign.interval_hours, campaign.status]);
 
-  return timeLeft;
-}
-
-// Componente de timer para cada card
-function CampaignTimer({ campaign }) {
-  const timeLeft = useCountdown(campaign.next_run);
-
-  if (!timeLeft || campaign.status === 'completed' || campaign.status === 'paused') {
-    return null;
-  }
+  if (!timeLeft) return null;
 
   return (
-    <div className="flex items-center gap-1.5 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+    <div className="flex items-center gap-1.5 text-xs bg-primary/20 text-primary px-2 py-1 rounded-full animate-pulse">
       <Timer className="w-3 h-3" />
       <span className="font-mono font-medium">{timeLeft}</span>
     </div>
@@ -82,22 +91,38 @@ function CampaignTimer({ campaign }) {
 
 // Componente de próximo horário específico
 function NextScheduleTime({ campaign }) {
-  if (campaign.schedule_type !== 'specific_times' || !campaign.specific_times?.length) {
-    return null;
-  }
-
-  // Find next time
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const [nextTime, setNextTime] = useState('');
   
-  const sortedTimes = [...campaign.specific_times].sort();
-  const nextTime = sortedTimes.find(t => t > currentTime) || sortedTimes[0];
+  useEffect(() => {
+    if (campaign.schedule_type !== 'specific_times' || !campaign.specific_times?.length) {
+      setNextTime('');
+      return;
+    }
+    
+    const calculateNext = () => {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      const sortedTimes = [...campaign.specific_times].sort();
+      return sortedTimes.find(t => t > currentTime) || sortedTimes[0] + ' (amanhã)';
+    };
+    
+    setNextTime(calculateNext());
+    const interval = setInterval(() => {
+      setNextTime(calculateNext());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, [campaign.specific_times, campaign.schedule_type]);
+
+  if (!nextTime || campaign.status !== 'active') return null;
 
   return (
-    <span className="text-xs text-primary font-mono">
+    <span className="text-xs text-primary font-mono bg-primary/10 px-2 py-0.5 rounded">
       Próximo: {nextTime}
     </span>
   );
+}
 }
 
 export default function CampaignsPage() {
