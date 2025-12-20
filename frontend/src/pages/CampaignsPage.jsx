@@ -124,51 +124,32 @@ function NextScheduleTime({ campaign }) {
 // Componente de preview animado para campanhas com múltiplas variações
 function AnimatedCampaignPreview({ campaign, imageCache, loadImagePreview }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentImage, setCurrentImage] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   const messages = campaign.messages || [];
   const hasMultiple = messages.length > 1;
   
-  // Load image for current variation
-  useEffect(() => {
-    const loadCurrentImage = async () => {
-      if (messages.length === 0) {
-        // Fallback to single message mode
-        const imageId = campaign.image_id;
-        if (imageId && imageCache[`${campaign.id}_${imageId}`]) {
-          setCurrentImage(imageCache[`${campaign.id}_${imageId}`]);
-        } else if (imageId) {
-          loadImagePreview(imageId, `${campaign.id}_${imageId}`);
-        }
-        return;
-      }
-      
-      const currentMsg = messages[currentIndex];
-      const imageId = currentMsg?.image_id;
-      const cacheKey = `${campaign.id}_${currentIndex}`;
-      
-      if (imageId && imageCache[cacheKey]) {
-        setCurrentImage(imageCache[cacheKey]);
-      } else if (imageId) {
-        loadImagePreview(imageId, cacheKey);
-        // Temporary null until loaded
-        setCurrentImage(null);
-      } else {
-        setCurrentImage(null);
-      }
-    };
-    
-    loadCurrentImage();
-  }, [currentIndex, messages, campaign.id, campaign.image_id, imageCache, loadImagePreview]);
-  
-  // Update currentImage when cache updates
-  useEffect(() => {
+  // Calculate current image from cache
+  const currentImage = useMemo(() => {
     if (messages.length === 0) {
       const imageId = campaign.image_id;
       const cacheKey = `${campaign.id}_${imageId}`;
-      if (imageId && imageCache[cacheKey]) {
-        setCurrentImage(imageCache[cacheKey]);
+      return imageId ? imageCache[cacheKey] || null : null;
+    }
+    
+    const currentMsg = messages[currentIndex];
+    const imageId = currentMsg?.image_id;
+    const cacheKey = `${campaign.id}_${currentIndex}`;
+    
+    return imageId ? imageCache[cacheKey] || null : null;
+  }, [messages, currentIndex, campaign.id, campaign.image_id, imageCache]);
+  
+  // Load image for current variation
+  useEffect(() => {
+    if (messages.length === 0) {
+      const imageId = campaign.image_id;
+      if (imageId && !imageCache[`${campaign.id}_${imageId}`]) {
+        loadImagePreview(imageId, `${campaign.id}_${imageId}`);
       }
       return;
     }
@@ -177,10 +158,10 @@ function AnimatedCampaignPreview({ campaign, imageCache, loadImagePreview }) {
     const imageId = currentMsg?.image_id;
     const cacheKey = `${campaign.id}_${currentIndex}`;
     
-    if (imageId && imageCache[cacheKey]) {
-      setCurrentImage(imageCache[cacheKey]);
+    if (imageId && !imageCache[cacheKey]) {
+      loadImagePreview(imageId, cacheKey);
     }
-  }, [imageCache, currentIndex, messages, campaign.id, campaign.image_id]);
+  }, [currentIndex, messages, campaign.id, campaign.image_id, imageCache, loadImagePreview]);
   
   // Animation timer for multiple variations
   useEffect(() => {
