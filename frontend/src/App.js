@@ -3,7 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore, useUIStore } from "@/store";
-import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -12,6 +12,29 @@ import ConnectionsPage from "@/pages/ConnectionsPage";
 import CampaignsPage from "@/pages/CampaignsPage";
 import CreateCampaignPage from "@/pages/CreateCampaignPage";
 import UsersPage from "@/pages/UsersPage";
+
+// Theme hook
+const useTheme = () => {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  return { theme, toggleTheme };
+};
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -56,6 +79,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 const Layout = ({ children }) => {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -82,7 +106,7 @@ const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 glass border-b border-white/5 z-50 flex items-center justify-between px-4 safe-top">
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 glass border-b border-border z-50 flex items-center justify-between px-4 safe-top">
         <button
           onClick={() => setSidebarOpen(true)}
           className="p-2 -ml-2 text-muted-foreground hover:text-foreground"
@@ -94,9 +118,14 @@ const Layout = ({ children }) => {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-heading font-bold text-lg">NEXUS</span>
+          <span className="font-heading font-bold text-lg text-foreground">NEXUS</span>
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
       </header>
 
       {/* Mobile Overlay */}
@@ -109,7 +138,7 @@ const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 h-full w-72 glass border-r border-white/5 z-50
+        fixed top-0 left-0 h-full w-72 glass border-r border-border z-50
         transform transition-transform duration-300 ease-out
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -122,7 +151,7 @@ const Layout = ({ children }) => {
                 <MessageSquare className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-heading font-bold text-xl">NEXUS</h1>
+                <h1 className="font-heading font-bold text-xl text-foreground">NEXUS</h1>
                 <p className="text-[10px] font-mono text-primary uppercase tracking-widest">WhatsApp</p>
               </div>
             </div>
@@ -149,7 +178,7 @@ const Layout = ({ children }) => {
                     transition-all duration-200 touch-target
                     ${isActive 
                       ? 'bg-primary/15 text-primary border border-primary/20' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }
                   `}
                 >
@@ -160,8 +189,19 @@ const Layout = ({ children }) => {
             })}
           </nav>
 
+          {/* Theme Toggle (Desktop) */}
+          <div className="hidden lg:block px-4 pb-2">
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? 'Tema Claro' : 'Tema Escuro'}
+            </button>
+          </div>
+
           {/* User Section */}
-          <div className="p-4 border-t border-white/5 safe-bottom">
+          <div className="p-4 border-t border-border safe-bottom">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                 <span className="font-heading font-bold text-primary uppercase">
@@ -169,7 +209,7 @@ const Layout = ({ children }) => {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{user?.username}</p>
+                <p className="font-medium text-sm text-foreground truncate">{user?.username}</p>
                 <p className="text-xs font-mono text-primary uppercase">{user?.role === 'admin' ? 'Administrador' : 'Revendedor'}</p>
               </div>
             </div>
@@ -196,67 +236,78 @@ const Layout = ({ children }) => {
 };
 
 function App() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Set initial theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.classList.add(savedTheme);
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <div className="dark">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/connections"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ConnectionsPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/campaigns"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CampaignsPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/campaigns/new"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CreateCampaignPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute adminOnly>
-                <Layout>
-                  <UsersPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <DashboardPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/connections"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ConnectionsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaigns"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CampaignsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaigns/new"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CreateCampaignPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute adminOnly>
+              <Layout>
+                <UsersPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
       <Toaster richColors position="top-center" />
-    </div>
+    </BrowserRouter>
   );
 }
 
