@@ -35,18 +35,28 @@ export const useAuthStore = create(
       user: null,
       token: null,
       isAuthenticated: false,
+      loginError: null,
 
       login: async (username, password) => {
-        const response = await api.post('/auth/login', { username, password });
-        const { token, user } = response.data;
-        localStorage.setItem('nexus-token', token);
-        set({ user, token, isAuthenticated: true });
-        return user;
+        try {
+          const response = await api.post('/auth/login', { username, password });
+          const { token, user } = response.data;
+          localStorage.setItem('nexus-token', token);
+          set({ user, token, isAuthenticated: true, loginError: null });
+          return { success: true, user };
+        } catch (error) {
+          const detail = error.response?.data?.detail;
+          if (detail === 'blocked' || detail === 'expired') {
+            set({ loginError: detail });
+            return { success: false, reason: detail };
+          }
+          throw error;
+        }
       },
 
       logout: () => {
         localStorage.removeItem('nexus-token');
-        set({ user: null, token: null, isAuthenticated: false });
+        set({ user: null, token: null, isAuthenticated: false, loginError: null });
       },
 
       checkAuth: async () => {
