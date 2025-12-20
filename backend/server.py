@@ -916,7 +916,41 @@ async def renew_reseller(user_id: str, master: dict = Depends(get_master_user)):
     
     await log_activity(master['id'], master['username'], 'renew', 'reseller', user_id, user['username'], '+1 mês')
     
-    return {'expires_at': new_expires, 'message': 'Renovado por 1 mês'}
+    # Generate receipt
+    receipt = generate_receipt(user['username'], 'renewal', 1, new_expires)
+    
+    return {'expires_at': new_expires, 'message': 'Renovado por 1 mês', 'receipt': receipt}
+
+@api_router.post("/master/resellers/{user_id}/trial")
+async def grant_reseller_trial(user_id: str, master: dict = Depends(get_master_user)):
+    """Grant 24h trial to reseller who never had one"""
+    # Check if reseller belongs to this master
+    query = {'id': user_id}
+    if master['role'] == 'master':
+        query['created_by'] = master['id']
+    
+    user = await db.users.find_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="Revendedor não encontrado")
+    
+    if user.get('had_trial', False):
+        raise HTTPException(status_code=400, detail="Usuário já teve período de teste")
+    
+    # Grant 24h trial
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    
+    await db.users.update_one({'id': user_id}, {'$set': {
+        'expires_at': expires_at,
+        'active': True,
+        'had_trial': True
+    }})
+    
+    await log_activity(master['id'], master['username'], 'grant_trial', 'reseller', user_id, user['username'], 'Teste 24h liberado')
+    
+    # Generate receipt
+    receipt = generate_receipt(user['username'], 'trial', 1, expires_at)
+    
+    return {'expires_at': expires_at, 'message': 'Teste de 24 horas liberado!', 'receipt': receipt}
 
 @api_router.put("/master/resellers/{user_id}")
 async def update_reseller(user_id: str, data: UserUpdate, master: dict = Depends(get_master_user)):
