@@ -251,15 +251,29 @@ async def get_admin_user(user: dict = Depends(get_current_user)):
 
 async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
     """Make request to WhatsApp service"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
-        if method == "GET":
-            response = await client.get(url)
-        elif method == "POST":
-            response = await client.post(url, json=json_data)
-        elif method == "DELETE":
-            response = await client.delete(url)
-        return response.json()
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
+            logger.info(f"WhatsApp request: {method} {url}")
+            
+            if method == "GET":
+                response = await client.get(url)
+            elif method == "POST":
+                response = await client.post(url, json=json_data)
+            elif method == "DELETE":
+                response = await client.delete(url)
+            
+            logger.info(f"WhatsApp response status: {response.status_code}")
+            return response.json()
+    except httpx.ConnectError as e:
+        logger.error(f"WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
+        raise
+    except httpx.TimeoutException as e:
+        logger.error(f"WhatsApp service timeout: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"WhatsApp request error: {e}")
+        raise
 
 # ============= Auth Endpoints =============
 
