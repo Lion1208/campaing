@@ -386,13 +386,21 @@ export default function EditCampaignPage() {
                   </Button>
                 </div>
               </div>
-              {selectedImage !== 'none' && (
-                <div className="mt-2">
+              {/* Image Preview */}
+              {selectedImage !== 'none' && images.find(i => i.id === selectedImage) && (
+                <div className="mt-3 relative inline-block">
                   <img 
                     src={`${process.env.REACT_APP_BACKEND_URL}${images.find(i => i.id === selectedImage)?.url}`}
                     alt="Preview"
-                    className="h-20 rounded-lg object-cover"
+                    className="h-24 rounded-lg object-cover border border-border"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage('none')}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/80"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               )}
             </div>
