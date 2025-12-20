@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuthStore, useUIStore, api } from "@/store";
-import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { useAuthStore, useUIStore } from "@/store";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -16,6 +16,7 @@ import TemplatesPage from "@/pages/TemplatesPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AllUsersPage from "@/pages/AllUsersPage";
 import ResellersPage from "@/pages/ResellersPage";
+import HistoryPage from "@/pages/HistoryPage";
 
 // Theme hook
 const useTheme = () => {
