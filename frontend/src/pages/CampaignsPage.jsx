@@ -20,64 +20,25 @@ import { api } from '@/store';
 
 // Componente de timer em tempo real para cada card
 function CampaignTimer({ campaign }) {
-  const [timeLeft, setTimeLeft] = useState('');
+  const [timeLeft, setTimeLeft] = useState(() => {
+    // Initial calculation
+    if (campaign.status !== 'active' && campaign.status !== 'running') {
+      return '';
+    }
+    return calculateTimeLeftForCampaign(campaign);
+  });
   
   useEffect(() => {
-    // Só mostra timer para campanhas ativas com intervalo
     if (campaign.status !== 'active' && campaign.status !== 'running') {
-      setTimeLeft('');
       return;
     }
     
-    // Calcula o próximo envio baseado no last_run ou next_run
-    const calculateNextRun = () => {
-      if (campaign.next_run) {
-        return new Date(campaign.next_run).getTime();
-      }
-      
-      // Se tem last_run e interval_hours, calcula
-      if (campaign.last_run && campaign.interval_hours) {
-        const lastRun = new Date(campaign.last_run).getTime();
-        return lastRun + (campaign.interval_hours * 60 * 60 * 1000);
-      }
-      
-      return null;
-    };
-    
-    const calculateTimeLeft = () => {
-      const targetTime = calculateNextRun();
-      if (!targetTime) return '';
-      
-      const now = Date.now();
-      const diff = targetTime - now;
-
-      if (diff <= 0) {
-        return 'Enviando...';
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      if (hours > 24) {
-        const days = Math.floor(hours / 24);
-        return `${days}d ${hours % 24}h`;
-      } else if (hours > 0) {
-        return `${hours}h ${minutes}m ${seconds}s`;
-      } else if (minutes > 0) {
-        return `${minutes}m ${seconds}s`;
-      } else {
-        return `${seconds}s`;
-      }
-    };
-
-    setTimeLeft(calculateTimeLeft());
     const interval = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
+      setTimeLeft(calculateTimeLeftForCampaign(campaign));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [campaign.next_run, campaign.last_run, campaign.interval_hours, campaign.status]);
+  }, [campaign]);
 
   if (!timeLeft) return null;
 
@@ -87,6 +48,42 @@ function CampaignTimer({ campaign }) {
       <span className="font-mono font-medium">{timeLeft}</span>
     </div>
   );
+}
+
+// Helper function for timer calculation
+function calculateTimeLeftForCampaign(campaign) {
+  let targetTime = null;
+  
+  if (campaign.next_run) {
+    targetTime = new Date(campaign.next_run).getTime();
+  } else if (campaign.last_run && campaign.interval_hours) {
+    const lastRun = new Date(campaign.last_run).getTime();
+    targetTime = lastRun + (campaign.interval_hours * 60 * 60 * 1000);
+  }
+  
+  if (!targetTime) return '';
+  
+  const now = Date.now();
+  const diff = targetTime - now;
+
+  if (diff <= 0) {
+    return 'Enviando...';
+  }
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
 }
 
 // Componente de próximo horário específico
