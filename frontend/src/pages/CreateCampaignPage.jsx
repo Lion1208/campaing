@@ -135,7 +135,7 @@ export default function CreateCampaignPage() {
         connection_id: selectedConnection,
         group_ids: selectedGroups,
         message: message.trim() || null,
-        image_id: selectedImage || null,
+        image_id: selectedImage === 'none' ? null : selectedImage || null,
         scheduled_time: scheduledDateTime.toISOString(),
         delay_seconds: delaySeconds,
       });
