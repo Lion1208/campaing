@@ -1270,16 +1270,11 @@ async def get_image_file(image_id: str, user: dict = Depends(get_current_user)):
     """Get image file as response"""
     from fastapi.responses import FileResponse
     
-    query = {'id': image_id}
-    if user['role'] != 'admin':
-        query['user_id'] = user['id']
-    
-    image = await db.images.find_one(query)
+    # Primeiro tenta encontrar a imagem sem filtro de usuário
+    # Isso permite que qualquer usuário autenticado veja imagens em campanhas
+    image = await db.images.find_one({'id': image_id})
     if not image:
-        # Try without user filter for campaign images
-        image = await db.images.find_one({'id': image_id})
-        if not image:
-            raise HTTPException(status_code=404, detail="Imagem não encontrada")
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
     
     filepath = UPLOADS_DIR / image['filename']
     if not filepath.exists():
