@@ -144,7 +144,7 @@ export default function LoginPage() {
 
             <div className="mt-6 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground text-center">
-                Credenciais padrão: <span className="text-primary font-medium">admin</span> / <span className="text-primary font-medium">admin123</span>
+                Sistema de Campanhas WhatsApp
               </p>
             </div>
           </div>
