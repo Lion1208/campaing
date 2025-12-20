@@ -4,7 +4,6 @@ import axios from 'axios';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Create axios instance with interceptor
 const api = axios.create({
   baseURL: API_URL,
 });
@@ -101,9 +100,13 @@ export const useConnectionsStore = create((set, get) => ({
     return response.data;
   },
 
-  simulateConnect: async (connectionId) => {
-    const response = await api.post(`/connections/${connectionId}/simulate-connect`);
-    await get().fetchConnections();
+  getQRCode: async (connectionId) => {
+    const response = await api.get(`/connections/${connectionId}/qr`);
+    return response.data;
+  },
+
+  refreshGroups: async (connectionId) => {
+    const response = await api.post(`/connections/${connectionId}/refresh-groups`);
     return response.data;
   },
 
@@ -161,6 +164,16 @@ export const useCampaignsStore = create((set, get) => ({
     const response = await api.post('/campaigns', data);
     set((state) => ({ campaigns: [response.data, ...state.campaigns] }));
     return response.data;
+  },
+
+  pauseCampaign: async (campaignId) => {
+    await api.post(`/campaigns/${campaignId}/pause`);
+    await get().fetchCampaigns();
+  },
+
+  resumeCampaign: async (campaignId) => {
+    await api.post(`/campaigns/${campaignId}/resume`);
+    await get().fetchCampaigns();
   },
 
   deleteCampaign: async (campaignId) => {
@@ -265,6 +278,13 @@ export const useAdminStore = create((set, get) => ({
       // ignore
     }
   },
+}));
+
+// UI Store for mobile menu
+export const useUIStore = create((set) => ({
+  sidebarOpen: false,
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 }));
 
 export { api };
