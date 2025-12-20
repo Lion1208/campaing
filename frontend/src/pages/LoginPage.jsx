@@ -59,10 +59,11 @@ export default function LoginPage() {
         username: username.trim(),
         password: password,
       });
-      toast.success('Conta criada! Faça login para continuar.');
+      toast.success('Conta criada! Aguarde a aprovação do administrador.');
       setIsRegister(false);
       setPassword('');
       setConfirmPassword('');
+      setUsername('');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao criar conta');
     } finally {
