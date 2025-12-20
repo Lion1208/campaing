@@ -1,76 +1,161 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDashboardStore, useAuthStore, useConnectionsStore, useCampaignsStore } from '@/store';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAuthStore, useConnectionsStore, useCampaignsStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Wifi, Clock, CheckCircle, Users, Plus, Send, ArrowRight } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Wifi, Calendar, Users, Send, TrendingUp, Zap } from 'lucide-react';
+import { api } from '@/store';
+
+// Particle Animation Component
+function ParticleBackground() {
+  const canvasRef = useRef(null);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    let animationId;
+    let particles = [];
+    
+    const resize = () => {
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    };
+    
+    resize();
+    window.addEventListener('resize', resize);
+    
+    // Create particles
+    const createParticles = () => {
+      particles = [];
+      const count = 50;
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.offsetWidth,
+          y: Math.random() * canvas.offsetHeight,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          size: Math.random() * 2 + 1,
+          opacity: Math.random() * 0.5 + 0.2,
+        });
+      }
+    };
+    
+    createParticles();
+    
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+      
+      particles.forEach((p, i) => {
+        // Update position
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wrap around edges
+        if (p.x < 0) p.x = canvas.offsetWidth;
+        if (p.x > canvas.offsetWidth) p.x = 0;
+        if (p.y < 0) p.y = canvas.offsetHeight;
+        if (p.y > canvas.offsetHeight) p.y = 0;
+        
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
+        ctx.fill();
+        
+        // Draw connections
+        particles.slice(i + 1).forEach(p2 => {
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(34, 197, 94, ${0.1 * (1 - dist / 100)})`;
+            ctx.stroke();
+          }
+        });
+      });
+      
+      animationId = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+  
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="absolute inset-0 w-full h-full pointer-events-none"
+    />
+  );
+}
+
+// Mini Chart Component
+function MiniChart({ data, color = '#22c55e' }) {
+  const maxValue = Math.max(...data, 1);
+  const height = 60;
+  
+  return (
+    <div className="flex items-end gap-1 h-16">
+      {data.map((value, index) => (
+        <div
+          key={index}
+          className="flex-1 rounded-t transition-all duration-300 hover:opacity-80"
+          style={{
+            height: `${(value / maxValue) * height}px`,
+            background: `linear-gradient(to top, ${color}40, ${color})`,
+            minHeight: value > 0 ? '4px' : '2px',
+          }}
+          title={`${value} envios`}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
-  const { stats, fetchStats, loading } = useDashboardStore();
   const { user } = useAuthStore();
   const { connections, fetchConnections } = useConnectionsStore();
   const { campaigns, fetchCampaigns } = useCampaignsStore();
-  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('7');
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await api.get(`/stats/dashboard?days=${period}`);
+      setStats(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [period]);
 
   useEffect(() => {
-    fetchStats();
     fetchConnections();
     fetchCampaigns();
-  }, [fetchStats, fetchConnections, fetchCampaigns]);
+    fetchStats();
+  }, [fetchConnections, fetchCampaigns, fetchStats]);
 
-  const statCards = [
-    {
-      title: 'Conexões Ativas',
-      value: stats?.active_connections || 0,
-      total: stats?.total_connections || 0,
-      icon: Wifi,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-    },
-    {
-      title: 'Campanhas Ativas',
-      value: stats?.pending_campaigns || 0,
-      total: stats?.total_campaigns || 0,
-      icon: Clock,
-      color: 'text-yellow-400',
-      bg: 'bg-yellow-500/10',
-    },
-    {
-      title: 'Concluídas',
-      value: stats?.completed_campaigns || 0,
-      icon: CheckCircle,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-    },
-    {
-      title: 'Grupos',
-      value: stats?.total_groups || 0,
-      icon: Users,
-      color: 'text-blue-400',
-      bg: 'bg-blue-500/10',
-    },
-  ];
-
-  const getStatusBadge = (status) => {
-    const config = {
-      connected: { class: 'status-connected', label: 'Conectado' },
-      connecting: { class: 'status-connecting', label: 'Conectando' },
-      disconnected: { class: 'status-disconnected', label: 'Desconectado' },
-      pending: { class: 'status-pending', label: 'Pendente' },
-      running: { class: 'status-running', label: 'Enviando' },
-      completed: { class: 'status-completed', label: 'Concluída' },
-      failed: { class: 'status-failed', label: 'Falhou' },
-      active: { class: 'status-active', label: 'Ativa' },
-      paused: { class: 'status-paused', label: 'Pausada' },
-    };
-    const c = config[status] || { class: 'status-disconnected', label: status };
-    return (
-      <Badge variant="outline" className={`${c.class} text-[10px] uppercase tracking-wider px-2`}>
-        {c.label}
-      </Badge>
-    );
-  };
+  const connectedCount = connections.filter(c => c.status === 'connected').length;
+  const activeCampaigns = campaigns.filter(c => ['active', 'running'].includes(c.status)).length;
 
   return (
     <div data-testid="dashboard-page" className="space-y-6 animate-fade-in">
@@ -82,193 +167,225 @@ export default function DashboardPage() {
             Olá, <span className="text-primary font-medium">{user?.username}</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => navigate('/connections')}
-            variant="outline"
-            size="sm"
-            className="border-white/10 hover:bg-white/5"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            <span className="hidden sm:inline">Nova </span>Conexão
-          </Button>
-          <Button
-            onClick={() => navigate('/campaigns/new')}
-            data-testid="new-campaign-btn"
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            <span className="hidden sm:inline">Nova </span>Campanha
-          </Button>
-        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-32 bg-muted/50 border-border text-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">7 dias</SelectItem>
+            <SelectItem value="30">30 dias</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card 
-              key={stat.title} 
-              className={`glass-card animate-fade-in stagger-${index + 1}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground mb-1 truncate">
-                      {stat.title}
-                    </p>
-                    <p className="font-heading font-bold text-2xl md:text-3xl text-foreground">
-                      {loading ? '-' : stat.value}
-                    </p>
-                    {stat.total !== undefined && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        de {stat.total} total
-                      </p>
-                    )}
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center flex-shrink-0 ${stat.color}`}>
-                    <Icon className="w-5 h-5" strokeWidth={1.5} />
-                  </div>
+      {/* Main Stats with Particles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Dispositivos */}
+        <Card className="glass-card relative overflow-hidden group">
+          <ParticleBackground />
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Wifi className="w-5 h-5 text-primary" />
+              </div>
+              <span className="text-xs text-muted-foreground">Conectados</span>
+            </div>
+            <div className="mt-2">
+              <p className="font-heading font-bold text-3xl text-foreground">
+                {connectedCount}<span className="text-muted-foreground text-lg">/{connections.length}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Dispositivos</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Campanhas Ativas */}
+        <Card className="glass-card relative overflow-hidden group">
+          <ParticleBackground />
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Calendar className="w-5 h-5 text-blue-500" />
+              </div>
+              <span className="text-xs text-muted-foreground">Ativas</span>
+            </div>
+            <div className="mt-2">
+              <p className="font-heading font-bold text-3xl text-foreground">
+                {activeCampaigns}<span className="text-muted-foreground text-lg">/{campaigns.length}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Campanhas</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Revendedores */}
+        {(user?.role === 'admin' || user?.role === 'master') && (
+          <Card className="glass-card relative overflow-hidden group">
+            <ParticleBackground />
+            <CardContent className="p-4 relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5 text-purple-500" />
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                <span className="text-xs text-muted-foreground">Total</span>
+              </div>
+              <div className="mt-2">
+                <p className="font-heading font-bold text-3xl text-foreground">
+                  {stats?.resellers_count || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">Revendedores</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Connections */}
-        <Card className="glass-card">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <h2 className="font-heading font-semibold">Conexões</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/connections')}
-              className="text-primary hover:text-primary/80 -mr-2"
-            >
-              Ver todas
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-          <div className="p-0">
-            {connections.length === 0 ? (
-              <div className="p-8 text-center">
-                <Wifi className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm mb-3">Nenhuma conexão</p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/connections')}
-                >
-                  Criar conexão
-                </Button>
+        {/* Envios Hoje */}
+        <Card className="glass-card relative overflow-hidden group">
+          <ParticleBackground />
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Send className="w-5 h-5 text-green-500" />
               </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {connections.slice(0, 4).map((conn) => (
-                  <div key={conn.id} className="p-3 hover:bg-white/5 transition-colors">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          conn.status === 'connected' ? 'bg-primary/15' : 'bg-white/5'
-                        }`}>
-                          <Wifi className={`w-4 h-4 ${conn.status === 'connected' ? 'text-primary' : 'text-muted-foreground'}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{conn.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {conn.phone_number || 'Não conectado'}
-                          </p>
-                        </div>
-                      </div>
-                      {getStatusBadge(conn.status)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Campaigns */}
-        <Card className="glass-card">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <h2 className="font-heading font-semibold">Campanhas Recentes</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/campaigns')}
-              className="text-primary hover:text-primary/80 -mr-2"
-            >
-              Ver todas
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-          <div className="p-0">
-            {campaigns.length === 0 ? (
-              <div className="p-8 text-center">
-                <Send className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm mb-3">Nenhuma campanha</p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/campaigns/new')}
-                >
-                  Criar campanha
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {campaigns.slice(0, 4).map((campaign) => (
-                  <div key={campaign.id} className="p-3 hover:bg-white/5 transition-colors">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-sm truncate">{campaign.title}</p>
-                          {getStatusBadge(campaign.status)}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{campaign.sent_count}/{campaign.total_count} grupos</span>
-                          <span className="hidden sm:inline">•</span>
-                          <span className="hidden sm:inline">
-                            {campaign.schedule_type === 'once' ? 'Único' : 
-                             campaign.schedule_type === 'interval' ? `A cada ${campaign.interval_hours}h` : 
-                             'Horários'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden flex-shrink-0">
-                        <div 
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${(campaign.sent_count / campaign.total_count) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              <span className="text-xs text-muted-foreground">Hoje</span>
+            </div>
+            <div className="mt-2">
+              <p className="font-heading font-bold text-3xl text-foreground">
+                {stats?.sends_today || 0}
+              </p>
+              <p className="text-xs text-muted-foreground">Envios</p>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Messages Counter */}
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Envios da Semana */}
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm font-medium text-foreground">Envios ({period} dias)</span>
+              </div>
+              <span className="text-2xl font-bold text-primary">{stats?.sends_period || 0}</span>
+            </div>
+            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-yellow-500 to-green-500 rounded-full transition-all"
+                style={{ width: `${Math.min(100, (stats?.sends_period || 0) / 10)}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Taxa de Sucesso */}
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-green-500" />
+                <span className="text-sm font-medium text-foreground">Taxa de Sucesso</span>
+              </div>
+              <span className="text-2xl font-bold text-green-500">{stats?.success_rate || 100}%</span>
+            </div>
+            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
+                style={{ width: `${stats?.success_rate || 100}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Campanhas Concluídas */}
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-foreground">Concluídas</span>
+              </div>
+              <span className="text-2xl font-bold text-blue-500">
+                {campaigns.filter(c => c.status === 'completed').length}
+              </span>
+            </div>
+            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all"
+                style={{ 
+                  width: campaigns.length > 0 
+                    ? `${(campaigns.filter(c => c.status === 'completed').length / campaigns.length) * 100}%` 
+                    : '0%' 
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Chart */}
       <Card className="glass-card">
-        <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-center sm:text-left">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-              Total de Mensagens Enviadas
-            </p>
-            <p className="font-heading font-black text-4xl md:text-5xl text-primary">
-              {stats?.total_messages_sent?.toLocaleString('pt-BR') || 0}
-            </p>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading font-semibold text-foreground">Envios por Dia</h3>
+            <span className="text-xs text-muted-foreground">Últimos {period} dias</span>
           </div>
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Send className="w-8 h-8 text-primary" />
+          
+          {loading ? (
+            <div className="h-20 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <MiniChart data={stats?.daily_sends || Array(parseInt(period)).fill(0)} />
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                <span>{period === '7' ? '7 dias atrás' : '30 dias atrás'}</span>
+                <span>Hoje</span>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card className="glass-card">
+        <CardContent className="p-4">
+          <h3 className="font-heading font-semibold text-foreground mb-4">Ações Rápidas</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
+              onClick={() => window.location.href = '/connections'}
+            >
+              <Wifi className="w-5 h-5 text-primary" />
+              <span className="text-xs">Nova Conexão</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
+              onClick={() => window.location.href = '/campaigns/new'}
+            >
+              <Calendar className="w-5 h-5 text-primary" />
+              <span className="text-xs">Nova Campanha</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
+              onClick={() => window.location.href = '/templates'}
+            >
+              <Send className="w-5 h-5 text-primary" />
+              <span className="text-xs">Templates</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
+              onClick={() => window.location.href = '/history'}
+            >
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <span className="text-xs">Histórico</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
