@@ -32,8 +32,68 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Users, Wifi, Coins, Edit2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Calendar, Shield, User } from 'lucide-react';
+import { Plus, Users, Wifi, Coins, Edit2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Calendar, Shield, User, Gift, Copy, Check } from 'lucide-react';
 import { api } from '@/store';
+
+// Receipt Modal Component
+function ReceiptModal({ open, onClose, receipt }) {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async () => {
+    if (receipt?.text) {
+      await navigator.clipboard.writeText(receipt.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Comprovante copiado!');
+    }
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="glass-card border-border mx-4 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            {receipt?.action === 'trial' ? (
+              <>
+                <Gift className="w-5 h-5 text-primary" />
+                Teste Liberado!
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5 text-primary" />
+                Renovação Realizada!
+              </>
+            )}
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Copie o comprovante abaixo para enviar ao cliente
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="bg-muted/30 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap text-foreground border border-border">
+            {receipt?.text}
+          </div>
+          <Button
+            onClick={handleCopy}
+            className="w-full bg-primary text-primary-foreground"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar Comprovante
+              </>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ResellersPage() {
   const { user, checkAuth } = useAuthStore();
@@ -46,7 +106,10 @@ export default function ResellersPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [addCreditsDialogOpen, setAddCreditsDialogOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [currentReceipt, setCurrentReceipt] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newUser, setNewUser] = useState({ username: '', password: '', max_connections: 1, role: 'reseller', credits: 0 });
   const [editData, setEditData] = useState({ max_connections: 1, active: true });
@@ -82,7 +145,6 @@ export default function ResellersPage() {
       return;
     }
 
-    // Check credits for master
     if (isMaster && (user?.credits || 0) < 1) {
       toast.error('Você não tem créditos suficientes para criar um revendedor');
       return;
@@ -102,7 +164,7 @@ export default function ResellersPage() {
       setCreateDialogOpen(false);
       setNewUser({ username: '', password: '', max_connections: 1, role: 'reseller', credits: 0 });
       fetchUsers();
-      if (isMaster) await checkAuth(); // Refresh user credits
+      if (isMaster) await checkAuth();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao criar');
     } finally {
@@ -131,7 +193,6 @@ export default function ResellersPage() {
   const handleRenew = async () => {
     if (!selectedUser) return;
 
-    // Check credits for master
     if (isMaster && (user?.credits || 0) < 1) {
       toast.error('Você não tem créditos suficientes para renovar');
       return;
@@ -140,14 +201,48 @@ export default function ResellersPage() {
     setActionLoading(true);
     try {
       const endpoint = isAdmin ? `/admin/users/${selectedUser.id}/renew` : `/master/resellers/${selectedUser.id}/renew`;
-      await api.post(endpoint);
-      toast.success('Renovado por mais 1 mês!');
+      const response = await api.post(endpoint);
+      
       setRenewDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
-      if (isMaster) await checkAuth(); // Refresh user credits
+      if (isMaster) await checkAuth();
+      
+      // Show receipt modal
+      if (response.data.receipt) {
+        setCurrentReceipt(response.data.receipt);
+        setReceiptModalOpen(true);
+      } else {
+        toast.success('Renovado por mais 1 mês!');
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao renovar');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTrial = async () => {
+    if (!selectedUser) return;
+
+    setActionLoading(true);
+    try {
+      const endpoint = isAdmin ? `/admin/users/${selectedUser.id}/trial` : `/master/resellers/${selectedUser.id}/trial`;
+      const response = await api.post(endpoint);
+      
+      setTrialDialogOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+      
+      // Show receipt modal
+      if (response.data.receipt) {
+        setCurrentReceipt(response.data.receipt);
+        setReceiptModalOpen(true);
+      } else {
+        toast.success('Teste de 24h liberado!');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao liberar teste');
     } finally {
       setActionLoading(false);
     }
@@ -213,6 +308,10 @@ export default function ResellersPage() {
   const isExpired = (expiresAt) => {
     if (!expiresAt) return false;
     return new Date(expiresAt) < new Date();
+  };
+
+  const canHaveTrial = (u) => {
+    return !u.had_trial && !u.active && !u.expires_at;
   };
 
   return (
@@ -332,23 +431,30 @@ export default function ResellersPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Ativos</p>
-              <p className="font-heading font-bold text-2xl text-primary">{users.filter(u => u.active).length}</p>
+              <p className="font-heading font-bold text-2xl text-primary">{users.filter(u => u.active && !isExpired(u.expires_at)).length}</p>
             </div>
             <Users className="w-5 h-5 text-primary" />
           </CardContent>
         </Card>
+        <Card className="glass-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Expirados</p>
+              <p className="font-heading font-bold text-2xl text-destructive">{users.filter(u => isExpired(u.expires_at)).length}</p>
+            </div>
+            <Calendar className="w-5 h-5 text-destructive" />
+          </CardContent>
+        </Card>
         {isMaster && (
-          <>
-            <Card className="glass-card">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Seus Créditos</p>
-                  <p className="font-heading font-bold text-2xl text-yellow-500">{user?.credits || 0}</p>
-                </div>
-                <Coins className="w-5 h-5 text-yellow-500" />
-              </CardContent>
-            </Card>
-          </>
+          <Card className="glass-card">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Seus Créditos</p>
+                <p className="font-heading font-bold text-2xl text-yellow-500">{user?.credits || 0}</p>
+              </div>
+              <Coins className="w-5 h-5 text-yellow-500" />
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -391,11 +497,13 @@ export default function ResellersPage() {
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <p className="font-medium text-foreground">{u.username}</p>
                         {getRoleBadge(u.role)}
-                        <Badge variant="outline" className={u.active ? 'status-connected' : 'status-disconnected'}>
-                          {u.active ? 'Ativo' : 'Inativo'}
+                        <Badge variant="outline" className={u.active && !isExpired(u.expires_at) ? 'status-connected' : 'status-disconnected'}>
+                          {!u.active ? 'Bloqueado' : isExpired(u.expires_at) ? 'Expirado' : 'Ativo'}
                         </Badge>
-                        {isExpired(u.expires_at) && (
-                          <Badge variant="outline" className="status-failed">Expirado</Badge>
+                        {u.had_trial && (
+                          <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            Já testou
+                          </Badge>
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -419,6 +527,21 @@ export default function ResellersPage() {
                     </div>
                   </div>
                   <div className="flex gap-1.5 flex-shrink-0">
+                    {/* Trial Button - Only for users who never had trial */}
+                    {canHaveTrial(u) && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setTrialDialogOpen(true);
+                        }}
+                        className="border-purple-500/30 text-purple-500 hover:bg-purple-500/10 h-8 w-8"
+                        title="Liberar Teste (24h)"
+                      >
+                        <Gift className="w-4 h-4" />
+                      </Button>
+                    )}
                     {/* Renew Button */}
                     <Button
                       variant="outline"
@@ -505,6 +628,13 @@ export default function ResellersPage() {
         </div>
       )}
 
+      {/* Receipt Modal */}
+      <ReceiptModal 
+        open={receiptModalOpen} 
+        onClose={() => setReceiptModalOpen(false)} 
+        receipt={currentReceipt} 
+      />
+
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="glass-card border-border mx-4 max-w-sm">
@@ -529,7 +659,7 @@ export default function ResellersPage() {
             <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
               <div>
                 <Label className="text-foreground">Status</Label>
-                <p className="text-sm text-muted-foreground">{editData.active ? 'Ativo' : 'Inativo'}</p>
+                <p className="text-sm text-muted-foreground">{editData.active ? 'Ativo' : 'Bloqueado'}</p>
               </div>
               <Switch
                 checked={editData.active}
@@ -546,6 +676,32 @@ export default function ResellersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Trial Dialog */}
+      <AlertDialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
+        <AlertDialogContent className="glass-card border-border mx-4 max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground flex items-center gap-2">
+              <Gift className="w-5 h-5 text-purple-500" />
+              Liberar Teste
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Liberar teste de 24 horas para &ldquo;{selectedUser?.username}&rdquo;? 
+              <br /><br />
+              <span className="text-yellow-500">⚠️ O usuário só pode ter 1 teste. Após isso, precisará renovar.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border text-foreground">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleTrial}
+              className="bg-purple-500 text-white hover:bg-purple-600"
+            >
+              {actionLoading ? 'Liberando...' : 'Liberar Teste (24h)'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Renew Dialog */}
       <AlertDialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
@@ -609,7 +765,7 @@ export default function ResellersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-foreground">Deletar Revendedor</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Tem certeza que deseja deletar "{selectedUser?.username}"? Todas as conexões e campanhas serão removidas.
+              Tem certeza que deseja deletar &ldquo;{selectedUser?.username}&rdquo;? Todas as conexões e campanhas serão removidas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
