@@ -637,7 +637,7 @@ export default function CampaignsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-foreground">Deletar Campanha</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Tem certeza que deseja deletar "{campaignToDelete?.title}"?
+              Tem certeza que deseja deletar &ldquo;{campaignToDelete?.title}&rdquo;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
