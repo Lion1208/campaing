@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAdminStore } from '@/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,15 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { toast } from 'sonner';
+import { Plus, Users, Wifi, Send, Edit2, Trash2 } from 'lucide-react';
 
 export default function UsersPage() {
   const { users, fetchUsers, createUser, updateUser, deleteUser, stats, fetchAdminStats, loading } = useAdminStore();
@@ -62,11 +55,11 @@ export default function UsersPage() {
         password: newUser.password,
         max_connections: newUser.max_connections,
       });
-      toast.success('Revendedor criado com sucesso!');
+      toast.success('Revendedor criado!');
       setCreateDialogOpen(false);
       setNewUser({ username: '', password: '', max_connections: 1 });
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao criar revendedor');
+      toast.error(error.response?.data?.detail || 'Erro ao criar');
     } finally {
       setActionLoading(false);
     }
@@ -110,65 +103,59 @@ export default function UsersPage() {
     setEditDialogOpen(true);
   };
 
+  const statCards = [
+    { label: 'Total Revendedores', value: stats?.total_users || 0, icon: Users },
+    { label: 'Ativos', value: stats?.active_users || 0, icon: Users, color: 'text-primary' },
+    { label: 'Conexões', value: stats?.total_connections || 0, icon: Wifi },
+    { label: 'Campanhas', value: stats?.total_campaigns || 0, icon: Send },
+  ];
+
   return (
-    <div data-testid="users-page" className="space-y-8 animate-fade-in">
+    <div data-testid="users-page" className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-3xl text-foreground tracking-tight">Revendedores</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie os revendedores do sistema
-          </p>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl">Revendedores</h1>
+          <p className="text-muted-foreground text-sm mt-1">Gerencie os revendedores do sistema</p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button
-              data-testid="create-user-btn"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+            <Button data-testid="create-user-btn" className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow">
+              <Plus className="w-4 h-4 mr-2" />
               Novo Revendedor
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-card border-white/10">
+          <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
             <DialogHeader>
-              <DialogTitle className="font-heading">Criar Revendedor</DialogTitle>
+              <DialogTitle>Novo Revendedor</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Adicione um novo revendedor ao sistema.
+                Adicione um novo revendedor ao sistema
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Usuário
-                </Label>
+                <Label>Usuário</Label>
                 <Input
                   data-testid="new-user-username"
-                  placeholder="Digite o nome de usuário"
+                  placeholder="Nome de usuário"
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                  className="h-12 bg-black/40 border-white/10"
+                  className="bg-background/50"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Senha
-                </Label>
+                <Label>Senha</Label>
                 <Input
                   data-testid="new-user-password"
                   type="password"
-                  placeholder="Digite a senha"
+                  placeholder="Senha"
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="h-12 bg-black/40 border-white/10"
+                  className="bg-background/50"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Máximo de Conexões
-                </Label>
+                <Label>Máximo de Conexões</Label>
                 <Input
                   data-testid="new-user-connections"
                   type="number"
@@ -176,14 +163,14 @@ export default function UsersPage() {
                   max={100}
                   value={newUser.max_connections}
                   onChange={(e) => setNewUser({ ...newUser, max_connections: parseInt(e.target.value) || 1 })}
-                  className="h-12 bg-black/40 border-white/10"
+                  className="bg-background/50"
                 />
               </div>
               <Button
                 data-testid="confirm-create-user"
                 onClick={handleCreate}
                 disabled={actionLoading}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
+                className="w-full bg-primary text-primary-foreground"
               >
                 {actionLoading ? 'Criando...' : 'Criar Revendedor'}
               </Button>
@@ -193,144 +180,107 @@ export default function UsersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Revendedores', value: stats?.total_users || 0, icon: '👥' },
-          { label: 'Ativos', value: stats?.active_users || 0, icon: '✅' },
-          { label: 'Total Conexões', value: stats?.total_connections || 0, icon: '🔗' },
-          { label: 'Total Campanhas', value: stats?.total_campaigns || 0, icon: '📊' },
-        ].map((stat) => (
-          <Card key={stat.label} className="glass-card">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono">{stat.label}</p>
-                <p className="font-heading font-bold text-3xl text-foreground mt-1">{stat.value}</p>
-              </div>
-              <span className="text-3xl opacity-50">{stat.icon}</span>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statCards.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={stat.label} className={`glass-card animate-fade-in stagger-${index + 1}`}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
+                  <p className={`font-heading font-bold text-2xl ${stat.color || ''}`}>{stat.value}</p>
+                </div>
+                <Icon className="w-5 h-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Users Table */}
-      <Card className="glass-card">
-        <CardHeader className="border-b border-white/5 pb-4">
-          <CardTitle className="font-heading font-semibold text-lg">Lista de Revendedores</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-pulse text-primary font-mono">Carregando...</div>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <h3 className="font-heading font-semibold text-xl text-foreground mb-2">
-                Nenhum revendedor encontrado
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                Crie seu primeiro revendedor para começar
-              </p>
-              <Button
-                onClick={() => setCreateDialogOpen(true)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-              >
-                Criar Primeiro Revendedor
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-white/5 hover:bg-transparent">
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Usuário</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Max. Conexões</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Status</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Criado em</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} data-testid={`user-row-${user.id}`} className="border-white/5 hover:bg-white/5">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="font-heading font-bold text-primary uppercase">
-                            {user.username[0]}
-                          </span>
-                        </div>
-                        <span>{user.username}</span>
+      {/* Users List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : users.length === 0 ? (
+        <Card className="glass-card">
+          <CardContent className="p-8 text-center">
+            <Users className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="font-heading font-semibold text-lg mb-2">Nenhum revendedor</h3>
+            <p className="text-muted-foreground text-sm mb-4">Crie seu primeiro revendedor</p>
+            <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary text-primary-foreground">
+              Criar Revendedor
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {users.map((user, index) => (
+            <Card
+              key={user.id}
+              data-testid={`user-row-${user.id}`}
+              className={`glass-card hover-lift animate-fade-in stagger-${(index % 5) + 1}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                      <span className="font-heading font-bold text-primary uppercase">{user.username[0]}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-medium truncate">{user.username}</p>
+                        <Badge variant="outline" className={user.active ? 'status-connected' : 'status-disconnected'}>
+                          {user.active ? 'Ativo' : 'Inativo'}
+                        </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-sm">{user.max_connections}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={user.active ? 'status-connected' : 'status-disconnected'}
-                      >
-                        {user.active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-sm">
-                      {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          data-testid={`edit-user-${user.id}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(user)}
-                          className="border-white/10 hover:bg-white/5"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </Button>
-                        <Button
-                          data-testid={`delete-user-${user.id}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="border-destructive/20 text-destructive hover:bg-destructive/10"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                      <p className="text-xs text-muted-foreground">
+                        Máx. {user.max_connections} conexões • Criado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Button
+                      data-testid={`edit-user-${user.id}`}
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openEditDialog(user)}
+                      className="border-white/10 h-8 w-8"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      data-testid={`delete-user-${user.id}`}
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setDeleteDialogOpen(true);
+                      }}
+                      className="border-destructive/20 text-destructive hover:bg-destructive/10 h-8 w-8"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="glass-card border-white/10">
+        <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-heading">Editar Revendedor</DialogTitle>
+            <DialogTitle>Editar Revendedor</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Atualize as configurações de {selectedUser?.username}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                Máximo de Conexões
-              </Label>
+              <Label>Máximo de Conexões</Label>
               <Input
                 data-testid="edit-user-connections"
                 type="number"
@@ -338,17 +288,13 @@ export default function UsersPage() {
                 max={100}
                 value={editData.max_connections}
                 onChange={(e) => setEditData({ ...editData, max_connections: parseInt(e.target.value) || 1 })}
-                className="h-12 bg-black/40 border-white/10"
+                className="bg-background/50"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-black/40 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-background/30 rounded-lg">
               <div>
-                <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Status
-                </Label>
-                <p className="text-sm text-foreground mt-1">
-                  {editData.active ? 'Ativo' : 'Inativo'}
-                </p>
+                <Label>Status</Label>
+                <p className="text-sm text-muted-foreground">{editData.active ? 'Ativo' : 'Inativo'}</p>
               </div>
               <Switch
                 data-testid="edit-user-active"
@@ -360,22 +306,21 @@ export default function UsersPage() {
               data-testid="confirm-edit-user"
               onClick={handleUpdate}
               disabled={actionLoading}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
+              className="w-full bg-primary text-primary-foreground"
             >
-              {actionLoading ? 'Salvando...' : 'Salvar Alterações'}
+              {actionLoading ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="glass-card border-white/10">
+        <AlertDialogContent className="glass-card border-white/10 mx-4 max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">Deletar Revendedor</AlertDialogTitle>
+            <AlertDialogTitle>Deletar Revendedor</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Tem certeza que deseja deletar o revendedor "{selectedUser?.username}"? 
-              Todas as conexões e campanhas deste usuário serão removidas. Esta ação não pode ser desfeita.
+              Tem certeza que deseja deletar "{selectedUser?.username}"? Todas as conexões e campanhas serão removidas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
