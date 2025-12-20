@@ -138,15 +138,25 @@ export default function EditCampaignPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Cria preview local imediatamente (não usa URL do servidor)
+    const localPreview = URL.createObjectURL(file);
+    const newItems = [...messageItems];
+    newItems[index].imagePreview = localPreview;
+    setMessageItems(newItems);
+
     setUploadingIndex(index);
     try {
       const image = await uploadImage(file);
-      const newItems = [...messageItems];
-      newItems[index].imageId = image.id;
-      newItems[index].imagePreview = `${process.env.REACT_APP_BACKEND_URL}${image.url}`;
-      setMessageItems(newItems);
+      // Atualiza apenas o imageId, mantém o preview local
+      const updatedItems = [...messageItems];
+      updatedItems[index].imageId = image.id;
+      updatedItems[index].imagePreview = localPreview;
+      setMessageItems(updatedItems);
       toast.success('Imagem enviada!');
     } catch (error) {
+      const updatedItems = [...messageItems];
+      updatedItems[index].imagePreview = null;
+      setMessageItems(updatedItems);
       toast.error(error.response?.data?.detail || 'Erro ao enviar imagem');
     } finally {
       setUploadingIndex(null);
@@ -161,7 +171,23 @@ export default function EditCampaignPage() {
     } else {
       const img = images.find(i => i.id === imageId);
       if (img) {
-        newItems[index].imagePreview = `${process.env.REACT_APP_BACKEND_URL}${img.url}`;
+        fetch(`${process.env.REACT_APP_BACKEND_URL}${img.url}`)
+          .then(res => res.blob())
+          .then(blob => {
+            const blobUrl = URL.createObjectURL(blob);
+            setMessageItems(prev => {
+              const updated = [...prev];
+              updated[index].imagePreview = blobUrl;
+              return updated;
+            });
+          })
+          .catch(() => {
+            setMessageItems(prev => {
+              const updated = [...prev];
+              updated[index].imagePreview = null;
+              return updated;
+            });
+          });
       }
     }
     setMessageItems(newItems);
