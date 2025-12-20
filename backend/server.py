@@ -65,8 +65,9 @@ logger = logging.getLogger(__name__)
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: str = "reseller"
+    role: str = "reseller"  # reseller, master, admin
     max_connections: int = 1
+    credits: int = 0
 
 class UserLogin(BaseModel):
     username: str
@@ -78,12 +79,52 @@ class UserResponse(BaseModel):
     username: str
     role: str
     max_connections: int
+    credits: int = 0
     active: bool
+    expires_at: Optional[str] = None
+    created_by: Optional[str] = None
     created_at: str
 
 class UserUpdate(BaseModel):
+    username: Optional[str] = None
     max_connections: Optional[int] = None
+    credits: Optional[int] = None
     active: Optional[bool] = None
+    expires_at: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
+
+class TemplateCreate(BaseModel):
+    name: str
+    message: str
+    image_id: Optional[str] = None
+
+class TemplateResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str
+    message: str
+    image_id: Optional[str] = None
+    image_url: Optional[str] = None
+    user_id: str
+    created_at: str
+
+class ActivityLogResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    action: str
+    entity_type: str
+    entity_id: Optional[str] = None
+    entity_name: Optional[str] = None
+    user_id: str
+    username: str
+    details: Optional[str] = None
+    created_at: str
 
 class ConnectionCreate(BaseModel):
     name: str
