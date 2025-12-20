@@ -198,7 +198,7 @@ export default function LoginPage() {
             <div className="mt-6 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground text-center">
                 {isRegister 
-                  ? 'Ao se cadastrar, você será vinculado ao administrador do sistema.'
+                  ? 'Ao se cadastrar, sua conta ficará aguardando aprovação do administrador.'
                   : 'Sistema de Campanhas WhatsApp'
                 }
               </p>
