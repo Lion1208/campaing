@@ -48,8 +48,15 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(username.trim(), password);
-      // Salva o usuário no localStorage após login bem sucedido
+      const result = await login(username.trim(), password);
+      
+      if (!result.success) {
+        // User is blocked or expired
+        navigate('/blocked', { state: { reason: result.reason } });
+        return;
+      }
+      
+      // Save username on successful login
       localStorage.setItem(SAVED_USER_KEY, username.trim());
       setSavedUser(username.trim());
       toast.success('Login realizado!');
