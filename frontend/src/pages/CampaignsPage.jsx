@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaignsStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +15,69 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Clock, CheckCircle, XCircle, Send, Trash2, Pause, Play, Image, Copy, Zap, Calendar, Users } from 'lucide-react';
+import { Plus, Clock, CheckCircle, XCircle, Send, Trash2, Pause, Play, Image, Copy, Zap, Calendar, Users, Edit2, Timer } from 'lucide-react';
+
+// Hook para countdown
+function useCountdown(targetDate) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (!targetDate) {
+      setTimeLeft('');
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const target = new Date(targetDate).getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        return 'Agora';
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h`;
+      } else if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+      } else {
+        return `${seconds}s`;
+      }
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const interval = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return timeLeft;
+}
+
+// Componente de timer para cada card
+function CampaignTimer({ campaign }) {
+  const timeLeft = useCountdown(campaign.next_run);
+
+  if (!timeLeft || campaign.status === 'completed' || campaign.status === 'paused') {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+      <Timer className="w-3 h-3" />
+      <span className="font-mono font-medium">{timeLeft}</span>
+    </div>
+  );
+}
 
 export default function CampaignsPage() {
   const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
@@ -26,6 +88,9 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
+    // Refresh every 30 seconds to update next_run
+    const interval = setInterval(fetchCampaigns, 30000);
+    return () => clearInterval(interval);
   }, [fetchCampaigns]);
 
   const handleStart = async (campaign) => {
@@ -44,7 +109,7 @@ export default function CampaignsPage() {
     setActionLoading(campaign.id);
     try {
       await duplicateCampaign(campaign.id);
-      toast.success('Campanha duplicada! Edite os detalhes.');
+      toast.success('Campanha duplicada!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao duplicar');
     } finally {
@@ -59,18 +124,6 @@ export default function CampaignsPage() {
       toast.success('Campanha pausada');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao pausar');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleResume = async (campaign) => {
-    setActionLoading(campaign.id);
-    try {
-      await resumeCampaign(campaign.id);
-      toast.success('Campanha retomada');
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao retomar');
     } finally {
       setActionLoading(null);
     }
@@ -110,15 +163,16 @@ export default function CampaignsPage() {
     );
   };
 
-  const getScheduleLabel = (campaign) => {
+  const getScheduleInfo = (campaign) => {
     if (campaign.schedule_type === 'once') {
-      return 'Disparo único';
+      return { label: 'Único', detail: campaign.scheduled_time ? new Date(campaign.scheduled_time).toLocaleString('pt-BR') : '-' };
     } else if (campaign.schedule_type === 'interval') {
-      return `A cada ${campaign.interval_hours}h`;
+      return { label: `A cada ${campaign.interval_hours}h`, detail: null };
     } else if (campaign.schedule_type === 'specific_times') {
-      return `${campaign.specific_times?.length || 0} horários/dia`;
+      const times = campaign.specific_times || [];
+      return { label: `${times.length} horário${times.length > 1 ? 's' : ''}`, detail: times.join(', ') };
     }
-    return '';
+    return { label: '-', detail: null };
   };
 
   const stats = [
@@ -129,6 +183,7 @@ export default function CampaignsPage() {
 
   const canStart = (status) => ['pending', 'paused'].includes(status);
   const canPause = (status) => ['active', 'running'].includes(status);
+  const canEdit = (status) => !['running'].includes(status);
 
   return (
     <div data-testid="campaigns-page" className="space-y-6 animate-fade-in">
@@ -178,133 +233,160 @@ export default function CampaignsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {campaigns.map((campaign, index) => (
-            <Card
-              key={campaign.id}
-              data-testid={`campaign-card-${campaign.id}`}
-              className={`glass-card hover-lift animate-fade-in stagger-${(index % 5) + 1} overflow-hidden`}
-            >
-              {/* Image Preview */}
-              {campaign.image_url ? (
-                <div className="h-32 bg-muted/30 relative overflow-hidden">
-                  <img 
-                    src={`${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
-                  <div className="absolute bottom-2 left-2">
+          {campaigns.map((campaign, index) => {
+            const scheduleInfo = getScheduleInfo(campaign);
+            return (
+              <Card
+                key={campaign.id}
+                data-testid={`campaign-card-${campaign.id}`}
+                className={`glass-card hover-lift animate-fade-in stagger-${(index % 5) + 1} overflow-hidden flex flex-col`}
+              >
+                {/* Image Preview */}
+                <div className="h-28 bg-muted/20 relative overflow-hidden flex-shrink-0">
+                  {campaign.image_url ? (
+                    <>
+                      <img 
+                        src={`${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Image className="w-10 h-10 text-muted-foreground/20" />
+                    </div>
+                  )}
+                  {/* Status badge */}
+                  <div className="absolute top-2 left-2">
                     {getStatusBadge(campaign.status)}
                   </div>
-                </div>
-              ) : (
-                <div className="h-20 bg-muted/20 flex items-center justify-center relative">
-                  <Image className="w-8 h-8 text-muted-foreground/30" />
-                  <div className="absolute bottom-2 left-2">
-                    {getStatusBadge(campaign.status)}
+                  {/* Timer */}
+                  <div className="absolute top-2 right-2">
+                    <CampaignTimer campaign={campaign} />
                   </div>
                 </div>
-              )}
 
-              <CardContent className="p-4">
-                {/* Title */}
-                <h3 className="font-semibold text-foreground truncate mb-2">{campaign.title}</h3>
+                <CardContent className="p-4 flex flex-col flex-1">
+                  {/* Title */}
+                  <h3 className="font-semibold text-foreground truncate mb-1">{campaign.title}</h3>
 
-                {/* Message Preview */}
-                {campaign.message && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3 min-h-[2rem]">
-                    {campaign.message}
+                  {/* Message Preview */}
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1 min-h-[2.5rem]">
+                    {campaign.message || <span className="italic">Sem mensagem de texto</span>}
                   </p>
-                )}
 
-                {/* Info */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-3">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    {campaign.total_count}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {getScheduleLabel(campaign)}
-                  </span>
-                </div>
-
-                {/* Progress */}
-                <div className="mb-3">
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-muted-foreground">Enviados</span>
-                    <span className="text-foreground font-medium">{campaign.sent_count}/{campaign.total_count}</span>
+                  {/* Info */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {campaign.total_count} grupos
+                    </span>
+                    <span className="flex items-center gap-1" title={scheduleInfo.detail || ''}>
+                      <Calendar className="w-3 h-3" />
+                      {scheduleInfo.label}
+                    </span>
                   </div>
-                  <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all ${
-                        campaign.status === 'completed' ? 'bg-primary' :
-                        campaign.status === 'failed' ? 'bg-destructive' : 'bg-yellow-500'
-                      }`}
-                      style={{ width: `${campaign.total_count > 0 ? (campaign.sent_count / campaign.total_count) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex gap-1.5">
-                  {/* Start/Resume Button */}
-                  {canStart(campaign.status) && (
-                    <Button
-                      onClick={() => handleStart(campaign)}
-                      disabled={actionLoading === campaign.id}
-                      size="sm"
-                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-8"
-                    >
-                      <Zap className="w-3.5 h-3.5 mr-1" />
-                      Iniciar
-                    </Button>
+                  {/* Specific times detail */}
+                  {campaign.schedule_type === 'specific_times' && campaign.specific_times?.length > 0 && (
+                    <div className="text-[10px] text-primary font-mono mb-2 truncate">
+                      {campaign.specific_times.join(' • ')}
+                    </div>
                   )}
 
-                  {/* Pause Button */}
-                  {canPause(campaign.status) && (
+                  {/* Progress */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-muted-foreground">Progresso</span>
+                      <span className="text-foreground font-medium">{campaign.sent_count}/{campaign.total_count}</span>
+                    </div>
+                    <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all ${
+                          campaign.status === 'completed' ? 'bg-primary' :
+                          campaign.status === 'failed' ? 'bg-destructive' : 
+                          campaign.status === 'running' ? 'bg-yellow-500' : 'bg-primary/50'
+                        }`}
+                        style={{ width: `${campaign.total_count > 0 ? (campaign.sent_count / campaign.total_count) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-1.5 mt-auto">
+                    {/* Start Button */}
+                    {canStart(campaign.status) && (
+                      <Button
+                        onClick={() => handleStart(campaign)}
+                        disabled={actionLoading === campaign.id}
+                        size="sm"
+                        className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-8"
+                      >
+                        <Zap className="w-3.5 h-3.5 mr-1" />
+                        Iniciar
+                      </Button>
+                    )}
+
+                    {/* Pause Button */}
+                    {canPause(campaign.status) && (
+                      <Button
+                        onClick={() => handlePause(campaign)}
+                        disabled={actionLoading === campaign.id}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-border h-8"
+                      >
+                        <Pause className="w-3.5 h-3.5 mr-1" />
+                        Pausar
+                      </Button>
+                    )}
+
+                    {/* Edit Button */}
+                    {canEdit(campaign.status) && (
+                      <Button
+                        onClick={() => navigate(`/campaigns/edit/${campaign.id}`)}
+                        variant="outline"
+                        size="icon"
+                        className="border-border h-8 w-8"
+                        title="Editar"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+
+                    {/* Duplicate Button */}
                     <Button
-                      onClick={() => handlePause(campaign)}
+                      onClick={() => handleDuplicate(campaign)}
                       disabled={actionLoading === campaign.id}
                       variant="outline"
-                      size="sm"
-                      className="flex-1 border-border h-8"
+                      size="icon"
+                      className="border-border h-8 w-8"
+                      title="Duplicar"
                     >
-                      <Pause className="w-3.5 h-3.5 mr-1" />
-                      Pausar
+                      <Copy className="w-3.5 h-3.5" />
                     </Button>
-                  )}
 
-                  {/* Duplicate Button */}
-                  <Button
-                    onClick={() => handleDuplicate(campaign)}
-                    disabled={actionLoading === campaign.id}
-                    variant="outline"
-                    size="icon"
-                    className="border-border h-8 w-8"
-                    title="Duplicar"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </Button>
-
-                  {/* Delete Button */}
-                  <Button
-                    data-testid={`delete-campaign-${campaign.id}`}
-                    onClick={() => {
-                      setCampaignToDelete(campaign);
-                      setDeleteDialogOpen(true);
-                    }}
-                    variant="outline"
-                    size="icon"
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10 h-8 w-8"
-                    title="Deletar"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Delete Button */}
+                    <Button
+                      data-testid={`delete-campaign-${campaign.id}`}
+                      onClick={() => {
+                        setCampaignToDelete(campaign);
+                        setDeleteDialogOpen(true);
+                      }}
+                      variant="outline"
+                      size="icon"
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 h-8 w-8"
+                      title="Deletar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
