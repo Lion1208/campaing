@@ -1733,6 +1733,8 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
                     msg_data['image_url'] = img['url']
             messages_with_urls.append(msg_data)
     
+    # IMPORTANTE: Limpar campos antigos baseado no novo schedule_type
+    # Isso evita conflitos quando o tipo de agendamento muda
     update_data = {
         'title': data.title,
         'connection_id': data.connection_id,
@@ -1742,14 +1744,27 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
         'image_url': image_url,
         'messages': messages_with_urls,
         'schedule_type': data.schedule_type,
-        'scheduled_time': data.scheduled_time,
-        'interval_hours': data.interval_hours,
-        'specific_times': data.specific_times,
         'delay_seconds': data.delay_seconds,
         'start_date': data.start_date,
         'end_date': data.end_date,
         'total_count': len(data.group_ids),
+        # Limpar next_run para forçar recálculo baseado no novo tipo
+        'next_run': None,
     }
+    
+    # Definir campos específicos baseado no tipo de agendamento
+    if data.schedule_type == 'once':
+        update_data['scheduled_time'] = data.scheduled_time
+        update_data['interval_hours'] = None
+        update_data['specific_times'] = None
+    elif data.schedule_type == 'interval':
+        update_data['scheduled_time'] = None
+        update_data['interval_hours'] = data.interval_hours
+        update_data['specific_times'] = None
+    elif data.schedule_type == 'specific_times':
+        update_data['scheduled_time'] = None
+        update_data['interval_hours'] = None
+        update_data['specific_times'] = data.specific_times
     
     # Remove scheduled jobs
     try:
