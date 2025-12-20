@@ -115,7 +115,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-2xl md:text-3xl">Revendedores</h1>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Revendedores</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie os revendedores do sistema</p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -229,7 +229,7 @@ export default function UsersPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-medium truncate">{user.username}</p>
+                        <p className="font-medium text-foreground truncate">{user.username}</p>
                         <Badge variant="outline" className={user.active ? 'status-connected' : 'status-disconnected'}>
                           {user.active ? 'Ativo' : 'Inativo'}
                         </Badge>

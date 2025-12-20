@@ -193,7 +193,7 @@ export default function CreateCampaignPage() {
           <ArrowLeft className="w-4 h-4 mr-1.5" />
           Voltar
         </Button>
-        <h1 className="font-heading font-bold text-2xl md:text-3xl">Nova Campanha</h1>
+        <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Nova Campanha</h1>
         <p className="text-muted-foreground text-sm mt-1">Configure sua campanha de mensagens</p>
       </div>
 

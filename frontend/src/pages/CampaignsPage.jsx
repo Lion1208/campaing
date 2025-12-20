@@ -108,7 +108,7 @@ export default function CampaignsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-2xl md:text-3xl">Campanhas</h1>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Campanhas</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie suas campanhas de mensagens</p>
         </div>
         <Button
@@ -161,7 +161,7 @@ export default function CampaignsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-semibold truncate">{campaign.title}</h3>
+                      <h3 className="font-semibold text-foreground truncate">{campaign.title}</h3>
                       {getStatusBadge(campaign.status)}
                       {campaign.image_url && (
                         <Badge variant="outline" className="text-[10px] gap-1 border-white/10">
