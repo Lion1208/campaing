@@ -898,7 +898,6 @@ export default function EditCampaignPage() {
                       onChange={(e) => setEndDate(e.target.value)}
                       className="bg-muted/50 border-border text-foreground"
                     />
-                    />
                   </div>
                 </div>
               </>
