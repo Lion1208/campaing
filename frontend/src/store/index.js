@@ -166,6 +166,18 @@ export const useCampaignsStore = create((set, get) => ({
     return response.data;
   },
 
+  duplicateCampaign: async (campaignId) => {
+    const response = await api.post(`/campaigns/${campaignId}/duplicate`);
+    set((state) => ({ campaigns: [response.data, ...state.campaigns] }));
+    return response.data;
+  },
+
+  startCampaign: async (campaignId) => {
+    const response = await api.post(`/campaigns/${campaignId}/start`);
+    await get().fetchCampaigns();
+    return response.data;
+  },
+
   pauseCampaign: async (campaignId) => {
     await api.post(`/campaigns/${campaignId}/pause`);
     await get().fetchCampaigns();
