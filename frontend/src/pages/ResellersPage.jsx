@@ -555,7 +555,7 @@ export default function ResellersPage() {
             <AlertDialogDescription className="text-muted-foreground">
               {isMaster 
                 ? `Renovar "${selectedUser?.username}" por +1 mês custará 1 crédito. Você tem ${user?.credits || 0} créditos.`
-                : `Renovar "${selectedUser?.username}" por mais 1 mês?`
+                : `Renovar "${selectedUser?.username}" por mais 1 mês? (créditos ilimitados)`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
