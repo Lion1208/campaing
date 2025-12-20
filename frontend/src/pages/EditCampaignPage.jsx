@@ -13,6 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { toast } from 'sonner';
 import { ArrowLeft, Upload, Info, Clock, Users, Image, MessageSquare, X, Plus, Trash2 } from 'lucide-react';
 
@@ -49,6 +55,18 @@ export default function EditCampaignPage() {
   // Preview animado
   const [previewIndex, setPreviewIndex] = useState(0);
 
+  // Função para carregar imagem via API (evita problemas de CORS/redirect)
+  const loadImageFromApi = useCallback(async (imageId) => {
+    if (!imageId || imageId === 'none') return null;
+    try {
+      const response = await api.get(`/images/${imageId}/file`, { responseType: 'blob' });
+      return URL.createObjectURL(response.data);
+    } catch (error) {
+      console.error('Error loading image:', error);
+      return null;
+    }
+  }, []);
+
   // Load campaign data
   useEffect(() => {
     const loadCampaign = async () => {
@@ -64,18 +82,32 @@ export default function EditCampaignPage() {
         setSpecificTimes(data.specific_times || ['09:00']);
         setDelaySeconds(data.delay_seconds || 5);
         
-        // Carrega mensagens
+        // Carrega mensagens com preview de imagem via API
         if (data.messages && data.messages.length > 0) {
-          setMessageItems(data.messages.map(msg => ({
-            message: msg.message || '',
-            imageId: msg.image_id || 'none',
-            imagePreview: msg.image_url ? `${process.env.REACT_APP_BACKEND_URL}${msg.image_url}` : null
-          })));
+          const loadedItems = await Promise.all(
+            data.messages.map(async (msg) => {
+              let imagePreview = null;
+              if (msg.image_id) {
+                imagePreview = await loadImageFromApi(msg.image_id);
+              }
+              return {
+                message: msg.message || '',
+                imageId: msg.image_id || 'none',
+                imagePreview
+              };
+            })
+          );
+          setMessageItems(loadedItems);
         } else {
+          // Modo de mensagem única
+          let imagePreview = null;
+          if (data.image_id) {
+            imagePreview = await loadImageFromApi(data.image_id);
+          }
           setMessageItems([{
             message: data.message || '',
             imageId: data.image_id || 'none',
-            imagePreview: data.image_url ? `${process.env.REACT_APP_BACKEND_URL}${data.image_url}` : null
+            imagePreview
           }]);
         }
         
@@ -101,7 +133,7 @@ export default function EditCampaignPage() {
     loadCampaign();
     fetchConnections();
     fetchImages();
-  }, [id, navigate, fetchConnections, fetchImages]);
+  }, [id, navigate, fetchConnections, fetchImages, loadImageFromApi]);
 
   // Preview animation
   useEffect(() => {
@@ -138,7 +170,7 @@ export default function EditCampaignPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Cria preview local imediatamente (não usa URL do servidor)
+    // Cria preview local imediatamente
     const localPreview = URL.createObjectURL(file);
     const newItems = [...messageItems];
     newItems[index].imagePreview = localPreview;
@@ -163,32 +195,16 @@ export default function EditCampaignPage() {
     }
   };
 
-  const handleImageSelect = (index, imageId) => {
+  const handleImageSelect = async (index, imageId) => {
     const newItems = [...messageItems];
     newItems[index].imageId = imageId;
+    
     if (imageId === 'none') {
       newItems[index].imagePreview = null;
     } else {
-      const img = images.find(i => i.id === imageId);
-      if (img) {
-        fetch(`${process.env.REACT_APP_BACKEND_URL}${img.url}`)
-          .then(res => res.blob())
-          .then(blob => {
-            const blobUrl = URL.createObjectURL(blob);
-            setMessageItems(prev => {
-              const updated = [...prev];
-              updated[index].imagePreview = blobUrl;
-              return updated;
-            });
-          })
-          .catch(() => {
-            setMessageItems(prev => {
-              const updated = [...prev];
-              updated[index].imagePreview = null;
-              return updated;
-            });
-          });
-      }
+      // Carrega preview via API
+      const blobUrl = await loadImageFromApi(imageId);
+      newItems[index].imagePreview = blobUrl;
     }
     setMessageItems(newItems);
   };
@@ -449,7 +465,7 @@ export default function EditCampaignPage() {
           </CardContent>
         </Card>
 
-        {/* Message Content - Multiple Messages */}
+        {/* Message Content - Multiple Messages with Accordion */}
         <Card className="glass-card">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -469,96 +485,187 @@ export default function EditCampaignPage() {
               </p>
             )}
 
-            <div className="space-y-4">
-              {messageItems.map((item, index) => (
-                <div key={index} className="p-4 bg-muted/20 rounded-lg border border-border/50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Variação {index + 1}</span>
-                    {messageItems.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeMessageItem(index)}
-                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
+            {/* Single message - show without accordion */}
+            {messageItems.length === 1 ? (
+              <div className="p-4 bg-muted/20 rounded-lg border border-border/50 space-y-3">
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label className="text-foreground flex items-center gap-2 text-sm">
+                    <Image className="w-4 h-4" />
+                    Imagem (opcional)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select value={messageItems[0].imageId} onValueChange={(v) => handleImageSelect(0, v)}>
+                      <SelectTrigger className="bg-muted/50 border-border text-foreground flex-1">
+                        <SelectValue placeholder="Sem imagem" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem imagem</SelectItem>
+                        {images.map((img) => (
+                          <SelectItem key={img.id} value={img.id}>
+                            {img.original_name || img.filename}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, 0)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        disabled={uploadingIndex === 0}
+                      />
+                      <Button type="button" variant="outline" disabled={uploadingIndex === 0} className="border-border">
+                        {uploadingIndex === 0 ? (
+                          <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
                       </Button>
-                    )}
+                    </div>
                   </div>
+                  
+                  {/* Image Preview */}
+                  {messageItems[0].imagePreview && (
+                    <div className="relative inline-block mt-2">
+                      <img 
+                        src={messageItems[0].imagePreview}
+                        alt="Preview"
+                        className="h-20 rounded-lg object-cover border border-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(0)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/80"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Image Upload */}
-                  <div className="space-y-2">
-                    <Label className="text-foreground flex items-center gap-2 text-sm">
-                      <Image className="w-4 h-4" />
-                      Imagem (opcional)
-                    </Label>
-                    <div className="flex gap-2">
-                      <Select value={item.imageId} onValueChange={(v) => handleImageSelect(index, v)}>
-                        <SelectTrigger className="bg-muted/50 border-border text-foreground flex-1">
-                          <SelectValue placeholder="Sem imagem" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sem imagem</SelectItem>
-                          {images.map((img) => (
-                            <SelectItem key={img.id} value={img.id}>
-                              {img.original_name || img.filename}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, index)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          disabled={uploadingIndex === index}
-                        />
-                        <Button type="button" variant="outline" disabled={uploadingIndex === index} className="border-border">
-                          {uploadingIndex === index ? (
-                            <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Upload className="w-4 h-4" />
+                {/* Message Text */}
+                <div className="space-y-2">
+                  <Label className="text-foreground text-sm">
+                    Mensagem {messageItems[0].imageId !== 'none' ? '(legenda)' : ''}
+                  </Label>
+                  <Textarea
+                    placeholder="Digite sua mensagem..."
+                    value={messageItems[0].message}
+                    onChange={(e) => handleMessageChange(0, e.target.value)}
+                    className="min-h-20 bg-muted/50 border-border text-foreground resize-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Multiple messages - use Accordion (collapsed by default) */
+              <Accordion type="multiple" className="space-y-2">
+                {messageItems.map((item, index) => (
+                  <AccordionItem 
+                    key={index} 
+                    value={`item-${index}`}
+                    className="border border-border/50 rounded-lg bg-muted/20 px-4"
+                  >
+                    <AccordionTrigger className="hover:no-underline py-3">
+                      <div className="flex items-center justify-between w-full pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">Variação {index + 1}</span>
+                          {item.imagePreview && (
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">📷 Imagem</span>
                           )}
+                          {item.message && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                              {item.message.slice(0, 30)}{item.message.length > 30 ? '...' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => { e.stopPropagation(); removeMessageItem(index); }}
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                    </div>
-                    
-                    {/* Image Preview */}
-                    {item.imagePreview && (
-                      <div className="relative inline-block mt-2">
-                        <img 
-                          src={item.imagePreview}
-                          alt="Preview"
-                          className="h-20 rounded-lg object-cover border border-border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/80"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 space-y-3">
+                      {/* Image Upload */}
+                      <div className="space-y-2">
+                        <Label className="text-foreground flex items-center gap-2 text-sm">
+                          <Image className="w-4 h-4" />
+                          Imagem (opcional)
+                        </Label>
+                        <div className="flex gap-2">
+                          <Select value={item.imageId} onValueChange={(v) => handleImageSelect(index, v)}>
+                            <SelectTrigger className="bg-muted/50 border-border text-foreground flex-1">
+                              <SelectValue placeholder="Sem imagem" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sem imagem</SelectItem>
+                              {images.map((img) => (
+                                <SelectItem key={img.id} value={img.id}>
+                                  {img.original_name || img.filename}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, index)}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              disabled={uploadingIndex === index}
+                            />
+                            <Button type="button" variant="outline" disabled={uploadingIndex === index} className="border-border">
+                              {uploadingIndex === index ? (
+                                <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Upload className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Image Preview */}
+                        {item.imagePreview && (
+                          <div className="relative inline-block mt-2">
+                            <img 
+                              src={item.imagePreview}
+                              alt="Preview"
+                              className="h-20 rounded-lg object-cover border border-border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/80"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Message Text */}
-                  <div className="space-y-2">
-                    <Label className="text-foreground text-sm">
-                      Mensagem {item.imageId !== 'none' ? '(legenda)' : ''}
-                    </Label>
-                    <Textarea
-                      placeholder="Digite sua mensagem..."
-                      value={item.message}
-                      onChange={(e) => handleMessageChange(index, e.target.value)}
-                      className="min-h-20 bg-muted/50 border-border text-foreground resize-none"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                      {/* Message Text */}
+                      <div className="space-y-2">
+                        <Label className="text-foreground text-sm">
+                          Mensagem {item.imageId !== 'none' ? '(legenda)' : ''}
+                        </Label>
+                        <Textarea
+                          placeholder="Digite sua mensagem..."
+                          value={item.message}
+                          onChange={(e) => handleMessageChange(index, e.target.value)}
+                          className="min-h-20 bg-muted/50 border-border text-foreground resize-none"
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
           </CardContent>
         </Card>
 
