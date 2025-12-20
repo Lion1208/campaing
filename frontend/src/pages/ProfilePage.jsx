@@ -109,14 +109,14 @@ export default function ProfilePage() {
               <h2 className="font-heading font-bold text-xl text-foreground">{user?.username}</h2>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 {getRoleBadge(user?.role)}
-                {user?.credits !== undefined && user?.credits >= 0 && (user?.role === 'master' || user?.role === 'admin') && (
+                {(user?.role === 'master' || user?.role === 'admin') && (
                   <Badge variant="outline" className="status-pending gap-1">
                     <Coins className="w-3 h-3" />
-                    {user.credits} créditos
+                    {user?.role === 'admin' ? '∞ créditos' : `${user?.credits || 0} créditos`}
                   </Badge>
                 )}
               </div>
-              {user?.expires_at && (
+              {user?.expires_at && user?.role !== 'admin' && (
                 <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   Expira em: {new Date(user.expires_at).toLocaleDateString('pt-BR')}
