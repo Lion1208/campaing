@@ -249,6 +249,50 @@ async def get_admin_user(user: dict = Depends(get_current_user)):
 
 # ============= WhatsApp Service Integration =============
 
+@api_router.get("/debug/whatsapp-service")
+async def debug_whatsapp_service():
+    """Debug endpoint to check WhatsApp service status - No auth required for debugging"""
+    import subprocess
+    import shutil
+    
+    result = {
+        'whatsapp_service_url': WHATSAPP_SERVICE_URL,
+        'node_installed': shutil.which('node') is not None,
+        'node_version': None,
+        'whatsapp_dir_exists': os.path.exists('/app/whatsapp-service'),
+        'whatsapp_index_exists': os.path.exists('/app/whatsapp-service/index.js'),
+        'service_responding': False,
+        'supervisor_status': None,
+        'can_start_process': False,
+        'error': None
+    }
+    
+    # Check node version
+    try:
+        node_result = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
+        result['node_version'] = node_result.stdout.strip()
+    except Exception as e:
+        result['node_version'] = f"Error: {str(e)}"
+    
+    # Check supervisor status
+    try:
+        sup_result = subprocess.run(['supervisorctl', 'status', 'whatsapp'], capture_output=True, text=True, timeout=5)
+        result['supervisor_status'] = sup_result.stdout.strip() or sup_result.stderr.strip()
+    except Exception as e:
+        result['supervisor_status'] = f"Error: {str(e)}"
+    
+    # Try to call the service
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+            result['service_responding'] = response.status_code == 200
+            result['service_response'] = response.text
+    except Exception as e:
+        result['service_responding'] = False
+        result['error'] = str(e)
+    
+    return result
+
 async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
     """Make request to WhatsApp service"""
     try:
