@@ -262,7 +262,7 @@ export default function CampaignsPage() {
   const canStart = (status) => ['pending', 'paused'].includes(status);
   const canPause = (status) => ['active', 'running'].includes(status);
   const canResume = (status) => status === 'paused';
-  const canEdit = (status) => !['running'].includes(status);
+  const canEdit = (status) => ['pending', 'paused', 'completed', 'active'].includes(status);
 
   // Get image URL - use fetch to load as blob for preview
   const [imageCache, setImageCache] = useState({});
