@@ -1221,8 +1221,11 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_cu
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
     
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-    filename = f"{uuid.uuid4()}.{ext}"
+    # Gera nome único: timestamp + uuid + extensão
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+    unique_id = str(uuid.uuid4())[:8]
+    ext = file.filename.split('.')[-1].lower() if '.' in file.filename else 'jpg'
+    filename = f"img_{timestamp}_{unique_id}.{ext}"
     filepath = UPLOADS_DIR / filename
     
     async with aiofiles.open(filepath, 'wb') as f:
