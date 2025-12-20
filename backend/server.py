@@ -1270,10 +1270,26 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
     return campaign
 
 @api_router.get("/campaigns", response_model=List[CampaignResponse])
-async def list_campaigns(user: dict = Depends(get_current_user)):
+async def list_campaigns(page: int = 1, limit: int = 20, user: dict = Depends(get_current_user)):
     query = {} if user['role'] == 'admin' else {'user_id': user['id']}
-    campaigns = await db.campaigns.find(query, {'_id': 0}).sort('created_at', -1).to_list(1000)
+    skip = (page - 1) * limit
+    campaigns = await db.campaigns.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     return campaigns
+
+@api_router.get("/campaigns/paginated")
+async def list_campaigns_paginated(page: int = 1, limit: int = 12, user: dict = Depends(get_current_user)):
+    """List campaigns with pagination info"""
+    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    skip = (page - 1) * limit
+    total = await db.campaigns.count_documents(query)
+    campaigns = await db.campaigns.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    return {
+        'campaigns': campaigns,
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'total_pages': (total + limit - 1) // limit
+    }
 
 @api_router.get("/campaigns/{campaign_id}", response_model=CampaignResponse)
 async def get_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
