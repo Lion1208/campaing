@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuthStore, useUIStore } from "@/store";
-import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon } from "lucide-react";
+import { useAuthStore, useUIStore, api } from "@/store";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, ChevronDown, ChevronUp } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -11,7 +11,11 @@ import DashboardPage from "@/pages/DashboardPage";
 import ConnectionsPage from "@/pages/ConnectionsPage";
 import CampaignsPage from "@/pages/CampaignsPage";
 import CreateCampaignPage from "@/pages/CreateCampaignPage";
-import UsersPage from "@/pages/UsersPage";
+import EditCampaignPage from "@/pages/EditCampaignPage";
+import TemplatesPage from "@/pages/TemplatesPage";
+import ProfilePage from "@/pages/ProfilePage";
+import AllUsersPage from "@/pages/AllUsersPage";
+import ResellersPage from "@/pages/ResellersPage";
 
 // Theme hook
 const useTheme = () => {
@@ -37,7 +41,7 @@ const useTheme = () => {
 };
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, masterOrAdmin = false }) => {
   const { isAuthenticated, user, checkAuth } = useAuthStore();
   const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
@@ -72,7 +76,134 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if (masterOrAdmin && user?.role !== 'admin' && user?.role !== 'master') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
+};
+
+// Activity Log Component
+const ActivityLog = () => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const response = await api.get('/activity-logs?limit=10');
+        setLogs(response.data);
+      } catch (error) {
+        console.error('Error fetching logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLogs, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getActionIcon = (action) => {
+    switch (action) {
+      case 'create': return '➕';
+      case 'update': return '✏️';
+      case 'delete': return '🗑️';
+      case 'start': return '▶️';
+      case 'pause': return '⏸️';
+      case 'resume': return '▶️';
+      case 'renew': return '🔄';
+      case 'add_credits': return '💰';
+      default: return '📝';
+    }
+  };
+
+  const getActionText = (log) => {
+    const actions = {
+      create: 'criou',
+      update: 'atualizou',
+      delete: 'excluiu',
+      start: 'iniciou',
+      pause: 'pausou',
+      resume: 'retomou',
+      renew: 'renovou',
+      add_credits: 'adicionou créditos',
+      duplicate: 'duplicou',
+      profile_update: 'atualizou perfil',
+      password_change: 'alterou senha'
+    };
+    return actions[log.action] || log.action;
+  };
+
+  const getEntityText = (type) => {
+    const entities = {
+      campaign: 'campanha',
+      user: 'usuário',
+      reseller: 'revendedor',
+      template: 'template',
+      connection: 'conexão'
+    };
+    return entities[type] || type;
+  };
+
+  if (loading) {
+    return (
+      <div className="p-3 text-center">
+        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-border">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <History className="w-4 h-4" />
+          Histórico
+        </span>
+        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+      
+      {expanded && (
+        <div className="px-3 pb-3 max-h-48 overflow-y-auto">
+          {logs.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-2">Nenhuma atividade</p>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((log) => (
+                <div key={log.id} className="text-xs p-2 rounded-lg bg-muted/30">
+                  <div className="flex items-start gap-2">
+                    <span>{getActionIcon(log.action)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground truncate">
+                        <span className="font-medium">{log.username}</span>{' '}
+                        {getActionText(log)} {getEntityText(log.entity_type)}
+                        {log.entity_name && <span className="text-primary"> "{log.entity_name}"</span>}
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">
+                        {new Date(log.created_at).toLocaleString('pt-BR', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Layout Component with Responsive Sidebar
@@ -94,13 +225,20 @@ const Layout = ({ children }) => {
   };
 
   const navItems = [
-    { path: '/dashboard', label: 'Painel', icon: LayoutDashboard },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/connections', label: 'Conexões', icon: Wifi },
     { path: '/campaigns', label: 'Campanhas', icon: Calendar },
+    { path: '/templates', label: 'Templates', icon: FileText },
   ];
 
+  // Add resellers page for admin and master
+  if (user?.role === 'admin' || user?.role === 'master') {
+    navItems.push({ path: '/resellers', label: 'Revendedores', icon: Users });
+  }
+
+  // Add all users page for admin only
   if (user?.role === 'admin') {
-    navItems.push({ path: '/users', label: 'Revendedores', icon: Users });
+    navItems.push({ path: '/users', label: 'Usuários', icon: Shield });
   }
 
   return (
@@ -120,12 +258,21 @@ const Layout = ({ children }) => {
           </div>
           <span className="font-heading font-bold text-lg text-foreground">NEXUS</span>
         </div>
-        <button
-          onClick={toggleTheme}
-          className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
-        >
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Credits badge for mobile */}
+          {(user?.role === 'admin' || user?.role === 'master') && user?.credits !== undefined && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-500 text-xs font-medium">
+              <Coins className="w-3 h-3" />
+              {user.credits}
+            </div>
+          )}
+          <button
+            onClick={toggleTheme}
+            className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Overlay */}
@@ -163,6 +310,14 @@ const Layout = ({ children }) => {
             </button>
           </div>
 
+          {/* Credits Badge (Desktop) */}
+          {(user?.role === 'admin' || user?.role === 'master') && user?.credits !== undefined && (
+            <div className="hidden lg:flex mx-4 mb-2 items-center justify-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/15 text-yellow-500">
+              <Coins className="w-4 h-4" />
+              <span className="font-medium">{user.credits} créditos</span>
+            </div>
+          )}
+
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
             {navItems.map((item) => {
@@ -189,6 +344,9 @@ const Layout = ({ children }) => {
             })}
           </nav>
 
+          {/* Activity Log */}
+          <ActivityLog />
+
           {/* Theme Toggle (Desktop) */}
           <div className="hidden lg:block px-4 pb-2">
             <button
@@ -202,17 +360,23 @@ const Layout = ({ children }) => {
 
           {/* User Section */}
           <div className="p-4 border-t border-border safe-bottom">
-            <div className="flex items-center gap-3 mb-3">
+            <button 
+              onClick={() => handleNavigation('/profile')}
+              className="w-full flex items-center gap-3 mb-3 p-2 -m-2 rounded-lg hover:bg-muted/50 transition-colors"
+            >
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                 <span className="font-heading font-bold text-primary uppercase">
                   {user?.username?.[0] || 'U'}
                 </span>
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 text-left">
                 <p className="font-medium text-sm text-foreground truncate">{user?.username}</p>
-                <p className="text-xs font-mono text-primary uppercase">{user?.role === 'admin' ? 'Administrador' : 'Revendedor'}</p>
+                <p className="text-xs font-mono text-primary uppercase">
+                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'master' ? 'Master' : 'Revendedor'}
+                </p>
               </div>
-            </div>
+              <User className="w-4 h-4 text-muted-foreground" />
+            </button>
             <button
               onClick={handleLogout}
               data-testid="logout-btn"
@@ -294,11 +458,51 @@ function App() {
           }
         />
         <Route
+          path="/campaigns/edit/:id"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <EditCampaignPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/templates"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TemplatesPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ProfilePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/resellers"
+          element={
+            <ProtectedRoute masterOrAdmin>
+              <Layout>
+                <ResellersPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/users"
           element={
             <ProtectedRoute adminOnly>
               <Layout>
-                <UsersPage />
+                <AllUsersPage />
               </Layout>
             </ProtectedRoute>
           }
