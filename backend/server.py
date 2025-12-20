@@ -15,8 +15,11 @@ import jwt
 import bcrypt
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 import aiofiles
-import json
+import httpx
+import base64
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -30,6 +33,9 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'nexus-whatsapp-secret-key-2024')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
+
+# WhatsApp Service URL
+WHATSAPP_SERVICE_URL = os.environ.get('WHATSAPP_SERVICE_URL', 'http://localhost:3002')
 
 # Create uploads directory
 UPLOADS_DIR = ROOT_DIR / 'uploads'
@@ -59,7 +65,7 @@ logger = logging.getLogger(__name__)
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: str = "reseller"  # admin or reseller
+    role: str = "reseller"
     max_connections: int = 1
 
 class UserLogin(BaseModel):
@@ -87,8 +93,9 @@ class ConnectionResponse(BaseModel):
     id: str
     name: str
     user_id: str
-    status: str  # disconnected, connecting, connected
+    status: str
     qr_code: Optional[str] = None
+    qr_image: Optional[str] = None
     phone_number: Optional[str] = None
     created_at: str
 
@@ -106,8 +113,13 @@ class CampaignCreate(BaseModel):
     group_ids: List[str]
     message: Optional[str] = None
     image_id: Optional[str] = None
-    scheduled_time: str  # ISO format
-    delay_seconds: int = 5  # Delay between messages
+    schedule_type: str = "once"  # once, interval, specific_times
+    scheduled_time: Optional[str] = None  # ISO format for "once"
+    interval_hours: Optional[int] = None  # For interval type (1, 2, 4, 6, 12, 24)
+    specific_times: Optional[List[str]] = None  # List of times like ["09:00", "14:00", "18:00"]
+    delay_seconds: int = 5
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 class CampaignResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -119,11 +131,18 @@ class CampaignResponse(BaseModel):
     message: Optional[str] = None
     image_id: Optional[str] = None
     image_url: Optional[str] = None
-    scheduled_time: str
+    schedule_type: str
+    scheduled_time: Optional[str] = None
+    interval_hours: Optional[int] = None
+    specific_times: Optional[List[str]] = None
     delay_seconds: int
-    status: str  # pending, running, completed, failed
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    status: str
     sent_count: int
     total_count: int
+    last_run: Optional[str] = None
+    next_run: Optional[str] = None
     created_at: str
 
 class ImageResponse(BaseModel):
@@ -178,11 +197,24 @@ async def get_admin_user(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Acesso negado. Apenas administradores.")
     return user
 
+# ============= WhatsApp Service Integration =============
+
+async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
+    """Make request to WhatsApp service"""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
+        if method == "GET":
+            response = await client.get(url)
+        elif method == "POST":
+            response = await client.post(url, json=json_data)
+        elif method == "DELETE":
+            response = await client.delete(url)
+        return response.json()
+
 # ============= Auth Endpoints =============
 
 @api_router.post("/auth/register")
 async def register(data: UserCreate):
-    # Check if username exists
     existing = await db.users.find_one({'username': data.username})
     if existing:
         raise HTTPException(status_code=400, detail="Usuário já existe")
@@ -290,7 +322,6 @@ async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    # Also delete user's connections, campaigns, etc.
     await db.connections.delete_many({'user_id': user_id})
     await db.campaigns.delete_many({'user_id': user_id})
     await db.groups.delete_many({'user_id': user_id})
@@ -303,11 +334,22 @@ async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
 async def list_connections(user: dict = Depends(get_current_user)):
     query = {} if user['role'] == 'admin' else {'user_id': user['id']}
     connections = await db.connections.find(query, {'_id': 0}).to_list(1000)
+    
+    # Update status from WhatsApp service
+    for conn in connections:
+        try:
+            status_data = await whatsapp_request("GET", f"/connections/{conn['id']}/status")
+            if status_data.get('status') != 'not_found':
+                conn['status'] = status_data.get('status', conn['status'])
+                if status_data.get('phoneNumber'):
+                    conn['phone_number'] = status_data['phoneNumber']
+        except:
+            pass
+    
     return connections
 
 @api_router.post("/connections", response_model=ConnectionResponse)
 async def create_connection(data: ConnectionCreate, user: dict = Depends(get_current_user)):
-    # Check connection limit for resellers
     if user['role'] == 'reseller':
         count = await db.connections.count_documents({'user_id': user['id']})
         if count >= user['max_connections']:
@@ -319,6 +361,7 @@ async def create_connection(data: ConnectionCreate, user: dict = Depends(get_cur
         'user_id': user['id'],
         'status': 'disconnected',
         'qr_code': None,
+        'qr_image': None,
         'phone_number': None,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
@@ -339,7 +382,7 @@ async def get_connection(connection_id: str, user: dict = Depends(get_current_us
 
 @api_router.post("/connections/{connection_id}/connect")
 async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
-    """Iniciar conexão WhatsApp - gera QR Code simulado"""
+    """Iniciar conexão WhatsApp - gera QR Code real"""
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -348,64 +391,92 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Simular geração de QR Code (em produção, usar whatsapp-web.js)
-    qr_data = f"whatsapp://connect/{connection_id}/{uuid.uuid4()}"
-    
-    await db.connections.update_one(
-        {'id': connection_id},
-        {'$set': {'status': 'connecting', 'qr_code': qr_data}}
-    )
-    
-    return {'qr_code': qr_data, 'status': 'connecting'}
-
-@api_router.post("/connections/{connection_id}/simulate-connect")
-async def simulate_connection(connection_id: str, user: dict = Depends(get_current_user)):
-    """Simular conexão bem-sucedida (para demo)"""
-    query = {'id': connection_id}
-    if user['role'] != 'admin':
-        query['user_id'] = user['id']
-    
-    connection = await db.connections.find_one(query)
-    if not connection:
-        raise HTTPException(status_code=404, detail="Conexão não encontrada")
-    
-    # Simular conexão bem-sucedida
-    phone = f"+55 11 9{uuid.uuid4().hex[:4]}-{uuid.uuid4().hex[:4]}"
-    
-    await db.connections.update_one(
-        {'id': connection_id},
-        {'$set': {
-            'status': 'connected',
-            'qr_code': None,
-            'phone_number': phone
-        }}
-    )
-    
-    # Simular grupos
-    sample_groups = [
-        {'name': 'Marketing Digital', 'participants_count': 156},
-        {'name': 'Vendas Online', 'participants_count': 89},
-        {'name': 'Equipe Comercial', 'participants_count': 45},
-        {'name': 'Clientes Premium', 'participants_count': 234},
-        {'name': 'Parceiros', 'participants_count': 67},
-    ]
-    
-    for group_data in sample_groups:
-        group = {
-            'id': str(uuid.uuid4()),
-            'connection_id': connection_id,
-            'user_id': user['id'],
-            'group_id': f"group_{uuid.uuid4().hex[:8]}@g.us",
-            'name': group_data['name'],
-            'participants_count': group_data['participants_count']
-        }
-        await db.groups.update_one(
-            {'connection_id': connection_id, 'name': group_data['name']},
-            {'$set': group},
-            upsert=True
+    try:
+        # Start connection on WhatsApp service
+        result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
+        
+        await db.connections.update_one(
+            {'id': connection_id},
+            {'$set': {'status': 'connecting'}}
         )
+        
+        return {'status': 'connecting', 'message': 'Conexão iniciada. Aguarde o QR Code.'}
+    except Exception as e:
+        logger.error(f"Erro ao conectar WhatsApp: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao iniciar conexão WhatsApp")
+
+@api_router.get("/connections/{connection_id}/qr")
+async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
+    """Obter QR Code da conexão"""
+    query = {'id': connection_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
     
-    return {'status': 'connected', 'phone_number': phone}
+    connection = await db.connections.find_one(query)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        result = await whatsapp_request("GET", f"/connections/{connection_id}/qr")
+        
+        if result.get('status') == 'connected':
+            # Update connection as connected
+            phone = result.get('phoneNumber')
+            await db.connections.update_one(
+                {'id': connection_id},
+                {'$set': {'status': 'connected', 'phone_number': phone, 'qr_code': None, 'qr_image': None}}
+            )
+            # Sync groups
+            await sync_groups(connection_id, user['id'])
+        
+        return {
+            'qr_code': result.get('qr'),
+            'qr_image': result.get('qrImage'),
+            'status': result.get('status', 'connecting')
+        }
+    except Exception as e:
+        logger.error(f"Erro ao obter QR: {e}")
+        return {'qr_code': None, 'qr_image': None, 'status': 'error'}
+
+async def sync_groups(connection_id: str, user_id: str):
+    """Sync groups from WhatsApp"""
+    try:
+        result = await whatsapp_request("GET", f"/connections/{connection_id}/groups?refresh=true")
+        groups = result.get('groups', [])
+        
+        # Delete old groups
+        await db.groups.delete_many({'connection_id': connection_id})
+        
+        # Insert new groups
+        for g in groups:
+            group = {
+                'id': str(uuid.uuid4()),
+                'connection_id': connection_id,
+                'user_id': user_id,
+                'group_id': g['id'],
+                'name': g['name'],
+                'participants_count': g['participants_count']
+            }
+            await db.groups.insert_one(group)
+        
+        logger.info(f"Sincronizados {len(groups)} grupos para conexão {connection_id}")
+    except Exception as e:
+        logger.error(f"Erro ao sincronizar grupos: {e}")
+
+@api_router.post("/connections/{connection_id}/refresh-groups")
+async def refresh_groups(connection_id: str, user: dict = Depends(get_current_user)):
+    """Atualizar lista de grupos"""
+    query = {'id': connection_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    connection = await db.connections.find_one(query)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    await sync_groups(connection_id, user['id'])
+    groups = await db.groups.find({'connection_id': connection_id}, {'_id': 0}).to_list(1000)
+    return {'groups': groups, 'count': len(groups)}
 
 @api_router.post("/connections/{connection_id}/disconnect")
 async def disconnect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
@@ -417,12 +488,15 @@ async def disconnect_whatsapp(connection_id: str, user: dict = Depends(get_curre
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
+    try:
+        await whatsapp_request("POST", f"/connections/{connection_id}/disconnect")
+    except:
+        pass
+    
     await db.connections.update_one(
         {'id': connection_id},
-        {'$set': {'status': 'disconnected', 'qr_code': None, 'phone_number': None}}
+        {'$set': {'status': 'disconnected', 'qr_code': None, 'qr_image': None, 'phone_number': None}}
     )
-    
-    # Remove groups
     await db.groups.delete_many({'connection_id': connection_id})
     
     return {'status': 'disconnected'}
@@ -437,6 +511,11 @@ async def delete_connection(connection_id: str, user: dict = Depends(get_current
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
+    try:
+        await whatsapp_request("DELETE", f"/connections/{connection_id}")
+    except:
+        pass
+    
     await db.groups.delete_many({'connection_id': connection_id})
     
     return {'message': 'Conexão deletada'}
@@ -445,7 +524,6 @@ async def delete_connection(connection_id: str, user: dict = Depends(get_current
 
 @api_router.get("/connections/{connection_id}/groups", response_model=List[GroupResponse])
 async def list_groups(connection_id: str, user: dict = Depends(get_current_user)):
-    # Verify connection ownership
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -470,12 +548,10 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_cu
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
     
-    # Generate unique filename
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
     filename = f"{uuid.uuid4()}.{ext}"
     filepath = UPLOADS_DIR / filename
     
-    # Save file
     async with aiofiles.open(filepath, 'wb') as f:
         content = await file.read()
         await f.write(content)
@@ -508,7 +584,6 @@ async def delete_image(image_id: str, user: dict = Depends(get_current_user)):
     if not image:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
     
-    # Delete file
     filepath = UPLOADS_DIR / image['filename']
     if filepath.exists():
         filepath.unlink()
@@ -522,46 +597,140 @@ async def execute_campaign(campaign_id: str):
     """Execute campaign - send messages to groups"""
     campaign = await db.campaigns.find_one({'id': campaign_id})
     if not campaign:
-        logger.error(f"Campaign {campaign_id} not found")
+        logger.error(f"Campanha {campaign_id} não encontrada")
+        return
+    
+    if campaign['status'] == 'paused':
+        logger.info(f"Campanha {campaign_id} pausada, pulando execução")
         return
     
     await db.campaigns.update_one(
         {'id': campaign_id},
-        {'$set': {'status': 'running'}}
+        {'$set': {'status': 'running', 'last_run': datetime.now(timezone.utc).isoformat()}}
     )
     
     sent_count = 0
+    connection_id = campaign['connection_id']
+    
     try:
-        # In production, use whatsapp-web.js to send messages
-        # For now, simulate sending
-        import asyncio
+        # Get image if exists
+        image_base64 = None
+        if campaign.get('image_id'):
+            image = await db.images.find_one({'id': campaign['image_id']})
+            if image:
+                filepath = UPLOADS_DIR / image['filename']
+                if filepath.exists():
+                    async with aiofiles.open(filepath, 'rb') as f:
+                        content = await f.read()
+                        image_base64 = base64.b64encode(content).decode('utf-8')
         
         for group_id in campaign['group_ids']:
-            # Simulate sending
-            await asyncio.sleep(campaign['delay_seconds'])
-            sent_count += 1
-            
-            await db.campaigns.update_one(
-                {'id': campaign_id},
-                {'$set': {'sent_count': sent_count}}
-            )
+            try:
+                # Get actual group_id from our db
+                group = await db.groups.find_one({'id': group_id})
+                if not group:
+                    continue
+                
+                await whatsapp_request("POST", f"/connections/{connection_id}/send", {
+                    'groupId': group['group_id'],
+                    'message': campaign.get('message'),
+                    'imageBase64': image_base64,
+                    'caption': campaign.get('message') if image_base64 else None
+                })
+                
+                sent_count += 1
+                await db.campaigns.update_one(
+                    {'id': campaign_id},
+                    {'$set': {'sent_count': sent_count}}
+                )
+                
+                # Delay between messages
+                await asyncio.sleep(campaign['delay_seconds'])
+                
+            except Exception as e:
+                logger.error(f"Erro ao enviar para grupo {group_id}: {e}")
         
+        # Update status based on schedule type
+        new_status = 'completed' if campaign['schedule_type'] == 'once' else 'active'
         await db.campaigns.update_one(
             {'id': campaign_id},
-            {'$set': {'status': 'completed', 'sent_count': sent_count}}
+            {'$set': {'status': new_status, 'sent_count': sent_count}}
         )
-        logger.info(f"Campaign {campaign_id} completed. Sent to {sent_count} groups.")
+        
+        logger.info(f"Campanha {campaign_id} executada. Enviado para {sent_count} grupos.")
         
     except Exception as e:
-        logger.error(f"Campaign {campaign_id} failed: {str(e)}")
+        logger.error(f"Campanha {campaign_id} falhou: {str(e)}")
         await db.campaigns.update_one(
             {'id': campaign_id},
             {'$set': {'status': 'failed', 'error': str(e)}}
         )
 
+def schedule_campaign(campaign: dict):
+    """Schedule campaign based on type"""
+    campaign_id = campaign['id']
+    
+    # Remove existing jobs for this campaign
+    try:
+        scheduler.remove_job(campaign_id)
+    except:
+        pass
+    
+    if campaign['schedule_type'] == 'once':
+        # Single execution
+        scheduled_dt = datetime.fromisoformat(campaign['scheduled_time'].replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        
+        if scheduled_dt > now:
+            scheduler.add_job(
+                execute_campaign,
+                trigger=DateTrigger(run_date=scheduled_dt),
+                args=[campaign_id],
+                id=campaign_id
+            )
+            logger.info(f"Campanha {campaign_id} agendada para {scheduled_dt}")
+    
+    elif campaign['schedule_type'] == 'interval':
+        # Interval execution (every X hours)
+        hours = campaign.get('interval_hours', 1)
+        start_date = datetime.fromisoformat(campaign['start_date'].replace('Z', '+00:00')) if campaign.get('start_date') else datetime.now(timezone.utc)
+        end_date = datetime.fromisoformat(campaign['end_date'].replace('Z', '+00:00')) if campaign.get('end_date') else None
+        
+        scheduler.add_job(
+            execute_campaign,
+            trigger=IntervalTrigger(hours=hours, start_date=start_date, end_date=end_date),
+            args=[campaign_id],
+            id=campaign_id
+        )
+        logger.info(f"Campanha {campaign_id} agendada a cada {hours} horas")
+    
+    elif campaign['schedule_type'] == 'specific_times':
+        # Specific times daily
+        times = campaign.get('specific_times', [])
+        for i, time_str in enumerate(times):
+            hour, minute = map(int, time_str.split(':'))
+            job_id = f"{campaign_id}_time_{i}"
+            
+            try:
+                scheduler.remove_job(job_id)
+            except:
+                pass
+            
+            from apscheduler.triggers.cron import CronTrigger
+            start_date = datetime.fromisoformat(campaign['start_date'].replace('Z', '+00:00')) if campaign.get('start_date') else None
+            end_date = datetime.fromisoformat(campaign['end_date'].replace('Z', '+00:00')) if campaign.get('end_date') else None
+            
+            scheduler.add_job(
+                execute_campaign,
+                trigger=CronTrigger(hour=hour, minute=minute, start_date=start_date, end_date=end_date),
+                args=[campaign_id],
+                id=job_id
+            )
+        
+        logger.info(f"Campanha {campaign_id} agendada para horários: {times}")
+
 @api_router.post("/campaigns", response_model=CampaignResponse)
 async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
-    # Verify connection ownership
     query = {'id': data.connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -573,7 +742,6 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
     if connection['status'] != 'connected':
         raise HTTPException(status_code=400, detail="Conexão não está ativa")
     
-    # Get image URL if exists
     image_url = None
     if data.image_id:
         image = await db.images.find_one({'id': data.image_id})
@@ -589,11 +757,18 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
         'message': data.message,
         'image_id': data.image_id,
         'image_url': image_url,
+        'schedule_type': data.schedule_type,
         'scheduled_time': data.scheduled_time,
+        'interval_hours': data.interval_hours,
+        'specific_times': data.specific_times,
         'delay_seconds': data.delay_seconds,
+        'start_date': data.start_date,
+        'end_date': data.end_date,
         'status': 'pending',
         'sent_count': 0,
         'total_count': len(data.group_ids),
+        'last_run': None,
+        'next_run': None,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     
@@ -601,22 +776,20 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
     
     # Schedule the campaign
     try:
-        scheduled_dt = datetime.fromisoformat(data.scheduled_time.replace('Z', '+00:00'))
-        
-        # If scheduled time is in the past or within 1 minute, execute immediately
-        now = datetime.now(timezone.utc)
-        if scheduled_dt <= now + timedelta(minutes=1):
-            background_tasks.add_task(execute_campaign, campaign['id'])
+        if data.schedule_type == 'once':
+            scheduled_dt = datetime.fromisoformat(data.scheduled_time.replace('Z', '+00:00'))
+            now = datetime.now(timezone.utc)
+            
+            if scheduled_dt <= now + timedelta(minutes=1):
+                background_tasks.add_task(execute_campaign, campaign['id'])
+            else:
+                schedule_campaign(campaign)
         else:
-            scheduler.add_job(
-                execute_campaign,
-                trigger=DateTrigger(run_date=scheduled_dt),
-                args=[campaign['id']],
-                id=campaign['id']
-            )
+            schedule_campaign(campaign)
+            campaign['status'] = 'active'
+            await db.campaigns.update_one({'id': campaign['id']}, {'$set': {'status': 'active'}})
     except Exception as e:
-        logger.error(f"Error scheduling campaign: {str(e)}")
-        background_tasks.add_task(execute_campaign, campaign['id'])
+        logger.error(f"Erro ao agendar campanha: {str(e)}")
     
     return campaign
 
@@ -637,6 +810,38 @@ async def get_campaign(campaign_id: str, user: dict = Depends(get_current_user))
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     return campaign
 
+@api_router.post("/campaigns/{campaign_id}/pause")
+async def pause_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    campaign = await db.campaigns.find_one(query)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    try:
+        scheduler.remove_job(campaign_id)
+    except:
+        pass
+    
+    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'paused'}})
+    return {'status': 'paused'}
+
+@api_router.post("/campaigns/{campaign_id}/resume")
+async def resume_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    campaign = await db.campaigns.find_one(query, {'_id': 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    schedule_campaign(campaign)
+    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'active'}})
+    return {'status': 'active'}
+
 @api_router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
     query = {'id': campaign_id}
@@ -647,12 +852,16 @@ async def delete_campaign(campaign_id: str, user: dict = Depends(get_current_use
     if not campaign:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
-    # Cancel scheduled job if pending
-    if campaign['status'] == 'pending':
-        try:
-            scheduler.remove_job(campaign_id)
-        except:
-            pass
+    try:
+        scheduler.remove_job(campaign_id)
+        # Remove specific time jobs
+        for i in range(10):
+            try:
+                scheduler.remove_job(f"{campaign_id}_time_{i}")
+            except:
+                pass
+    except:
+        pass
     
     await db.campaigns.delete_one({'id': campaign_id})
     return {'message': 'Campanha deletada'}
@@ -666,11 +875,10 @@ async def get_dashboard_stats(user: dict = Depends(get_current_user)):
     total_connections = await db.connections.count_documents(query)
     active_connections = await db.connections.count_documents({**query, 'status': 'connected'})
     total_campaigns = await db.campaigns.count_documents(query)
-    pending_campaigns = await db.campaigns.count_documents({**query, 'status': 'pending'})
+    pending_campaigns = await db.campaigns.count_documents({**query, 'status': {'$in': ['pending', 'active']}})
     completed_campaigns = await db.campaigns.count_documents({**query, 'status': 'completed'})
     total_groups = await db.groups.count_documents(query)
     
-    # Calculate total messages sent
     pipeline = [
         {'$match': query},
         {'$group': {'_id': None, 'total': {'$sum': '$sent_count'}}}
@@ -698,7 +906,6 @@ async def get_admin_stats(admin: dict = Depends(get_admin_user)):
     active_connections = await db.connections.count_documents({'status': 'connected'})
     total_campaigns = await db.campaigns.count_documents({})
     
-    # Get recent campaigns
     recent_campaigns = await db.campaigns.find({}, {'_id': 0}).sort('created_at', -1).limit(10).to_list(10)
     
     return {
@@ -732,11 +939,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    # Start scheduler
     scheduler.start()
-    logger.info("Scheduler started")
+    logger.info("Scheduler iniciado")
     
-    # Create admin user if not exists
     admin = await db.users.find_one({'username': 'admin'})
     if not admin:
         admin_user = {
@@ -749,7 +954,15 @@ async def startup_event():
             'created_at': datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(admin_user)
-        logger.info("Admin user created: admin / admin123")
+        logger.info("Usuário admin criado: admin / admin123")
+    
+    # Reload active campaigns
+    active_campaigns = await db.campaigns.find({'status': {'$in': ['active', 'pending']}}, {'_id': 0}).to_list(1000)
+    for campaign in active_campaigns:
+        try:
+            schedule_campaign(campaign)
+        except Exception as e:
+            logger.error(f"Erro ao recarregar campanha {campaign['id']}: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
