@@ -319,7 +319,7 @@ export default function CreateCampaignPage() {
                       <SelectValue placeholder="Selecione uma imagem" />
                     </SelectTrigger>
                     <SelectContent className="glass-card border-white/10">
-                      <SelectItem value="">Sem imagem</SelectItem>
+                      <SelectItem value="none">Sem imagem</SelectItem>
                       {images.map((img) => (
                         <SelectItem key={img.id} value={img.id}>
                           {img.original_name || img.filename}
