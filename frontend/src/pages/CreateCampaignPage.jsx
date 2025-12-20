@@ -270,23 +270,34 @@ export default function CreateCampaignPage() {
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                {groups.map((group) => (
-                  <div
-                    key={group.id}
-                    onClick={() => toggleGroup(group.id)}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
-                      selectedGroups.includes(group.id)
-                        ? 'bg-primary/15 border border-primary/30'
-                        : 'bg-background/30 border border-transparent hover:border-white/10'
-                    }`}
-                  >
-                    <Checkbox checked={selectedGroups.includes(group.id)} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{group.name}</p>
-                      <p className="text-xs text-muted-foreground">{group.participants_count} participantes</p>
+                {groups.map((group) => {
+                  const isSelected = selectedGroups.includes(group.id);
+                  return (
+                    <div
+                      key={group.id}
+                      onClick={() => toggleGroup(group.id)}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-primary/15 border border-primary/30'
+                          : 'bg-muted/30 border border-transparent hover:border-border'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{group.name}</p>
+                        <p className="text-xs text-muted-foreground">{group.participants_count} participantes</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
