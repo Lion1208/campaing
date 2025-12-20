@@ -1,230 +1,244 @@
 <analysis>**original_problem_statement:**
-O usuário descartou os requisitos anteriores e forneceu uma nova lista de prioridades. O objetivo principal é refinar e expandir um sistema SaaS de campanhas de WhatsApp, focando nos seguintes pontos:
+O usuário solicitou uma série de melhorias e correções em um sistema SaaS de campanhas de WhatsApp. As solicitações mais recentes, que se tornaram a prioridade, incluem:
 
 **PRODUCT REQUIREMENTS:**
-- **UI/UX e Correções:**
-    - Corrigir o botão Editar Campanha que não está funcionando.
-    - Implementar a funcionalidade de alterar nome de usuário e senha (com confirmação de senha).
-    - Renomear Painel para Dashboard no menu.
-    - Remover as credenciais de login que estavam visíveis na página de login.
-    - Corrigir o preview da imagem da campanha, que não aparece após salvar. O agente deve carregar a imagem como um arquivo/blob, não por um link direto que é bloqueado.
-    - Melhorar o fundo da Dashboard, que está  horrível. O usuário quer um fundo de partículas, sem as luzes atuais, unificando a área do cabeçalho e as estatísticas.
-    - Na página de edição de campanha, as variações de mensagem/imagem devem começar fechadas (colapsadas) para não poluir a tela.
-    - Adicionar paginação às telas de usuários, revendedores e campanhas.
-
+- **Bugs e UI/UX:**
+    - Corrigir a animação do background da Dashboard, que não estava funcionando.
+    - Corrigir um erro grave na conexão com o WhatsApp onde a sessão era perdida após o reinício do backend, forçando o usuário a re-sincronizar grupos.
+    - Corrigir um erro de  no React que ocorria ao fazer login em produção, possivelmente devido à tradução automática do navegador.
+    - Corrigir um erro de cálculo no temporizador de contagem regressiva da campanha quando o tipo de agendamento era alterado (ex: de intervalo para horários específicos).
+    - Corrigir a exibição de um  extra na tela de edição de campanha.
+    - Corrigir o problema de imagens com o mesmo nome que causavam conflitos no upload.
+    - Corrigir o preview de imagens em campanhas: imagens selecionadas da página Mídias não apareciam no preview.
+    - Corrigir um erro crítico (503 Service Unavailable) que impedia a conexão com o WhatsApp no ambiente de produção.
 - **Novas Funcionalidades:**
-    - **Histórico de Ações:** Criar uma página de histórico separada que registre criações, edições, exclusões e alterações de crédito, mostrando quem fez a ação, o usuário afetado, o horário e a ação.
-    - **Templates:** Criar uma aba Templates no menu para mensagens pré-prontas, com CRUD completo para o admin.
-    - **Gerenciamento de Usuários:** Criar uma página Usuários para o admin visualizar todos os usuários do sistema.
-    - **Cadastro:** Adicionar uma funcionalidade de Cadastrar na tela de login (usuário, senha, repetir senha) para que novos usuários se registrem na rede do admin.
-    - **Mídias:** Criar uma página de Mídias onde os usuários possam ver, excluir e substituir as imagens que subiram.
-
-- **Sistema de Revendedores e Créditos:**
-    - Implementar um sistema de créditos. Revendedores Master podem criar outros revendedores. Revendedores normais não podem.
-    - Para criar/renovar um revendedor por 1 mês, um Master precisa gastar 1 crédito. A dedução deve ser imediata.
-    - O saldo de créditos do Master/Admin deve ser visível na barra de navegação. Admin tem créditos infinitos (∞).
-
-- **Funcionalidades de Campanha:**
-    - Na criação/edição, permitir adicionar múltiplas mensagens/imagens variadas. O sistema deve enviar uma variação aleatória a cada disparo.
-    - No preview da campanha na listagem, se houver múltiplas variações, alternar entre elas a cada 5 segundos com animação.
-    - O timer de próximo envio deve ser exibido em contagem regressiva em tempo real.
-    - O status da campanha (tempo de pausa, etc.) deve persistir mesmo que o backend reinicie.
-
-- **Dashboard:**
-    - Mostrar a contagem de revendedores.
-    - Exibir o número de dispositivos conectados (ex: 1/2).
-    - Mostrar envios feitos hoje e na semana.
-    - Adicionar um gráfico de envios por dia, comparando com os últimos 7 ou 30 dias, com um filtro para alternar o período.
+    - Fazer com que novos usuários cadastrados pelo formulário de login venham com o status bloqueado (), necessitando de liberação manual pelo admin.
+    - Implementar um sistema de lembrar usuário na tela de login, salvando o username no .
+    - Padronizar o tamanho do preview das variações de mensagens na página de edição de campanha.
+    - Melhorar o seletor de horários na edição de campanha para um sistema de seleção múltipla (grid de horários).
+    - Implementar uma funcionalidade de teste de 24 horas para revendedores que nunca utilizaram.
+    - Implementar um fluxo para usuários bloqueados/expirados: ao logar, devem ser redirecionados para uma tela de bloqueio e ter suas sessões do WhatsApp desconectadas automaticamente.
+    - Ao renovar ou liberar um teste para um cliente, gerar um comprovante em uma janela flutuante com texto copiável.
+    - Mudar as meta tags (Open Graph) do site para remover a marca Emergent e usar a marca NexuZap.
+    - Criar uma página de logs no sistema, visível apenas para o admin, para ajudar a diagnosticar problemas de produção.
+- **Tradução:**
+    - Traduzir completamente a tela de login para Português (pt-BR).
 
 **User's preferred language**: Portuguese (pt-BR)
 
 **what currently exists?**
-A aplicação foi significativamente expandida. A maioria das funcionalidades solicitadas pelo usuário foram implementadas, embora algumas necessitem de correção.
-- **Backend**: Os endpoints para as novas entidades (Templates, Histórico, Mídia), sistema de créditos, roles de usuário (admin, master, reseller), estatísticas do dashboard e cadastro de usuário foram criados em . A lógica da campanha foi atualizada para suportar múltiplas mensagens e persistência de estado. Um novo endpoint seguro () foi criado para servir imagens.
-- **Frontend**: Foram criadas novas páginas: , , ,  (atualizada), , e . O  foi totalmente redesenhado para incluir estatísticas e um novo fundo animado (que o usuário não gostou). A  agora inclui um formulário de cadastro. As páginas  e  foram atualizadas para permitir múltiplas variações de mensagem/imagem. O menu lateral foi atualizado com as novas páginas e para exibir os créditos.
+A aplicação possui um backend em FastAPI e um frontend em React. A maioria das funcionalidades de UI/UX solicitadas pelo usuário foi implementada, incluindo o novo seletor de horários, o fluxo para usuários bloqueados, o sistema de teste para revendedores e as melhorias na tela de login. O backend foi atualizado para suportar essas funcionalidades, e o problema de nomenclatura de imagens foi resolvido usando um timestamp + UUID.
+
+O problema mais crítico, a falha de conexão com o WhatsApp em produção (erro 503), foi diagnosticado. O agente criou um endpoint de depuração () que revelou que o ambiente de produção não possui Node.js instalado, tornando o microserviço de WhatsApp baseado em Node.js/Baileys inoperante. Com a aprovação do usuário, o próximo passo é migrar essa funcionalidade para uma biblioteca Python.
 
 **Last working item**:
-    - Last item agent was working: O agente estava respondendo ao último feedback do usuário (mensagem #291), que apontava problemas no design da Dashboard, no preview de imagem na página de edição e pedia melhorias de UX na tela de edição de campanha.
+    - Last item agent was working: O agente obteve a confirmação do usuário para iniciar a migração do serviço de WhatsApp, que atualmente usa Node.js e Baileys, para uma solução puramente em Python usando a biblioteca . Esta é uma resposta direta à descoberta de que o ambiente de produção não tem Node.js instalado, o que é a causa raiz do erro 503 que impede a conexão com o WhatsApp.
     - Status: NOT STARTED
     - Agent Testing Done: N
-    - Which testing method agent to use? frontend
+    - Which testing method agent to use? both
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Preview da imagem não funciona na página de edição de campanha (P0)
-  - Issue 2: O fundo da Dashboard é horrível e precisa ser refeito (P1)
-  - Issue 3: Faltou implementar a animação de preview para campanhas com múltiplas mensagens/imagens (P1)
-  - Issue 4: A seção de variações na edição de campanha deve ser colapsada por padrão (P2)
+  - Issue 1: Serviço de WhatsApp falha em produção com erro 503 (P0)
+  - Issue 2: Preview de imagem não funciona para mídias selecionadas (P2)
+  - Issue 3: A página de Logs não exibe logs em produção (P3)
   
   Issues Detail:
   - Issue 1: 
-     - **Description**: Na página , o preview da imagem de uma campanha existente não é exibido. O agente já implementou um endpoint () e alterou a página de listagem () para usá-lo, mas a página de edição () ainda não foi corrigida.
-     - **Next debug checklist**:
-        - Modificar o  para buscar a imagem através do endpoint  da mesma forma que foi feito no  (usando  e ).
-     - **Why fix this issue and what will be achieved with the fix?**: Essencial para a usabilidade, permitindo que o usuário veja qual imagem está editando.
-     - **Status**:  NOT STARTED
+     - **Description**: O serviço de WhatsApp, escrito em Node.js, não funciona no ambiente de produção, retornando um erro 503 (Service Unavailable). A comunicação entre o backend Python e o serviço Node.js falha porque o  não resolve corretamente e, mais importante, o container de produção não possui Node.js.
+     - **Attempted fixes**: 
+        - Alterar a URL do serviço de  para . Falhou.
+        - Tentar iniciar o serviço Node.js como um subprocesso a partir do backend Python. Falhou.
+        - Criar um endpoint de diagnóstico que confirmou a ausência do Node.js no ambiente de produção.
+     - **Next debug checklist**: A correção não é um debug, mas uma migração de tecnologia. O trabalho deve começar na tarefa Migrate WhatsApp service from Node.js to Python.
+     - **Why fix this issue and what will be achieved with the fix?**: Esta é a funcionalidade principal do aplicativo. Corrigi-la tornará a aplicação utilizável em produção.
+     - **Status**:  BLOCKED
      - **Is recurring issue?** Y
-     - **Should Test frontend/backend/both after fix?** frontend
-     - **Blocked on other issue**: None
+     - **Should Test frontend/backend/both after fix?** both
+     - **Blocked on other issue**: Não, esta é a principal issue bloqueadora.
   - Issue 2: 
-     - **Description**: O usuário detestou o novo fundo animado da Dashboard. Ele pediu algo com partículas, super foda, e sem as luzes atuais, que considerou ridículas. O layout também deve ser unificado.
-     - **Next debug checklist**:
-        - Pesquisar uma biblioteca de animação de partículas para React (ex: , ).
-        - Refatorar  para remover a animação CSS atual e implementar a nova biblioteca de partículas.
-        - Ajustar o layout do card para unificar o cabeçalho e as estatísticas, com o novo fundo de partículas por trás.
-     - **Why fix this issue and what will be achieved with the fix?**: Atende a uma forte demanda de design do usuário, melhorando a estética da página principal.
+     - **Description**: O usuário relatou que imagens enviadas pela página Mídias não aparecem no preview ao serem selecionadas na página de criação/edição de campanha.
+     - **Attempted fixes**: O agente inspecionou o código e adicionou logs, mas o problema não foi verificado como resolvido.
+     - **Next debug checklist**: 
+        - Em , verificar a função  e a chamada de rede correspondente no browser ao selecionar uma imagem da biblioteca.
+        - Garantir que o endpoint  esteja servindo a imagem corretamente, independentemente de onde ela foi carregada.
+     - **Why fix this issue and what will be achieved with the fix?**: Melhora a usabilidade e consistência da gestão de mídias.
      - **Status**:  NOT STARTED
      - **Is recurring issue?** N
      - **Should Test frontend/backend/both after fix?** frontend
      - **Blocked on other issue**: None
   - Issue 3: 
-     - **Description**: Na página de listagem de campanhas (), o preview de campanhas com múltiplas imagens/mensagens não está animado. O usuário solicitou que as variações alternem a cada 5 segundos.
-     - **Next debug checklist**:
-        - Em , dentro do card da campanha, usar um  com  para ciclar entre os itens do array .
-        - Atualizar um estado local () para renderizar a imagem e texto correspondentes.
-        - Adicionar animações de transição (fade in/out) usando CSS ou uma biblioteca como .
-     - **Why fix this issue and what will be achieved with the fix?**: Implementa um requisito de UX solicitado pelo usuário, tornando a interface mais dinâmica.
+     - **Description**: A página de logs criada para depuração não exibe informações no ambiente de produção, de acordo com o usuário.
+     - **Attempted fixes**: Nenhuma.
+     - **Next debug checklist**: 
+        - Verificar se os caminhos dos arquivos de log (ex: ) são os mesmos no ambiente de produção.
+        - O problema pode estar relacionado a permissões de arquivo no container de produção.
+        - Este problema tem baixa prioridade, pois a causa raiz do problema do WhatsApp foi encontrada por outros meios.
+     - **Why fix this issue and what will be achieved with the fix?**: Forneceria uma ferramenta de diagnóstico útil para futuros problemas em produção.
      - **Status**:  NOT STARTED
      - **Is recurring issue?** N
-     - **Should Test frontend/backend/both after fix?** frontend
-     - **Blocked on other issue**: None
-  - Issue 4: 
-     - **Description**: Na página de edição de campanha, quando há múltiplas variações de mensagem, todas são exibidas abertas, poluindo a interface. O usuário quer que elas comecem fechadas.
-     - **Next debug checklist**:
-        - Em , usar um componente de Accordion (Acordeão) da biblioteca .
-        - Envolver cada formulário de variação de mensagem em um .
-        - Configurar o  para permitir que múltiplos itens sejam abertos, mas que iniciem fechados.
-     - **Why fix this issue and what will be achieved with the fix?**: Melhora a organização e a usabilidade de um formulário que pode se tornar complexo.
-     - **Status**:  NOT STARTED
-     - **Is recurring issue?** N
-     - **Should Test frontend/backend/both after fix?** frontend
+     - **Should Test frontend/backend/both after fix?** backend
      - **Blocked on other issue**: None
 
 **In progress Task List**:
-  - N/A
+  - Task 1:  Migrate WhatsApp service from Node.js to Python (P0)
+
+ Task Detail:
+  - Task 1: 
+     - **Where to resume**: 
+        1. Instalar a biblioteca  no ambiente backend (Looking in indexes: https://pypi.org/simple, https://d33sy5i8bnduwe.cloudfront.net/simple/
+Requirement already satisfied: neonize in /root/.venv/lib/python3.11/site-packages (0.3.12)
+Requirement already satisfied: httpx>=0.28.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.28.1)
+Requirement already satisfied: linkpreview>=0.11.0 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.12.1)
+Requirement already satisfied: phonenumbers>=8.13.52 in /root/.venv/lib/python3.11/site-packages (from neonize) (9.0.21)
+Requirement already satisfied: pillow>=11.1.0 in /root/.venv/lib/python3.11/site-packages (from neonize) (12.0.0)
+Requirement already satisfied: protobuf==6.32.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (6.32.1)
+Requirement already satisfied: python-magic>=0.4.27 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.4.27)
+Requirement already satisfied: requests>=2.32.3 in /root/.venv/lib/python3.11/site-packages (from neonize) (2.32.5)
+Requirement already satisfied: segno>=1.6.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (1.6.6)
+Requirement already satisfied: tqdm>=4.67.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (4.67.1)
+Requirement already satisfied: anyio in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (4.12.0)
+Requirement already satisfied: certifi in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (2025.11.12)
+Requirement already satisfied: httpcore==1.* in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (1.0.9)
+Requirement already satisfied: idna in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (3.11)
+Requirement already satisfied: h11>=0.16 in /root/.venv/lib/python3.11/site-packages (from httpcore==1.*->httpx>=0.28.1->neonize) (0.16.0)
+Requirement already satisfied: beautifulsoup4>=4.4.0 in /root/.venv/lib/python3.11/site-packages (from linkpreview>=0.11.0->neonize) (4.14.3)
+Requirement already satisfied: soupsieve>=1.6.1 in /root/.venv/lib/python3.11/site-packages (from beautifulsoup4>=4.4.0->linkpreview>=0.11.0->neonize) (2.8.1)
+Requirement already satisfied: typing-extensions>=4.0.0 in /root/.venv/lib/python3.11/site-packages (from beautifulsoup4>=4.4.0->linkpreview>=0.11.0->neonize) (4.15.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in /root/.venv/lib/python3.11/site-packages (from requests>=2.32.3->neonize) (3.4.4)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /root/.venv/lib/python3.11/site-packages (from requests>=2.32.3->neonize) (2.6.1)).
+        2. Criar um novo módulo Python (ex: ) para conter toda a lógica de conexão, envio de QR code, gerenciamento de sessão e envio de mensagens, replicando a funcionalidade do  atual.
+        3. Integrar este novo módulo em , substituindo todas as chamadas  para o antigo serviço Node.js por chamadas diretas às funções do novo módulo Python.
+     - **What will be achieved with this?**: Isso resolverá o bloqueador crítico de produção, eliminando a dependência do Node.js e permitindo que a funcionalidade do WhatsApp opere dentro do mesmo processo do backend FastAPI.
+     - **Status**:  NOT STARTED
+     - **Should Test frontend/backend/both after fix?** both
+     - **Blocked on something**: None. Esta é a tarefa principal.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - (P1) Implementar paginação nas páginas  e .
-    - (P2) Investigar e resolver a causa raiz do erro recorrente , que pode ressurgir com as novas funcionalidades.
-    - (P2) Realizar um teste completo de regressão após as próximas correções para garantir que as funcionalidades de campanha (pausa/resume com persistência, timer, etc.) ainda funcionam.
+    - (P2) Implementar paginação nas páginas  e , conforme solicitado no handoff inicial.
+    - (P2) Exibir o nome do arquivo na página Mídias. O agente perguntou ao usuário como ele gostaria que os nomes fossem exibidos (original, único ou ambos), mas a implementação está pendente da resposta ou de uma decisão.
     
     Future Tasks:
-    - (P3) Melhorar o sistema de gestão de revendedores com funcionalidades mais avançadas, se solicitado pelo usuário.
+    - (P3) Investigar e resolver a causa raiz do erro recorrente  no React, que é uma dívida técnica conhecida.
 
 **Completed work in this session**
-- **Sistema de Usuários e Créditos**:
-  - Endpoint de cadastro () e tela de registro no frontend.
-  - Lógica de créditos para revendedores  e  com crédito infinito (∞) implementada no backend e refletida na UI.
-  - Distinção de roles (, , ) no backend.
-  - Página de perfil () para alteração de nome de usuário e senha.
-  - Página de gerenciamento .
-
-- **Funcionalidades de Campanha**:
-  - Suporte para múltiplas mensagens/imagens variadas por campanha, com envio aleatório no backend ().
-  - UI em  e  para adicionar/remover variações.
-  - Persistência do estado de pausa (, ) no MongoDB.
-  - Endpoint seguro () para servir imagens, evitando acesso direto por URL.
-  - Correção parcial do preview de imagem na listagem de campanhas.
-
-- **Novas Páginas e UI**:
-  - Criação da página  com CRUD de templates.
-  - Criação da página  para o log de atividades.
-  - Criação da página  para gerenciamento de mídias do usuário.
-  - Redesenho completo da  para incluir cartões de estatísticas, gráficos e filtro de período (7/30 dias).
-  - Atualização do menu lateral com as novas páginas (, , ).
+- **Diagnóstico e Planejamento Crítico**:
+  - Identificada a causa raiz da falha do serviço WhatsApp em produção: a ausência de Node.js no container.
+  - Obtida a aprovação do usuário para a migração estratégica do serviço de Node.js para Python ().
+- **Melhorias de Autenticação e UX**:
+  - Implementado o recurso Lembrar Usuário na tela de login usando .
+  - Criada uma página e um fluxo de redirecionamento para usuários bloqueados ou com assinatura expirada.
+  - Novos usuários registrados agora são criados como inativos () por padrão.
+- **Funcionalidades de Revendedor**:
+  - Adicionado um botão para conceder um Teste de 24 horas.
+  - Implementado um modal de Comprovante copiável para renovações e liberações de teste.
+- **UI de Campanhas**:
+  - Padronizado o tamanho dos previews de variação de mensagem na página de edição.
+  - Substituído o seletor de tempo por uma grade de seleção de horários mais intuitiva.
+  - Corrigido um bug de cálculo de timer quando o tipo de agendamento da campanha era alterado.
+- **Backend e Infraestrutura**:
+  - Corrigido o problema de CORS para o domínio de produção ().
+  - Implementado o renomeamento de arquivos de imagem no upload com  para evitar conflitos.
+  - Criada uma página de Logs () e um endpoint de diagnóstico ().
+- **Branding e Traduções**:
+  - Removida a marca Emergent dos meta tags do site e do .
+  - Concluída a tradução da página de login para Português (pt-BR).
 
 **Earlier issues found/mentioned but not fixed**
-   - **Issue 1**: Loop de renderização () no React. Embora o agente não tenha encontrado o erro nesta sessão, ele é recorrente e sua causa raiz no gerenciamento de estado (Zustand/useEffect) provavelmente não foi tratada.
-   - **Issue 2**: Cores de texto inadequadas em tema escuro. O usuário não mencionou isso recentemente, mas como era um problema recorrente, pode ressurgir em novos componentes.
+   - **Issue 1**: Loop de renderização () no React. Este é um problema recorrente de uma fork anterior, indicando uma dívida técnica no gerenciamento de estado do frontend. Embora não tenha ocorrido nesta sessão, a causa raiz não foi tratada.
+   - **Status**: NOT STARTED
 
 **Known issue recurrence from previous fork**
   - **Issue recurrence in previous fork**: Erro .
-  - **Recurrence count**: Pelo menos 2 vezes na fork anterior.
-  - **Status**: NOT STARTED (o problema não ocorreu nesta sessão, mas a causa raiz não foi investigada).
+  - **Recurrence count**: Pelo menos 2.
+  - **Status**: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend**: React, Tailwind CSS, Zustand, Recharts (para gráficos). Uso de  para preview de imagem local e  com token para carregar imagens de forma segura.
-- **Backend**: FastAPI, JWT, Motor (MongoDB driver), APScheduler (para agendamento). Servindo arquivos estáticos de forma segura via endpoint de API.
+- **Frontend**: React, Tailwind CSS, Zustand, Recharts.
+- **Backend**: FastAPI, Motor (MongoDB driver), JWT.
 - **Database**: MongoDB.
-- **Arquitetura**: Microsserviços (Python/FastAPI, Node/Baileys) gerenciados pelo Supervisor.
+- **Diagnóstico de Produção**: Uso de um endpoint de API () para inspecionar o ambiente de produção e identificar a ausência de dependências (Node.js).
+- **Próxima Tecnologia**: **** (Python) para substituir Baileys (Node.js) para a integração com o WhatsApp.
 
 **key DB schema**
-  - : { , ,  ('admin', 'master', 'reseller'), ,  }
-  - : { , : List[{, }], root, , , , , , , , ,  }
-  - : { uid=0(root) gid=0(root) groups=0(root), ,  }
-  - : { uid=0(root) gid=0(root) groups=0(root), ,  }
-  - : { uid=0(root) gid=0(root) groups=0(root), , , , ,  }
-  - : { uid=0(root) gid=0(root) groups=0(root), , ,  }
+  - : Adicionados campos , , .
+  - : Lógica de  refinada para limpar campos obsoletos na edição.
+  - : Adicionado  para rastrear o nome do arquivo original do usuário.
 
 **changes in tech stack**
-  - Nenhuma mudança na stack, mas a lógica de tratamento de imagens foi alterada de links de URL diretos para um endpoint de API seguro para servir os arquivos.
+  - **Planejado**: Migração completa do serviço de WhatsApp, abandonando o microserviço em Node.js/Baileys em favor de uma integração direta no backend Python com a biblioteca .
 
 **All files of reference**
-1.  : Massivamente atualizado com todos os novos endpoints e lógica de negócios.
-2.  : Atualizado com as novas rotas, itens de menu e lógica de exibição de créditos.
-3.  : Totalmente reescrito, precisa de revisão de design.
-4.  : Modificado para usar o novo endpoint de imagem e para exibir o botão de edição.
-5.  : Precisa de correção no preview da imagem e melhoria de UX (acordeão).
-6.  : Atualizado para suportar múltiplas mensagens.
-7.  : Atualizado para incluir o formulário de registro.
-8.  : Página recém-criada para gerenciamento de imagens.
-9.  : Página recém-criada para log de atividades.
+- : Massivamente modificado para novas funcionalidades, correções de bugs e o diagnóstico do problema de produção. Será o centro da próxima migração.
+- : UI refeita com lembrar usuário e tradução completa.
+- : Adicionadas funcionalidades de teste e comprovante.
+- : UI/UX significativamente melhorada (seletor de horário, preview padronizado).
+- : Mesmas melhorias da página de edição.
+- : Adicionadas rotas para  e , e lógica de proteção.
+- : Atualizado para lidar com o estado de usuário bloqueado/expirado.
+- : Novo arquivo para a tela de acesso negado.
+- : Novo arquivo para a tela de depuração de logs.
+- : Atualizado para remover branding e melhorar o SEO/compartilhamento.
+- : Arquivo a ser depreciado após a migração para Python.
 
 **Areas that need refactoring**:
-- : O design e a animação precisam ser completamente refeitos conforme o feedback do usuário.
-- : A seção de variações de mensagens deve ser refatorada para usar um componente de acordeão para melhor UX.
-- Gerenciamento de estado no frontend: A causa raiz do erro  ainda precisa ser identificada e corrigida para evitar problemas futuros de performance.
+- **Toda a integração com o WhatsApp**: Precisa ser refatorada do microserviço Node.js para uma solução integrada em Python ().
+- **Gerenciamento de Estado do Frontend**: A existência do bug recorrente  sugere a necessidade de uma revisão nas práticas de uso de  e .
 
 **key api endpoints**
--  (NOVO)
--  (NOVO)
--  (NOVO)
--  (CRUD para gestão de usuários/revendedores)
--  (CRUD para templates) (NOVO)
--  (NOVO)
--  (NOVO)
--  (CRUD para mídias) (NOVO)
--  (NOVO - para servir imagens)
+- **Novos**:
+  - 
+  - 
+  -  (e sub-rotas para serviços específicos)
+  -  (endpoint de diagnóstico)
+- **Atualizados**:
+  - : Agora retorna erros específicos para usuários bloqueados/expirados.
+  - : Agora cria usuários como inativos.
+  -  (PUT): Limpa campos de agendamento antigos ao mudar o tipo.
+  - : Renomeia arquivos com timestamp e UUID.
 
 **Critical Info for New Agent**
-- **Prioridade Máxima**: Foque imediatamente no último feedback do usuário (mensagem #291). A correção do preview da imagem e o redesenho da dashboard são as tarefas mais urgentes.
-- **Preview de Imagem**: O problema do preview que não carrega é crítico para o usuário. A solução é parar de usar links diretos () no frontend. Em vez disso, use o endpoint seguro  que o agente anterior criou. A imagem deve ser buscada com um  incluindo o token de autenticação e depois exibida usando um Blob URL (). Esta correção já foi aplicada em  e precisa ser replicada em .
-- **Feedback de Design**: O usuário é muito específico e crítico em relação ao design. Não hesite em usar bibliotecas de terceiros (como ) para atender às suas expectativas de algo super foda.
-- **Erro Recorrente**: Esteja atento ao erro . Ele é um sintoma de problemas no gerenciamento de estado do React. Qualquer nova funcionalidade interativa deve ser testada cuidadosamente para não acionar este bug.
+- **PRIORIDADE MÁXIMA**: A tarefa mais crítica é migrar o serviço de WhatsApp de Node.js para Python usando . O ambiente de produção **NÃO** tem Node.js, e qualquer tentativa de consertar o serviço Node.js será inútil. Comece a migração imediatamente, conforme acordado com o usuário.
+- **Não tente depurar o serviço Node.js**: O problema não é o código do serviço, mas a ausência de seu runtime (Node.js) em produção. O diagnóstico já está completo.
+- **O usuário é técnico**: O usuário entende os problemas e participa das decisões técnicas (como a aprovação da migração para Python). Comunique-se de forma clara e direta.
 
 **documents and test_reports created in this job**
-  - N/A
+- N/A
 
 **Last 10 User Messages and any pending HUMAN messages**
-- : PERFEITOOO. Vamos agora em /campaigns mostra o preview, só tá sem a animação pra variações. E o /campaigns/edit/ n ta mostrando o preview ainda. O backrgound que vc fez no ngc da dashboard ficou HORRIVEL. Eu quero só particulas, algo super foda mesmo. sem luzes, pq ficou bem ridiculo. E as variações na edição, deixa fechado...o usuario seleciona a variação e dai ela abre, se n fica muita coisa aberta sem necessidade.
-- : Agora achei o erro, quando eu subo uma imagem nova, ele aparece o preview na hora. Mas quando eu salvo, ele n mostra a imagem. Isso ocorre pq vc esta chamando com link e assim n funciona, tem que chamar como arquivo pq já está ai nos arquivos. Outra coisa, cria no menu lateral uma opção de midias, pra quem subiu as imagens ver suas proprias imagens lá, poder excluir, editar(subir outra no lugar) e etc. Com paginação. E pro admin, coloca a informação infinito nos creditos, pq admin n gasta
-- : O preview da campanha continua não aparecendo. A Dashboard, o background que eu mencionei deve ser 1 só pros 4. Não o mesmo pra cada. É unidicar tudo, o Dashboard, o olá, username. E as parads de baixo tudo dentro de um card só e o background atrás. Só que mais bonito pq esse background ai tá feioso. E mesmo que o backend reinicie ou aconteça algo, sempre tem que manter o tempo intacto. E a opção de editar campanha sumiu...
-- : O preview vc tá puxando assim, n deve puxar por link, vc deve puxar como arquivo porra, por isso o preview n abre, a plataforma quando acessa o link cai na dashboard porra. Lá em login cria o cadastrar. Cadastrar usuario, senha, repetir senha, e pronto. Se cadastra na rede do admin. Na dashboard, muda pra mostrar também a quantidade de revendedores. Essa primeira ala deixa animada, bem bonita com particulas no background e etc. Bem foda msm. Só essas primeiras coisas do dashboard. E coloca o filtro de 7 dias / 30 dias. Que mudam as metricas que mencionearei abaixo com base no filtro. Abaixo mostra dispositivos x/x. Exemplo, 1/2 - 1 de 2. Envios feitos hoje, e da semana também. Envios por dia com grafico comparando com os ultimos 7 ou 30 dias. O historico deve ser uma pagina separada mostrando criação, edição, exclusão. aAdição ou remoção de creditos de revendas. Quem fez, quem foi o usuario, horario e ação. Pra todos os usuarios abaixo do usuario que está olhando.
-- : O preview n funciona ainda. Eu subi o arquivo, n um link. Deveria funcionar pq já tá ai. E oq eu solicitei de na criação/edição poder adicionar mensagens/image4ns variadas pra mesma campanha, pra se tiver mais de 1, ele enviar as mensagens de forma aleatoria, pra n ser sempre a mesma mensagem/imagem, vc n criou isso.
-- : NÃO É PRA TESTAR, DEIXA QUE EU TESTO! Tudo parece que funciona. Admin deve ter credito infinito e nunca deduzir em nada. Corrige isso. E em campanhas n tá aparecendo o tempo do proximo envio diminuindo. Nem o preview da imagem. Nem quando eu edito ou crio uma nova e subo a imagem aparece o preview. Ai quando crio, lá onde aparece o preview de tudo, também n aparece o preview da imagem.
-- : Exatamente. A tela de usuario, revendas e campanhas, coloca com paginação pra n ficar uma pagina infinica pra baixo. Creditos adiciona na navbar pro usuario (master e admin) sempre saber quanto tem. Só abre revenda se tiver credito, só renova se tiver credito. E deduz do saldo na hora da criação/renovação. Pode começar tudo. Remove o usuario e senha que tá visivel lá no login também. No momento sem gateway de pagamentos automatizados
-- : Esquece tudo isso. Foca em corrigir estes pontos: No menu lateral cria o historico com as ultimas ações feitas no painel, criação, exclusão e etc de revenda. Na campanha quando clica em editar ele n abre pra editar. Cria uma função onde eu consiga alterar meu nome de usuario e senha. Pra mudar a senha precisamos confirmar a senha. Algo supre profissional msm. Muda Painel pra dashboard. Cria a aba Templates no menu lateral com mensagens pré porntas, onde o admin pode criar mais, editar as existentes ou excluir. E uma opção pra admin chamada usuarios, onde ele verá todos os usuarios do sistema! Em revendedores que algo super profissional, com créditos e conexões. Pq atualmente a gente só define quantidade de conexões. Mas pro revenda abrir outro revenda ele precisa ter créditos. Cria o revenda normal e o master, o master pode criar outros revendas, e revenda não pode criar revenda. O master precisa ter créditos pra poder criar revenda. Cada crédito ativa o revenda por 1 mes. Dai ele consegue renovar por +1 mes usando +1 credito. Muito importante isso. Em campanha, a imagem que eu subi que esta sendo enviada no whatsapp certinho, n tá aparecendo. O tempo do proximo envio (caso tenha sido delay por horas), deve aparecer diminuindo em tempo real de forma decrescente. Se for horas especificas, aparecer o proximo horario de envio. Na criação/edição da campanha, permita que eu adicione mensagens/imagens variadas, para que assim ele envie a cada hora, uma mensagem nova e imagem nova que eu configurei, assim eu n preciso criar varias campanhas pra mesma coisa. Caso tenha mais de uma imagem/mensagem. Lá no preview, mostre cada uma a cada 5 segundos com animação de entrada e saida por favor. Ao pausar uma campanha e despausar, o delay permanece intacto, pra não reenviar dnv. Ao criar a campanha ela inicia pausada, e ao clicar em iniciar ela já inicia enviando, e após o ultimo envio ela mostra o delay ou horario do proximo envio. E dai zera a mensagem de enviados
+- : Se a opção 1 funcionar com meu projeto exatamente como ele tá atualmente. Pode fazer
+- : {whatsapp_service_url:http://localhost:3002,node_installed:false,node_version:Error: [Errno 2] No such file or directory: node,whatsapp_dir_exists:true,whatsapp_index_exists:true,service_responding:false,supervisor_status:unix:///var/run/supervisor.sock no such file,can_start_process:false,error:All connection attempts failed}
+- : Mesma merda. [console log com erro 503]
+- : Mesma merda e a url é nexuzap.com, da produção. [console log com erro 503]
+- : Tem alguma coisa errada. Os logs nem aparecem em produção. Mas exclui isso, vamos resolver o whatsapp. [console log com erro 503]
+- : Não consigo. Mas se vc criar uma tela de logs e colocar no menu lateral só pra admin e fizer funcionar vai dar pra ver...
+- : Os serviços de whatsapp n estao disponiveis... No entanto quando faço aqui no ambiente de teste funciona porra. Obvio que estão disponiveis. Alguma coisa do ambiente de teste n funcionou ou n foi pra produção caralho. Quando dou deploy tem que ir tudo porra e funcionar igual aqui caralho
+- : Erro ao iniciar conexão com whatsapp: [console log com erro 500] Isso acontece só em produção: nexuzap... Agora aqui em teste não.
+- : Erro as imagens que eu subo por midia...não estão aparecendo como preview em campanha... Só aparece se eu subir por campanha. Sendo que as imagens é pra mesma finalidade rsr midias é só pra eu poder gerennciar as imagens. E em midias ele aparece com o nome que eu subi, n com o uuid gerado...oq é um problema, pq se outra pessoa subir uma imagem com o mesmo nome, fudeu
+- : Repara que embaixo de Data fim...tem um /> remove
 
 **Project Health Check:**
-- **Broken**: A experiência do usuário na Dashboard está comprometida devido ao design insatisfatório. A funcionalidade de edição de campanha está parcialmente quebrada devido à falha no preview da imagem.
+- **Broken**: A funcionalidade principal do aplicativo (conexão com o WhatsApp) está completamente quebrada no ambiente de produção.
 - **Mocked**: N/A
 
 **3rd Party Integrations**
- - **Baileys**: Usado no microsserviço Node.js para integração com o WhatsApp.
+ - **Baileys (Node.js)**: A biblioteca atual para integração com o WhatsApp. **SERÁ REMOVIDA**.
+ - **Neonize (Python)**: A biblioteca planejada para substituir o Baileys e resolver o problema de dependência do Node.js.
 
 **Testing status**
   - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: O problema do preview de imagem persiste, mudando de não funciona para não funciona na página de edição.
+  - Known regressions: A conexão com o WhatsApp, que funcionava no ambiente de teste, não funciona em produção, revelando uma falha crítica de implantação.
 
 **Credentials to test flow:**
-- Use o usuário  com senha , ou crie um novo usuário através da tela de registro.
+- **Usuário**: 
+- **Senha**: 
 
 **What agent forgot to execute**
-- A animação para o preview de campanhas com múltiplas variações na página de listagem () foi solicitada, mas não implementada.
-- A paginação foi solicitada para usuários, revendedores e campanhas. Foi implementada para campanhas, mas precisa ser verificada e/ou implementada para  e .</analysis>
+- A implementação da paginação para as páginas de Usuários e Revendedores, que foi solicitada em um momento anterior, ainda está pendente.
+- A decisão sobre como exibir nomes de arquivo na página de Mídias foi deixada em aberto, aguardando feedback do usuário ou uma decisão do agente.</analysis>
