@@ -298,8 +298,14 @@ async def login(data: UserLogin):
     if not user or not verify_password(data.password, user['password']):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     
+    # Check if user is blocked
     if not user.get('active', True):
-        raise HTTPException(status_code=401, detail="Usuário desativado")
+        raise HTTPException(status_code=403, detail="blocked")
+    
+    # Check if user is expired (not for admin)
+    if user['role'] != 'admin' and user.get('expires_at'):
+        if datetime.fromisoformat(user['expires_at'].replace('Z', '+00:00')) < datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail="expired")
     
     token = create_token(user['id'], user['role'])
     return {
@@ -309,7 +315,9 @@ async def login(data: UserLogin):
             'username': user['username'],
             'role': user['role'],
             'max_connections': user['max_connections'],
-            'credits': user.get('credits', 0)
+            'credits': user.get('credits', 0),
+            'expires_at': user.get('expires_at'),
+            'had_trial': user.get('had_trial', False)
         }
     }
 
