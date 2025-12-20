@@ -870,6 +870,61 @@ async def pause_campaign(campaign_id: str, user: dict = Depends(get_current_user
     await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'paused'}})
     return {'status': 'paused'}
 
+@api_router.put("/campaigns/{campaign_id}", response_model=CampaignResponse)
+async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = Depends(get_current_user)):
+    """Atualizar campanha existente"""
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    campaign = await db.campaigns.find_one(query)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    # Não permitir edição de campanhas em execução
+    if campaign['status'] == 'running':
+        raise HTTPException(status_code=400, detail="Não é possível editar campanha em execução")
+    
+    # Get image URL if exists
+    image_url = None
+    if data.image_id:
+        image = await db.images.find_one({'id': data.image_id})
+        if image:
+            image_url = image['url']
+    
+    update_data = {
+        'title': data.title,
+        'connection_id': data.connection_id,
+        'group_ids': data.group_ids,
+        'message': data.message,
+        'image_id': data.image_id,
+        'image_url': image_url,
+        'schedule_type': data.schedule_type,
+        'scheduled_time': data.scheduled_time,
+        'interval_hours': data.interval_hours,
+        'specific_times': data.specific_times,
+        'delay_seconds': data.delay_seconds,
+        'start_date': data.start_date,
+        'end_date': data.end_date,
+        'total_count': len(data.group_ids),
+    }
+    
+    # Remove scheduled jobs
+    try:
+        scheduler.remove_job(campaign_id)
+        for i in range(20):
+            try:
+                scheduler.remove_job(f"{campaign_id}_time_{i}")
+            except:
+                pass
+    except:
+        pass
+    
+    await db.campaigns.update_one({'id': campaign_id}, {'$set': update_data})
+    
+    updated = await db.campaigns.find_one({'id': campaign_id}, {'_id': 0})
+    return updated
+
 @api_router.post("/campaigns/{campaign_id}/start")
 async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     """Iniciar campanha imediatamente"""
