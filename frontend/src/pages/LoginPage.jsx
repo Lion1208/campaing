@@ -1,19 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { MessageSquare, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState('dark');
   const { login } = useAuthStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(savedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,8 +52,18 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground transition-colors"
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+      </div>
+
       {/* Background Pattern */}
-      <div className="fixed inset-0 opacity-30">
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent" />
       </div>
 
@@ -48,20 +74,20 @@ export default function LoginPage() {
             <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center neon-glow-strong mb-4">
               <MessageSquare className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="font-heading font-black text-3xl tracking-tight">NEXUS</h1>
+            <h1 className="font-heading font-black text-3xl text-foreground tracking-tight">NEXUS</h1>
             <p className="text-sm font-mono text-primary uppercase tracking-widest mt-1">WhatsApp Campaigns</p>
           </div>
 
           {/* Login Card */}
           <div className="glass-card p-6 animate-fade-in">
             <div className="mb-6 text-center">
-              <h2 className="font-heading font-bold text-xl mb-1">Bem-vindo de volta</h2>
+              <h2 className="font-heading font-bold text-xl text-foreground mb-1">Bem-vindo de volta</h2>
               <p className="text-muted-foreground text-sm">Entre para gerenciar suas campanhas</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium">
+                <Label htmlFor="username" className="text-foreground text-sm font-medium">
                   Usuário
                 </Label>
                 <Input
@@ -71,12 +97,12 @@ export default function LoginPage() {
                   placeholder="Digite seu usuário"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="h-12 bg-background/50"
+                  className="h-12 bg-muted/50 border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password" className="text-foreground text-sm font-medium">
                   Senha
                 </Label>
                 <div className="relative">
@@ -87,7 +113,7 @@ export default function LoginPage() {
                     placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 bg-background/50 pr-12"
+                    className="h-12 bg-muted/50 border-border text-foreground placeholder:text-muted-foreground pr-12"
                   />
                   <button
                     type="button"
@@ -116,7 +142,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-4 border-t border-white/5">
+            <div className="mt-6 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground text-center">
                 Credenciais padrão: <span className="text-primary font-medium">admin</span> / <span className="text-primary font-medium">admin123</span>
               </p>
