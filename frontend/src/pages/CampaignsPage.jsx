@@ -264,15 +264,44 @@ export default function CampaignsPage() {
   const canResume = (status) => status === 'paused';
   const canEdit = (status) => !['running'].includes(status);
 
-  // Get image URL - check both image_url and messages array
+  // Get image URL - use fetch to load as blob for preview
+  const [imageCache, setImageCache] = useState({});
+  
+  const loadImageAsBlob = useCallback(async (url, campaignId) => {
+    if (imageCache[campaignId]) return;
+    
+    try {
+      const response = await fetch(url, { credentials: 'include' });
+      if (response.ok) {
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        setImageCache(prev => ({ ...prev, [campaignId]: blobUrl }));
+      }
+    } catch (error) {
+      console.error('Error loading image:', error);
+    }
+  }, [imageCache]);
+
+  // Get image URL for campaign
   const getImageUrl = (campaign) => {
+    // First check cache
+    if (imageCache[campaign.id]) {
+      return imageCache[campaign.id];
+    }
+    
+    // Get server URL and trigger load
+    let serverUrl = null;
     if (campaign.image_url) {
-      return `${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`;
+      serverUrl = `${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`;
+    } else if (campaign.messages && campaign.messages.length > 0 && campaign.messages[0].image_url) {
+      serverUrl = `${process.env.REACT_APP_BACKEND_URL}${campaign.messages[0].image_url}`;
     }
-    if (campaign.messages && campaign.messages.length > 0 && campaign.messages[0].image_url) {
-      return `${process.env.REACT_APP_BACKEND_URL}${campaign.messages[0].image_url}`;
+    
+    if (serverUrl && !imageCache[campaign.id]) {
+      loadImageAsBlob(serverUrl, campaign.id);
     }
-    return null;
+    
+    return null; // Return null until loaded
   };
 
   return (
