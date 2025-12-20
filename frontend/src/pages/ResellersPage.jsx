@@ -242,7 +242,7 @@ export default function ResellersPage() {
               <DialogDescription className="text-muted-foreground">
                 {isMaster 
                   ? `Criar revendedor custará 1 crédito. Você tem ${user?.credits || 0} créditos.`
-                  : 'Adicione um novo revendedor ao sistema'
+                  : 'Adicione um novo revendedor ao sistema (créditos ilimitados)'
                 }
               </DialogDescription>
             </DialogHeader>
