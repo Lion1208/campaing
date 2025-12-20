@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaignsStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,9 +15,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Clock, CheckCircle, XCircle, Send, Trash2, Pause, Play, Image, Copy, Zap, Calendar, Users, Edit2, Timer } from 'lucide-react';
+import { Plus, Clock, CheckCircle, XCircle, Send, Trash2, Pause, Play, Image, Copy, Zap, Calendar, Users, Edit2, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
+import { api } from '@/store';
 
-// Hook para countdown
+// Hook para countdown em tempo real
 function useCountdown(targetDate) {
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -44,7 +45,7 @@ function useCountdown(targetDate) {
         const days = Math.floor(hours / 24);
         return `${days}d ${hours % 24}h`;
       } else if (hours > 0) {
-        return `${hours}h ${minutes}m`;
+        return `${hours}h ${minutes}m ${seconds}s`;
       } else if (minutes > 0) {
         return `${minutes}m ${seconds}s`;
       } else {
@@ -79,25 +80,62 @@ function CampaignTimer({ campaign }) {
   );
 }
 
+// Componente de próximo horário específico
+function NextScheduleTime({ campaign }) {
+  if (campaign.schedule_type !== 'specific_times' || !campaign.specific_times?.length) {
+    return null;
+  }
+
+  // Find next time
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  
+  const sortedTimes = [...campaign.specific_times].sort();
+  const nextTime = sortedTimes.find(t => t > currentTime) || sortedTimes[0];
+
+  return (
+    <span className="text-xs text-primary font-mono">
+      Próximo: {nextTime}
+    </span>
+  );
+}
+
 export default function CampaignsPage() {
   const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [paginatedCampaigns, setPaginatedCampaigns] = useState([]);
+  const limit = 12;
+
+  const fetchPaginatedCampaigns = useCallback(async () => {
+    try {
+      const response = await api.get(`/campaigns/paginated?page=${page}&limit=${limit}`);
+      setPaginatedCampaigns(response.data.campaigns);
+      setTotalPages(response.data.total_pages);
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+    }
+  }, [page]);
 
   useEffect(() => {
-    fetchCampaigns();
-    // Refresh every 30 seconds to update next_run
-    const interval = setInterval(fetchCampaigns, 30000);
+    fetchPaginatedCampaigns();
+    fetchCampaigns(); // Also fetch for store
+    
+    // Refresh every 10 seconds to update timers and status
+    const interval = setInterval(fetchPaginatedCampaigns, 10000);
     return () => clearInterval(interval);
-  }, [fetchCampaigns]);
+  }, [fetchPaginatedCampaigns, fetchCampaigns]);
 
   const handleStart = async (campaign) => {
     setActionLoading(campaign.id);
     try {
       const result = await startCampaign(campaign.id);
       toast.success(result.message || 'Campanha iniciada!');
+      fetchPaginatedCampaigns();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao iniciar');
     } finally {
@@ -110,6 +148,7 @@ export default function CampaignsPage() {
     try {
       await duplicateCampaign(campaign.id);
       toast.success('Campanha duplicada!');
+      fetchPaginatedCampaigns();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao duplicar');
     } finally {
@@ -122,8 +161,22 @@ export default function CampaignsPage() {
     try {
       await pauseCampaign(campaign.id);
       toast.success('Campanha pausada');
+      fetchPaginatedCampaigns();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao pausar');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleResume = async (campaign) => {
+    setActionLoading(campaign.id);
+    try {
+      await resumeCampaign(campaign.id);
+      toast.success('Campanha retomada');
+      fetchPaginatedCampaigns();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao retomar');
     } finally {
       setActionLoading(null);
     }
@@ -137,6 +190,7 @@ export default function CampaignsPage() {
       toast.success('Campanha deletada');
       setDeleteDialogOpen(false);
       setCampaignToDelete(null);
+      fetchPaginatedCampaigns();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao deletar');
     } finally {
@@ -183,7 +237,19 @@ export default function CampaignsPage() {
 
   const canStart = (status) => ['pending', 'paused'].includes(status);
   const canPause = (status) => ['active', 'running'].includes(status);
+  const canResume = (status) => status === 'paused';
   const canEdit = (status) => !['running'].includes(status);
+
+  // Get image URL - check both image_url and messages array
+  const getImageUrl = (campaign) => {
+    if (campaign.image_url) {
+      return `${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`;
+    }
+    if (campaign.messages && campaign.messages.length > 0 && campaign.messages[0].image_url) {
+      return `${process.env.REACT_APP_BACKEND_URL}${campaign.messages[0].image_url}`;
+    }
+    return null;
+  };
 
   return (
     <div data-testid="campaigns-page" className="space-y-6 animate-fade-in">
@@ -216,11 +282,11 @@ export default function CampaignsPage() {
       </div>
 
       {/* Campaigns Grid */}
-      {loading ? (
+      {loading && paginatedCampaigns.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : campaigns.length === 0 ? (
+      ) : paginatedCampaigns.length === 0 ? (
         <Card className="glass-card">
           <CardContent className="p-8 text-center">
             <Send className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -233,8 +299,10 @@ export default function CampaignsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {campaigns.map((campaign, index) => {
+          {paginatedCampaigns.map((campaign, index) => {
             const scheduleInfo = getScheduleInfo(campaign);
+            const imageUrl = getImageUrl(campaign);
+            
             return (
               <Card
                 key={campaign.id}
@@ -243,10 +311,10 @@ export default function CampaignsPage() {
               >
                 {/* Image Preview */}
                 <div className="h-28 bg-muted/20 relative overflow-hidden flex-shrink-0">
-                  {campaign.image_url ? (
+                  {imageUrl ? (
                     <>
                       <img 
-                        src={`${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`}
+                        src={imageUrl}
                         alt="Preview"
                         className="w-full h-full object-cover"
                         onError={(e) => { e.target.style.display = 'none'; }}
@@ -274,7 +342,7 @@ export default function CampaignsPage() {
 
                   {/* Message Preview */}
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1 min-h-[2.5rem]">
-                    {campaign.message || <span className="italic">Sem mensagem de texto</span>}
+                    {campaign.message || (campaign.messages && campaign.messages[0]?.message) || <span className="italic">Sem mensagem de texto</span>}
                   </p>
 
                   {/* Info */}
@@ -289,17 +357,17 @@ export default function CampaignsPage() {
                     </span>
                   </div>
 
-                  {/* Specific times detail */}
-                  {campaign.schedule_type === 'specific_times' && campaign.specific_times?.length > 0 && (
-                    <div className="text-[10px] text-primary font-mono mb-2 truncate">
-                      {campaign.specific_times.join(' • ')}
+                  {/* Next schedule for specific times */}
+                  {campaign.status === 'active' && (
+                    <div className="mb-2">
+                      <NextScheduleTime campaign={campaign} />
                     </div>
                   )}
 
                   {/* Progress */}
                   <div className="mb-3">
                     <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-muted-foreground">Progresso</span>
+                      <span className="text-muted-foreground">Enviados</span>
                       <span className="text-foreground font-medium">{campaign.sent_count}/{campaign.total_count}</span>
                     </div>
                     <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
@@ -316,16 +384,16 @@ export default function CampaignsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-1.5 mt-auto">
-                    {/* Start Button */}
+                    {/* Start/Resume Button */}
                     {canStart(campaign.status) && (
                       <Button
-                        onClick={() => handleStart(campaign)}
+                        onClick={() => canResume(campaign.status) ? handleResume(campaign) : handleStart(campaign)}
                         disabled={actionLoading === campaign.id}
                         size="sm"
                         className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-8"
                       >
                         <Zap className="w-3.5 h-3.5 mr-1" />
-                        Iniciar
+                        {canResume(campaign.status) ? 'Retomar' : 'Iniciar'}
                       </Button>
                     )}
 
@@ -387,6 +455,33 @@ export default function CampaignsPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="border-border"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground px-3">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="border-border"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
         </div>
       )}
 
