@@ -321,6 +321,51 @@ app.get('/connections', (req, res) => {
     res.json(list);
 });
 
+// Auto-reconnect existing sessions on startup
+async function autoReconnectSessions() {
+    console.log('Verificando sessões existentes para reconexão automática...');
+    
+    try {
+        if (!fs.existsSync(AUTH_DIR)) {
+            console.log('Nenhuma pasta de sessões encontrada.');
+            return;
+        }
+        
+        const sessions = fs.readdirSync(AUTH_DIR).filter(dir => {
+            const sessionPath = path.join(AUTH_DIR, dir);
+            return fs.statSync(sessionPath).isDirectory();
+        });
+        
+        console.log(`Encontradas ${sessions.length} sessão(ões) para reconectar.`);
+        
+        for (const sessionId of sessions) {
+            const sessionPath = path.join(AUTH_DIR, sessionId);
+            const credsFile = path.join(sessionPath, 'creds.json');
+            
+            // Only reconnect if credentials exist (was previously authenticated)
+            if (fs.existsSync(credsFile)) {
+                console.log(`Reconectando sessão: ${sessionId}`);
+                try {
+                    await createConnection(sessionId);
+                    // Wait a bit between connections to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (error) {
+                    console.error(`Erro ao reconectar ${sessionId}:`, error.message);
+                }
+            } else {
+                console.log(`Sessão ${sessionId} não possui credenciais, pulando.`);
+            }
+        }
+        
+        console.log('Reconexão automática concluída.');
+    } catch (error) {
+        console.error('Erro na reconexão automática:', error);
+    }
+}
+
 app.listen(PORT, () => {
     console.log(`Serviço WhatsApp rodando na porta ${PORT}`);
+    
+    // Auto-reconnect after a short delay to ensure server is ready
+    setTimeout(autoReconnectSessions, 3000);
 });
