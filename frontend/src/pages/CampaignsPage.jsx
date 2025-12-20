@@ -21,7 +21,6 @@ import { api } from '@/store';
 // Componente de timer em tempo real para cada card
 function CampaignTimer({ campaign }) {
   const [timeLeft, setTimeLeft] = useState(() => {
-    // Initial calculation
     if (campaign.status !== 'active' && campaign.status !== 'running') {
       return '';
     }
@@ -50,15 +49,46 @@ function CampaignTimer({ campaign }) {
   );
 }
 
-// Helper function for timer calculation
+// Helper function for timer calculation - ADAPTED to schedule_type
 function calculateTimeLeftForCampaign(campaign) {
   let targetTime = null;
   
-  if (campaign.next_run) {
+  // IMPORTANTE: Usar schedule_type para determinar como calcular
+  if (campaign.schedule_type === 'specific_times' && campaign.specific_times?.length > 0) {
+    // Para horários específicos, calcular o próximo horário do dia
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeStr = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+    
+    // Encontrar o próximo horário
+    const sortedTimes = [...campaign.specific_times].sort();
+    let nextTimeStr = sortedTimes.find(t => t > currentTimeStr);
+    
+    if (nextTimeStr) {
+      // Próximo horário é hoje
+      const [hours, minutes] = nextTimeStr.split(':').map(Number);
+      targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0).getTime();
+    } else {
+      // Próximo horário é amanhã (primeiro horário da lista)
+      const [hours, minutes] = sortedTimes[0].split(':').map(Number);
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hours, minutes, 0);
+      targetTime = tomorrow.getTime();
+    }
+  } else if (campaign.schedule_type === 'interval' && campaign.interval_hours) {
+    // Para intervalo, usar last_run + interval_hours
+    if (campaign.last_run) {
+      const lastRun = new Date(campaign.last_run).getTime();
+      targetTime = lastRun + (campaign.interval_hours * 60 * 60 * 1000);
+    } else if (campaign.next_run) {
+      targetTime = new Date(campaign.next_run).getTime();
+    }
+  } else if (campaign.schedule_type === 'once' && campaign.scheduled_time) {
+    // Para disparo único
+    targetTime = new Date(campaign.scheduled_time).getTime();
+  } else if (campaign.next_run) {
+    // Fallback para next_run se existir
     targetTime = new Date(campaign.next_run).getTime();
-  } else if (campaign.last_run && campaign.interval_hours) {
-    const lastRun = new Date(campaign.last_run).getTime();
-    targetTime = lastRun + (campaign.interval_hours * 60 * 60 * 1000);
   }
   
   if (!targetTime) return '';
