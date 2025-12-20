@@ -315,7 +315,7 @@ async def login(data: UserLogin):
 
 @api_router.post("/auth/register")
 async def register_user(data: UserLogin):
-    """Register new user (public - joins admin's network as reseller)"""
+    """Register new user (public - joins admin's network as reseller) - starts BLOCKED"""
     existing = await db.users.find_one({'username': data.username})
     if existing:
         raise HTTPException(status_code=400, detail="Usuário já existe")
@@ -330,15 +330,18 @@ async def register_user(data: UserLogin):
         'role': 'reseller',
         'max_connections': 1,
         'credits': 0,
-        'active': True,
-        'expires_at': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        'active': False,  # User starts BLOCKED - admin must manually activate
+        'expires_at': None,  # No expiration until admin activates
         'created_by': admin['id'] if admin else None,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     
     await db.users.insert_one(user)
     
-    return {'message': 'Conta criada com sucesso'}
+    if admin:
+        await log_activity(admin['id'], admin['username'], 'user_registered', 'user', user['id'], data.username, 'Novo usuário aguardando aprovação')
+    
+    return {'message': 'Conta criada! Aguarde a aprovação do administrador.'}
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
