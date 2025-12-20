@@ -1317,9 +1317,11 @@ async def update_image(image_id: str, file: UploadFile = File(...), user: dict =
     if old_filepath.exists():
         old_filepath.unlink()
     
-    # Save new file
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-    new_filename = f"{uuid.uuid4()}.{ext}"
+    # Save new file with unique name
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+    unique_id = str(uuid.uuid4())[:8]
+    ext = file.filename.split('.')[-1].lower() if '.' in file.filename else 'jpg'
+    new_filename = f"img_{timestamp}_{unique_id}.{ext}"
     new_filepath = UPLOADS_DIR / new_filename
     
     async with aiofiles.open(new_filepath, 'wb') as f:
