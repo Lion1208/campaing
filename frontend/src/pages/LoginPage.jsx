@@ -121,7 +121,7 @@ export default function LoginPage() {
             <MessageSquare className="w-8 h-8 text-primary-foreground" />
           </div>
           <h1 className="font-heading font-bold text-3xl text-foreground">NEXUZAP</h1>
-          <p className="text-primary font-mono text-sm mt-1">WHATSAPP CAMPAIGNS</p>
+          <p className="text-primary font-mono text-sm mt-1">CAMPANHAS WHATSAPP</p>
         </div>
 
         {/* Card */}
