@@ -828,6 +828,72 @@ async def pause_campaign(campaign_id: str, user: dict = Depends(get_current_user
     await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'paused'}})
     return {'status': 'paused'}
 
+@api_router.post("/campaigns/{campaign_id}/start")
+async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
+    """Iniciar campanha imediatamente"""
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    campaign = await db.campaigns.find_one(query, {'_id': 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    # Se for horários específicos, ativa a campanha mas não executa agora
+    if campaign['schedule_type'] == 'specific_times':
+        schedule_campaign(campaign)
+        await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'active'}})
+        return {'status': 'active', 'message': 'Campanha ativada. Enviará nos horários configurados.'}
+    
+    # Para outros tipos, executa imediatamente
+    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'running'}})
+    background_tasks.add_task(execute_campaign, campaign_id)
+    
+    # Se for intervalo, também agenda as próximas execuções
+    if campaign['schedule_type'] == 'interval':
+        schedule_campaign(campaign)
+    
+    return {'status': 'running', 'message': 'Campanha iniciada!'}
+
+@api_router.post("/campaigns/{campaign_id}/duplicate", response_model=CampaignResponse)
+async def duplicate_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
+    """Duplicar uma campanha existente"""
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    original = await db.campaigns.find_one(query, {'_id': 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    # Criar cópia
+    new_campaign = {
+        'id': str(uuid.uuid4()),
+        'title': f"{original['title']} (cópia)",
+        'user_id': user['id'],
+        'connection_id': original['connection_id'],
+        'group_ids': original['group_ids'],
+        'message': original.get('message'),
+        'image_id': original.get('image_id'),
+        'image_url': original.get('image_url'),
+        'schedule_type': original['schedule_type'],
+        'scheduled_time': None,  # Reset para o usuário definir
+        'interval_hours': original.get('interval_hours'),
+        'specific_times': original.get('specific_times'),
+        'delay_seconds': original['delay_seconds'],
+        'start_date': None,
+        'end_date': None,
+        'status': 'pending',
+        'sent_count': 0,
+        'total_count': len(original['group_ids']),
+        'last_run': None,
+        'next_run': None,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.campaigns.insert_one(new_campaign)
+    return new_campaign
+
 @api_router.post("/campaigns/{campaign_id}/resume")
 async def resume_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
     query = {'id': campaign_id}
