@@ -1,0 +1,207 @@
+{
+  "summary": {
+    "total_tests": 28,
+    "passed_tests": 28,
+    "failed_tests": 0,
+    "success_rate": 100.0
+  },
+  "test_results": [
+    {
+      "test_name": "Health Check",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:42.970770+00:00"
+    },
+    {
+      "test_name": "Admin Login",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.232321+00:00"
+    },
+    {
+      "test_name": "Get Current User",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.267541+00:00"
+    },
+    {
+      "test_name": "Dashboard Stats",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.344998+00:00"
+    },
+    {
+      "test_name": "Dashboard Stats Fields",
+      "success": true,
+      "details": "All required fields present",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.345682+00:00"
+    },
+    {
+      "test_name": "List Connections",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.388160+00:00"
+    },
+    {
+      "test_name": "Create Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.427471+00:00"
+    },
+    {
+      "test_name": "Get Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.460545+00:00"
+    },
+    {
+      "test_name": "Connect WhatsApp",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.497224+00:00"
+    },
+    {
+      "test_name": "Simulate Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.590139+00:00"
+    },
+    {
+      "test_name": "List Groups for Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.624980+00:00"
+    },
+    {
+      "test_name": "Groups Created After Simulation",
+      "success": true,
+      "details": "Found 5 groups",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.625709+00:00"
+    },
+    {
+      "test_name": "Disconnect WhatsApp",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.662710+00:00"
+    },
+    {
+      "test_name": "Delete Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.695725+00:00"
+    },
+    {
+      "test_name": "Create Connection for Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.736788+00:00"
+    },
+    {
+      "test_name": "Simulate Connection for Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.772946+00:00"
+    },
+    {
+      "test_name": "Get Groups for Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.809567+00:00"
+    },
+    {
+      "test_name": "Create Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.860610+00:00"
+    },
+    {
+      "test_name": "List Campaigns",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.895759+00:00"
+    },
+    {
+      "test_name": "Get Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:43.929275+00:00"
+    },
+    {
+      "test_name": "Delete Campaign",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:45.962690+00:00"
+    },
+    {
+      "test_name": "Delete Campaign Connection",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.001952+00:00"
+    },
+    {
+      "test_name": "List Users",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.039549+00:00"
+    },
+    {
+      "test_name": "Create User",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.334760+00:00"
+    },
+    {
+      "test_name": "Update User",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.371227+00:00"
+    },
+    {
+      "test_name": "Delete User",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.416520+00:00"
+    },
+    {
+      "test_name": "Admin Stats",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.453230+00:00"
+    },
+    {
+      "test_name": "Admin Stats Fields",
+      "success": true,
+      "details": "All required fields present",
+      "error": "",
+      "timestamp": "2025-12-20T19:32:46.453851+00:00"
+    }
+  ],
+  "timestamp": "2025-12-20T19:32:46.453884+00:00"
+}
