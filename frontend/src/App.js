@@ -108,6 +108,7 @@ const Layout = ({ children }) => {
     { path: '/connections', label: 'Conexões', icon: Wifi },
     { path: '/campaigns', label: 'Campanhas', icon: Calendar },
     { path: '/templates', label: 'Templates', icon: FileText },
+    { path: '/media', label: 'Mídias', icon: Image },
     { path: '/history', label: 'Histórico', icon: History },
   ];
 
