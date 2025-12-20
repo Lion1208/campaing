@@ -734,7 +734,68 @@ async def renew_user(user_id: str, months: int = 1, admin: dict = Depends(get_ad
     await db.users.update_one({'id': user_id}, {'$set': {'expires_at': new_expires, 'active': True}})
     await log_activity(admin['id'], admin['username'], 'renew', 'user', user_id, user['username'], f"+{months} mês(es)")
     
-    return {'expires_at': new_expires, 'message': f'Renovado por {months} mês(es)'}
+    # Generate receipt
+    receipt = generate_receipt(user['username'], 'renewal', months, new_expires)
+    
+    return {'expires_at': new_expires, 'message': f'Renovado por {months} mês(es)', 'receipt': receipt}
+
+@api_router.post("/admin/users/{user_id}/trial")
+async def grant_trial(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Grant 24h trial to user who never had one"""
+    user = await db.users.find_one({'id': user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    if user.get('had_trial', False):
+        raise HTTPException(status_code=400, detail="Usuário já teve período de teste")
+    
+    # Grant 24h trial
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    
+    await db.users.update_one({'id': user_id}, {'$set': {
+        'expires_at': expires_at,
+        'active': True,
+        'had_trial': True
+    }})
+    
+    await log_activity(admin['id'], admin['username'], 'grant_trial', 'user', user_id, user['username'], 'Teste 24h liberado')
+    
+    # Generate receipt
+    receipt = generate_receipt(user['username'], 'trial', 1, expires_at)
+    
+    return {'expires_at': expires_at, 'message': 'Teste de 24 horas liberado!', 'receipt': receipt}
+
+def generate_receipt(username: str, action_type: str, months: int, expires_at: str) -> dict:
+    """Generate a copyable receipt for renewals and trials"""
+    now = datetime.now(timezone.utc)
+    expires_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+    
+    if action_type == 'trial':
+        title = "🎁 COMPROVANTE DE TESTE"
+        duration = "24 HORAS"
+    else:
+        title = "✅ COMPROVANTE DE RENOVAÇÃO"
+        duration = f"{months} MÊS{'ES' if months > 1 else ''}"
+    
+    receipt_text = f"""
+{title}
+━━━━━━━━━━━━━━━━━━━━━
+📋 Usuário: {username}
+📅 Data: {now.strftime('%d/%m/%Y %H:%M')} (Brasília)
+⏰ Duração: {duration}
+📆 Validade até: {expires_date.strftime('%d/%m/%Y %H:%M')} (Brasília)
+━━━━━━━━━━━━━━━━━━━━━
+🚀 NexuZap - Campanhas WhatsApp
+    """.strip()
+    
+    return {
+        'text': receipt_text,
+        'username': username,
+        'action': action_type,
+        'duration': duration,
+        'expires_at': expires_at,
+        'generated_at': now.isoformat()
+    }
 
 @api_router.delete("/admin/users/{user_id}")
 async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
