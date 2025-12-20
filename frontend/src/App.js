@@ -84,129 +84,6 @@ const ProtectedRoute = ({ children, adminOnly = false, masterOrAdmin = false }) 
   return children;
 };
 
-// Activity Log Component
-const ActivityLog = () => {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const response = await api.get('/activity-logs?limit=10');
-        setLogs(response.data);
-      } catch (error) {
-        console.error('Error fetching logs:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLogs();
-    
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchLogs, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getActionIcon = (action) => {
-    switch (action) {
-      case 'create': return '➕';
-      case 'update': return '✏️';
-      case 'delete': return '🗑️';
-      case 'start': return '▶️';
-      case 'pause': return '⏸️';
-      case 'resume': return '▶️';
-      case 'renew': return '🔄';
-      case 'add_credits': return '💰';
-      default: return '📝';
-    }
-  };
-
-  const getActionText = (log) => {
-    const actions = {
-      create: 'criou',
-      update: 'atualizou',
-      delete: 'excluiu',
-      start: 'iniciou',
-      pause: 'pausou',
-      resume: 'retomou',
-      renew: 'renovou',
-      add_credits: 'adicionou créditos',
-      duplicate: 'duplicou',
-      profile_update: 'atualizou perfil',
-      password_change: 'alterou senha'
-    };
-    return actions[log.action] || log.action;
-  };
-
-  const getEntityText = (type) => {
-    const entities = {
-      campaign: 'campanha',
-      user: 'usuário',
-      reseller: 'revendedor',
-      template: 'template',
-      connection: 'conexão'
-    };
-    return entities[type] || type;
-  };
-
-  if (loading) {
-    return (
-      <div className="p-3 text-center">
-        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-t border-border">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span className="flex items-center gap-2">
-          <History className="w-4 h-4" />
-          Histórico
-        </span>
-        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
-      
-      {expanded && (
-        <div className="px-3 pb-3 max-h-48 overflow-y-auto">
-          {logs.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">Nenhuma atividade</p>
-          ) : (
-            <div className="space-y-2">
-              {logs.map((log) => (
-                <div key={log.id} className="text-xs p-2 rounded-lg bg-muted/30">
-                  <div className="flex items-start gap-2">
-                    <span>{getActionIcon(log.action)}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-foreground truncate">
-                        <span className="font-medium">{log.username}</span>{' '}
-                        {getActionText(log)} {getEntityText(log.entity_type)}
-                        {log.entity_name && <span className="text-primary"> "{log.entity_name}"</span>}
-                      </p>
-                      <p className="text-muted-foreground mt-0.5">
-                        {new Date(log.created_at).toLocaleString('pt-BR', { 
-                          day: '2-digit', 
-                          month: '2-digit', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // Layout Component with Responsive Sidebar
 const Layout = ({ children }) => {
   const { user, logout } = useAuthStore();
@@ -228,6 +105,10 @@ const Layout = ({ children }) => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/connections', label: 'Conexões', icon: Wifi },
+    { path: '/campaigns', label: 'Campanhas', icon: Calendar },
+    { path: '/templates', label: 'Templates', icon: FileText },
+    { path: '/history', label: 'Histórico', icon: History },
+  ];
     { path: '/campaigns', label: 'Campanhas', icon: Calendar },
     { path: '/templates', label: 'Templates', icon: FileText },
   ];
