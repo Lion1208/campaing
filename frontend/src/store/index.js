@@ -172,6 +172,12 @@ export const useCampaignsStore = create((set, get) => ({
     return response.data;
   },
 
+  updateCampaign: async (campaignId, data) => {
+    const response = await api.put(`/campaigns/${campaignId}`, data);
+    await get().fetchCampaigns();
+    return response.data;
+  },
+
   startCampaign: async (campaignId) => {
     const response = await api.post(`/campaigns/${campaignId}/start`);
     await get().fetchCampaigns();
