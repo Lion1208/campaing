@@ -358,6 +358,16 @@ function App() {
           }
         />
         <Route
+          path="/media"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <MediaPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/history"
           element={
             <ProtectedRoute>
