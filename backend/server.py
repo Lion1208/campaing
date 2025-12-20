@@ -417,6 +417,112 @@ async def get_activity_logs(limit: int = 50, user: dict = Depends(get_current_us
     logs = await db.activity_logs.find(query, {'_id': 0}).sort('created_at', -1).limit(limit).to_list(limit)
     return logs
 
+@api_router.get("/activity-logs/paginated")
+async def get_activity_logs_paginated(
+    page: int = 1, 
+    limit: int = 20, 
+    action: str = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get paginated activity logs with filters"""
+    # Build query based on user role
+    if user['role'] == 'admin':
+        query = {}
+    elif user['role'] == 'master':
+        # Get all users created by this master
+        created_users = await db.users.find({'created_by': user['id']}, {'id': 1}).to_list(1000)
+        user_ids = [u['id'] for u in created_users]
+        user_ids.append(user['id'])
+        query = {'user_id': {'$in': user_ids}}
+    else:
+        query = {'user_id': user['id']}
+    
+    if action and action != 'all':
+        query['action'] = action
+    
+    skip = (page - 1) * limit
+    total = await db.activity_logs.count_documents(query)
+    logs = await db.activity_logs.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        'logs': logs,
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'total_pages': (total + limit - 1) // limit
+    }
+
+# ============= Dashboard Stats =============
+
+@api_router.get("/stats/dashboard")
+async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_user)):
+    """Get dashboard statistics"""
+    from_date = datetime.now(timezone.utc) - timedelta(days=days)
+    from_date_str = from_date.isoformat()
+    
+    # Query filter based on role
+    user_query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    
+    # Count resellers
+    resellers_count = 0
+    if user['role'] == 'admin':
+        resellers_count = await db.users.count_documents({'role': {'$in': ['reseller', 'master']}})
+    elif user['role'] == 'master':
+        resellers_count = await db.users.count_documents({'created_by': user['id']})
+    
+    # Count sends from campaigns
+    campaigns = await db.campaigns.find(user_query, {'_id': 0}).to_list(1000)
+    
+    # Calculate total sends
+    total_sends = sum(c.get('sent_count', 0) for c in campaigns)
+    
+    # Calculate sends today
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    sends_today = 0
+    sends_period = 0
+    
+    for c in campaigns:
+        last_run = c.get('last_run')
+        if last_run:
+            try:
+                last_run_dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+                if last_run_dt >= today_start:
+                    sends_today += c.get('sent_count', 0)
+                if last_run_dt >= from_date:
+                    sends_period += c.get('sent_count', 0)
+            except:
+                pass
+    
+    # Generate daily sends data for chart
+    daily_sends = []
+    for i in range(days):
+        day_date = datetime.now(timezone.utc).date() - timedelta(days=days-1-i)
+        day_sends = 0
+        for c in campaigns:
+            last_run = c.get('last_run')
+            if last_run:
+                try:
+                    last_run_dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+                    if last_run_dt.date() == day_date:
+                        day_sends += c.get('sent_count', 0)
+                except:
+                    pass
+        daily_sends.append(day_sends)
+    
+    # Success rate (simplified - based on completed vs total)
+    completed = len([c for c in campaigns if c.get('status') == 'completed'])
+    total_camps = len(campaigns)
+    success_rate = int((completed / total_camps * 100) if total_camps > 0 else 100)
+    
+    return {
+        'resellers_count': resellers_count,
+        'sends_today': sends_today,
+        'sends_period': sends_period,
+        'total_sends': total_sends,
+        'success_rate': success_rate,
+        'daily_sends': daily_sends
+    }
+
 # ============= Templates =============
 
 @api_router.get("/templates")
