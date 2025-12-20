@@ -651,11 +651,20 @@ async def execute_campaign(campaign_id: str):
                 logger.error(f"Erro ao enviar para grupo {group_id}: {e}")
         
         # Update status based on schedule type
-        new_status = 'completed' if campaign['schedule_type'] == 'once' else 'active'
-        await db.campaigns.update_one(
-            {'id': campaign_id},
-            {'$set': {'status': new_status, 'sent_count': sent_count}}
-        )
+        if campaign['schedule_type'] == 'once':
+            new_status = 'completed'
+            await db.campaigns.update_one(
+                {'id': campaign_id},
+                {'$set': {'status': new_status, 'sent_count': sent_count}}
+            )
+        else:
+            # Para campanhas recorrentes, reseta o contador para próxima execução
+            new_status = 'active'
+            next_run = calculate_next_run(campaign)
+            await db.campaigns.update_one(
+                {'id': campaign_id},
+                {'$set': {'status': new_status, 'sent_count': 0, 'next_run': next_run}}
+            )
         
         logger.info(f"Campanha {campaign_id} executada. Enviado para {sent_count} grupos.")
         
