@@ -418,6 +418,135 @@ async def change_password(data: PasswordChange, user: dict = Depends(get_current
     
     return {'message': 'Senha alterada com sucesso'}
 
+# ============= System Logs (Admin Only) =============
+
+@api_router.get("/admin/logs/{service}")
+async def get_service_logs(service: str, lines: int = 100, admin: dict = Depends(get_admin_user)):
+    """Get service logs - Admin only"""
+    import subprocess
+    
+    log_files = {
+        'backend': '/var/log/supervisor/backend.err.log',
+        'backend_out': '/var/log/supervisor/backend.out.log',
+        'whatsapp': '/var/log/supervisor/whatsapp.err.log',
+        'whatsapp_out': '/var/log/supervisor/whatsapp.out.log',
+        'frontend': '/var/log/supervisor/frontend.err.log',
+    }
+    
+    if service not in log_files:
+        raise HTTPException(status_code=400, detail=f"Serviço inválido. Use: {', '.join(log_files.keys())}")
+    
+    log_file = log_files[service]
+    
+    try:
+        # Read last N lines from log file
+        result = subprocess.run(
+            ['tail', '-n', str(min(lines, 500)), log_file],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        log_content = result.stdout or result.stderr or "Arquivo vazio ou não encontrado"
+        
+        return {
+            'service': service,
+            'file': log_file,
+            'lines': lines,
+            'content': log_content
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Timeout ao ler logs")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler logs: {str(e)}")
+
+@api_router.get("/admin/logs")
+async def get_all_logs(lines: int = 50, admin: dict = Depends(get_admin_user)):
+    """Get all service logs - Admin only"""
+    import subprocess
+    
+    services = ['backend', 'whatsapp', 'frontend']
+    logs = {}
+    
+    for service in services:
+        err_file = f'/var/log/supervisor/{service}.err.log'
+        out_file = f'/var/log/supervisor/{service}.out.log'
+        
+        try:
+            # Error logs
+            result_err = subprocess.run(
+                ['tail', '-n', str(min(lines, 200)), err_file],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            # Output logs
+            result_out = subprocess.run(
+                ['tail', '-n', str(min(lines, 200)), out_file],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            logs[service] = {
+                'error': result_err.stdout or "Sem erros",
+                'output': result_out.stdout or "Sem saída"
+            }
+        except Exception as e:
+            logs[service] = {
+                'error': f"Erro ao ler: {str(e)}",
+                'output': ""
+            }
+    
+    return logs
+
+@api_router.get("/admin/system-status")
+async def get_system_status(admin: dict = Depends(get_admin_user)):
+    """Get system status - Admin only"""
+    import subprocess
+    
+    try:
+        # Supervisor status
+        supervisor_result = subprocess.run(
+            ['supervisorctl', 'status'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        # Parse supervisor output
+        services = []
+        for line in supervisor_result.stdout.strip().split('\n'):
+            if line.strip():
+                parts = line.split()
+                if len(parts) >= 2:
+                    services.append({
+                        'name': parts[0],
+                        'status': parts[1],
+                        'info': ' '.join(parts[2:]) if len(parts) > 2 else ''
+                    })
+        
+        # Test WhatsApp service
+        whatsapp_ok = False
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+                whatsapp_ok = response.status_code == 200
+        except:
+            whatsapp_ok = False
+        
+        return {
+            'services': services,
+            'whatsapp_service_url': WHATSAPP_SERVICE_URL,
+            'whatsapp_service_ok': whatsapp_ok,
+            'mongo_url': mongo_url.split('@')[-1] if '@' in mongo_url else mongo_url,  # Hide credentials
+            'uploads_dir': str(UPLOADS_DIR),
+            'uploads_exists': UPLOADS_DIR.exists()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao obter status: {str(e)}")
+
 # ============= Activity Log =============
 
 async def log_activity(user_id: str, username: str, action: str, entity_type: str, entity_id: str = None, entity_name: str = None, details: str = None):
