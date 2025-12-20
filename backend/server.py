@@ -1312,13 +1312,40 @@ async def pause_campaign(campaign_id: str, user: dict = Depends(get_current_user
     if not campaign:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
+    # Calculate remaining time if there's a next_run
+    remaining_seconds = None
+    if campaign.get('next_run'):
+        try:
+            next_run_dt = datetime.fromisoformat(campaign['next_run'].replace('Z', '+00:00'))
+            now = datetime.now(timezone.utc)
+            remaining_seconds = int((next_run_dt - now).total_seconds())
+            if remaining_seconds < 0:
+                remaining_seconds = None
+        except:
+            pass
+    
     try:
         scheduler.remove_job(campaign_id)
+        for i in range(20):
+            try:
+                scheduler.remove_job(f"{campaign_id}_time_{i}")
+            except:
+                pass
     except:
         pass
     
-    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'paused'}})
-    return {'status': 'paused'}
+    await db.campaigns.update_one(
+        {'id': campaign_id}, 
+        {'$set': {
+            'status': 'paused',
+            'paused_at': datetime.now(timezone.utc).isoformat(),
+            'remaining_time_on_pause': remaining_seconds
+        }}
+    )
+    
+    await log_activity(user['id'], user['username'], 'pause', 'campaign', campaign_id, campaign['title'], 'Campanha pausada')
+    
+    return {'status': 'paused', 'remaining_seconds': remaining_seconds}
 
 @api_router.put("/campaigns/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = Depends(get_current_user)):
