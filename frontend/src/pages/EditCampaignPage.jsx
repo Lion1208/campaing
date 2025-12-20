@@ -813,36 +813,71 @@ export default function EditCampaignPage() {
 
             {scheduleType === 'specific_times' && (
               <>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-foreground">Horários de Disparo</Label>
-                    <Button type="button" variant="ghost" size="sm" onClick={addSpecificTime} className="text-primary -mr-2">
-                      <Plus className="w-4 h-4 mr-1" />
-                      Adicionar
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {specificTimes.map((time, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <Input
-                          type="time"
-                          value={time}
-                          onChange={(e) => updateSpecificTime(index, e.target.value)}
-                          className="bg-muted/50 border-border text-foreground flex-1"
-                        />
-                        {specificTimes.length > 1 && (
-                          <Button
+                <div className="space-y-3">
+                  <Label className="text-foreground">Horários de Disparo (Brasília)</Label>
+                  <p className="text-xs text-muted-foreground">Selecione os horários em que deseja enviar</p>
+                  
+                  {/* Time Grid Selector */}
+                  <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                    <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const hour = String(i).padStart(2, '0');
+                        const timeValue = `${hour}:00`;
+                        const isSelected = specificTimes.includes(timeValue);
+                        return (
+                          <button
+                            key={hour}
                             type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeSpecificTime(index)}
-                            className="text-destructive hover:bg-destructive/10 flex-shrink-0"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSpecificTimes(specificTimes.filter(t => t !== timeValue));
+                              } else {
+                                setSpecificTimes([...specificTimes, timeValue].sort());
+                              }
+                            }}
+                            className={`
+                              py-2 px-1 rounded-lg text-xs font-mono transition-all
+                              ${isSelected 
+                                ? 'bg-primary text-primary-foreground ring-2 ring-primary/50' 
+                                : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                              }
+                            `}
                           >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
+                            {hour}:00
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Selected times summary */}
+                    {specificTimes.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {specificTimes.length} horário{specificTimes.length > 1 ? 's' : ''} selecionado{specificTimes.length > 1 ? 's' : ''}:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {specificTimes.sort().map((time) => (
+                            <span
+                              key={time}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/15 text-primary rounded text-xs font-mono"
+                            >
+                              {time}
+                              <button
+                                type="button"
+                                onClick={() => setSpecificTimes(specificTimes.filter(t => t !== time))}
+                                className="hover:text-destructive"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+                    
+                    {specificTimes.length === 0 && (
+                      <p className="text-xs text-yellow-500 mt-3">⚠️ Selecione pelo menos um horário</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -862,6 +897,7 @@ export default function EditCampaignPage() {
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       className="bg-muted/50 border-border text-foreground"
+                    />
                     />
                   </div>
                 </div>
