@@ -177,6 +177,7 @@ class CampaignResponse(BaseModel):
     message: Optional[str] = None
     image_id: Optional[str] = None
     image_url: Optional[str] = None
+    messages: Optional[List[dict]] = None  # Multiple messages with image URLs
     schedule_type: str
     scheduled_time: Optional[str] = None
     interval_hours: Optional[int] = None
@@ -187,8 +188,11 @@ class CampaignResponse(BaseModel):
     status: str
     sent_count: int
     total_count: int
+    current_message_index: int = 0
     last_run: Optional[str] = None
     next_run: Optional[str] = None
+    paused_at: Optional[str] = None
+    remaining_time_on_pause: Optional[int] = None  # Seconds remaining when paused
     created_at: str
 
 class ImageResponse(BaseModel):
