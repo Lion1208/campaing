@@ -1443,12 +1443,20 @@ async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks
         await log_activity(user['id'], user['username'], 'start', 'campaign', campaign_id, campaign['title'], 'Campanha ativada (horários específicos)')
         return {'status': 'active', 'message': 'Campanha ativada. Enviará nos horários configurados.', 'next_run': next_run}
     
+    # Para interval, calcula o próximo envio após a execução atual
+    next_run = None
+    if campaign['schedule_type'] == 'interval':
+        hours = campaign.get('interval_hours', 1)
+        next_run = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    
     # Para outros tipos, executa imediatamente e reseta contador
     await db.campaigns.update_one(
         {'id': campaign_id}, 
         {'$set': {
             'status': 'running',
             'sent_count': 0,
+            'last_run': datetime.now(timezone.utc).isoformat(),
+            'next_run': next_run,
             'paused_at': None,
             'remaining_time_on_pause': None
         }}
@@ -1461,7 +1469,7 @@ async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks
     
     await log_activity(user['id'], user['username'], 'start', 'campaign', campaign_id, campaign['title'], 'Campanha iniciada')
     
-    return {'status': 'running', 'message': 'Campanha iniciada!'}
+    return {'status': 'running', 'message': 'Campanha iniciada!', 'next_run': next_run}
 
 @api_router.post("/campaigns/{campaign_id}/duplicate", response_model=CampaignResponse)
 async def duplicate_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
