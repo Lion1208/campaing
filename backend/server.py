@@ -1369,6 +1369,18 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
         if image:
             image_url = image['url']
     
+    # Process multiple messages with images
+    messages_with_urls = None
+    if data.messages:
+        messages_with_urls = []
+        for msg in data.messages:
+            msg_data = {'message': msg.message, 'image_id': msg.image_id, 'image_url': None}
+            if msg.image_id:
+                img = await db.images.find_one({'id': msg.image_id})
+                if img:
+                    msg_data['image_url'] = img['url']
+            messages_with_urls.append(msg_data)
+    
     update_data = {
         'title': data.title,
         'connection_id': data.connection_id,
@@ -1376,6 +1388,7 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
         'message': data.message,
         'image_id': data.image_id,
         'image_url': image_url,
+        'messages': messages_with_urls,
         'schedule_type': data.schedule_type,
         'scheduled_time': data.scheduled_time,
         'interval_hours': data.interval_hours,
@@ -1398,6 +1411,7 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
         pass
     
     await db.campaigns.update_one({'id': campaign_id}, {'$set': update_data})
+    await log_activity(user['id'], user['username'], 'update', 'campaign', campaign_id, data.title, 'Campanha atualizada')
     
     updated = await db.campaigns.find_one({'id': campaign_id}, {'_id': 0})
     return updated
