@@ -16,25 +16,37 @@ import { api } from '@/store';
 // Elegant Particle Animation - Clean and Professional
 function ParticleBackground() {
   const canvasRef = useRef(null);
+  const [isReady, setIsReady] = useState(false);
   
   useEffect(() => {
+    // Small delay to ensure canvas is mounted
+    const timer = setTimeout(() => setIsReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  useEffect(() => {
+    if (!isReady) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     let animationId;
     let particles = [];
     let mouseX = -1000;
     let mouseY = -1000;
+    let isRunning = true;
     
     const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      createParticles(rect.width, rect.height);
     };
-    
-    resize();
-    window.addEventListener('resize', resize);
     
     // Mouse tracking for subtle interactivity
     const handleMouseMove = (e) => {
@@ -48,35 +60,130 @@ function ParticleBackground() {
       mouseY = -1000;
     };
     
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-    
     // Create particles with varied sizes
-    const createParticles = () => {
+    const createParticles = (width, height) => {
       particles = [];
-      const count = 60;
+      const count = 50;
       for (let i = 0; i < count; i++) {
         particles.push({
-          x: Math.random() * canvas.offsetWidth,
-          y: Math.random() * canvas.offsetHeight,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
-          size: Math.random() * 2 + 0.5,
-          opacity: Math.random() * 0.4 + 0.1,
-          baseOpacity: Math.random() * 0.4 + 0.1,
-          pulseSpeed: Math.random() * 0.02 + 0.01,
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.4,
+          size: Math.random() * 2.5 + 1,
+          opacity: Math.random() * 0.5 + 0.2,
+          baseOpacity: Math.random() * 0.5 + 0.2,
+          pulseSpeed: Math.random() * 0.03 + 0.01,
           pulseOffset: Math.random() * Math.PI * 2,
         });
       }
     };
     
-    createParticles();
-    
     let time = 0;
     
     const animate = () => {
+      if (!isRunning) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      
       time += 0.016;
-      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw connections first (behind particles)
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.08)';
+      ctx.lineWidth = 0.5;
+      
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 100) {
+            const lineOpacity = (1 - dist / 100) * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(34, 197, 94, ${lineOpacity})`;
+            ctx.stroke();
+          }
+        }
+      }
+      
+      // Update and draw particles
+      particles.forEach((p) => {
+        // Subtle mouse repulsion
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 100 && dist > 0) {
+          const force = (100 - dist) / 100 * 0.5;
+          p.vx -= (dx / dist) * force * 0.05;
+          p.vy -= (dy / dist) * force * 0.05;
+        }
+        
+        // Apply velocity with strong damping for smooth motion
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+        
+        // Add subtle drift
+        p.vx += (Math.random() - 0.5) * 0.02;
+        p.vy += (Math.random() - 0.5) * 0.02;
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Soft wrap around edges
+        if (p.x < -10) p.x = width + 10;
+        if (p.x > width + 10) p.x = -10;
+        if (p.y < -10) p.y = height + 10;
+        if (p.y > height + 10) p.y = -10;
+        
+        // Pulsing opacity
+        p.opacity = p.baseOpacity + Math.sin(time * p.pulseSpeed * 60 + p.pulseOffset) * 0.15;
+        
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
+        ctx.fill();
+      });
+      
+      animationId = requestAnimationFrame(animate);
+    };
+    
+    resize();
+    window.addEventListener('resize', resize);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    
+    animate();
+    
+    return () => {
+      isRunning = false;
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isReady]);
+  
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="absolute inset-0 w-full h-full"
+      style={{ 
+        background: 'transparent',
+        pointerEvents: 'auto'
+      }}
+    />
+  );
+}
       
       // Draw connections first (behind particles)
       particles.forEach((p, i) => {
