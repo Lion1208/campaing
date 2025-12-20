@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { MessageSquare, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
@@ -33,64 +35,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background grid-bg flex">
-      {/* Left Panel - Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ 
-            backgroundImage: 'url(https://images.unsplash.com/photo-1760344594784-60ff14035eb0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwyfHxmdXR1cmlzdGljJTIwYWJzdHJhY3QlMjBncmVlbiUyMGRpZ2l0YWwlMjBkYXRhJTIwZmxvd3xlbnwwfHx8fDE3NjYyNTg0Nzl8MA&ixlib=rb-4.1.0&q=85)'
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
-        <div className="relative z-10 flex flex-col justify-center p-12">
-          <div className="max-w-md">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center neon-glow-strong">
-                <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="font-heading font-black text-4xl text-foreground tracking-tight">NEXUS</h1>
-                <p className="text-sm font-mono text-primary uppercase tracking-widest">WhatsApp Command</p>
-              </div>
-            </div>
-            <h2 className="font-heading font-bold text-2xl text-foreground mb-4">
-              Centro de Comando de Campanhas
-            </h2>
-            <p className="text-muted-foreground leading-relaxed">
-              Gerencie suas campanhas de WhatsApp com precisão. Conecte múltiplos números, 
-              selecione grupos e agende disparos automatizados.
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Background Pattern */}
+      <div className="fixed inset-0 opacity-30">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent" />
       </div>
 
-      {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center neon-glow">
-              <svg className="w-7 h-7 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+      <div className="flex-1 flex items-center justify-center p-4 relative">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center neon-glow-strong mb-4">
+              <MessageSquare className="w-8 h-8 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="font-heading font-black text-2xl text-foreground">NEXUS</h1>
-              <p className="text-xs font-mono text-primary uppercase tracking-widest">WhatsApp</p>
-            </div>
+            <h1 className="font-heading font-black text-3xl tracking-tight">NEXUS</h1>
+            <p className="text-sm font-mono text-primary uppercase tracking-widest mt-1">WhatsApp Campaigns</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-8 animate-fade-in">
-            <div className="mb-8">
-              <h2 className="font-heading font-bold text-2xl text-foreground mb-2">Entrar</h2>
-              <p className="text-muted-foreground text-sm">Acesse sua conta para gerenciar campanhas</p>
+          {/* Login Card */}
+          <div className="glass-card p-6 animate-fade-in">
+            <div className="mb-6 text-center">
+              <h2 className="font-heading font-bold text-xl mb-1">Bem-vindo de volta</h2>
+              <p className="text-muted-foreground text-sm">Entre para gerenciar suas campanhas</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="username" className="text-sm font-medium">
                   Usuário
                 </Label>
                 <Input
@@ -100,37 +71,43 @@ export default function LoginPage() {
                   placeholder="Digite seu usuário"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="h-12 bg-black/40 border-white/10 focus:border-primary/50 font-mono"
+                  className="h-12 bg-background/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="password" className="text-sm font-medium">
                   Senha
                 </Label>
-                <Input
-                  id="password"
-                  data-testid="login-password"
-                  type="password"
-                  placeholder="Digite sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 bg-black/40 border-white/10 focus:border-primary/50 font-mono"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    data-testid="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Digite sua senha"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 bg-background/50 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               <Button
                 type="submit"
                 data-testid="login-submit"
                 disabled={loading}
-                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 btn-glow font-bold tracking-wide uppercase text-xs"
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 btn-glow font-semibold"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
                     Entrando...
                   </span>
                 ) : (
@@ -139,9 +116,9 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-white/5">
-              <p className="text-xs text-muted-foreground text-center font-mono">
-                Credenciais padrão: <span className="text-primary">admin</span> / <span className="text-primary">admin123</span>
+            <div className="mt-6 pt-4 border-t border-white/5">
+              <p className="text-xs text-muted-foreground text-center">
+                Credenciais padrão: <span className="text-primary font-medium">admin</span> / <span className="text-primary font-medium">admin123</span>
               </p>
             </div>
           </div>
