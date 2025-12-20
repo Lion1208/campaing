@@ -1418,7 +1418,7 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
 
 @api_router.post("/campaigns/{campaign_id}/start")
 async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
-    """Iniciar campanha imediatamente"""
+    """Iniciar campanha imediatamente - já começa enviando"""
     query = {'id': campaign_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1429,17 +1429,37 @@ async def start_campaign_now(campaign_id: str, background_tasks: BackgroundTasks
     
     # Se for horários específicos, ativa a campanha mas não executa agora
     if campaign['schedule_type'] == 'specific_times':
+        next_run = calculate_next_run(campaign)
         schedule_campaign(campaign)
-        await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'active'}})
-        return {'status': 'active', 'message': 'Campanha ativada. Enviará nos horários configurados.'}
+        await db.campaigns.update_one(
+            {'id': campaign_id}, 
+            {'$set': {
+                'status': 'active',
+                'next_run': next_run,
+                'paused_at': None,
+                'remaining_time_on_pause': None
+            }}
+        )
+        await log_activity(user['id'], user['username'], 'start', 'campaign', campaign_id, campaign['title'], 'Campanha ativada (horários específicos)')
+        return {'status': 'active', 'message': 'Campanha ativada. Enviará nos horários configurados.', 'next_run': next_run}
     
-    # Para outros tipos, executa imediatamente
-    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'running'}})
+    # Para outros tipos, executa imediatamente e reseta contador
+    await db.campaigns.update_one(
+        {'id': campaign_id}, 
+        {'$set': {
+            'status': 'running',
+            'sent_count': 0,
+            'paused_at': None,
+            'remaining_time_on_pause': None
+        }}
+    )
     background_tasks.add_task(execute_campaign, campaign_id)
     
     # Se for intervalo, também agenda as próximas execuções
     if campaign['schedule_type'] == 'interval':
         schedule_campaign(campaign)
+    
+    await log_activity(user['id'], user['username'], 'start', 'campaign', campaign_id, campaign['title'], 'Campanha iniciada')
     
     return {'status': 'running', 'message': 'Campanha iniciada!'}
 
@@ -1464,26 +1484,33 @@ async def duplicate_campaign(campaign_id: str, user: dict = Depends(get_current_
         'message': original.get('message'),
         'image_id': original.get('image_id'),
         'image_url': original.get('image_url'),
+        'messages': original.get('messages'),
         'schedule_type': original['schedule_type'],
-        'scheduled_time': None,  # Reset para o usuário definir
+        'scheduled_time': None,
         'interval_hours': original.get('interval_hours'),
         'specific_times': original.get('specific_times'),
         'delay_seconds': original['delay_seconds'],
         'start_date': None,
         'end_date': None,
-        'status': 'pending',
+        'status': 'paused',
         'sent_count': 0,
         'total_count': len(original['group_ids']),
+        'current_message_index': 0,
         'last_run': None,
         'next_run': None,
+        'paused_at': None,
+        'remaining_time_on_pause': None,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     
     await db.campaigns.insert_one(new_campaign)
+    await log_activity(user['id'], user['username'], 'duplicate', 'campaign', new_campaign['id'], new_campaign['title'], 'Campanha duplicada')
+    
     return new_campaign
 
 @api_router.post("/campaigns/{campaign_id}/resume")
-async def resume_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
+async def resume_campaign(campaign_id: str, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
+    """Resume paused campaign - preserves delay"""
     query = {'id': campaign_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1492,9 +1519,29 @@ async def resume_campaign(campaign_id: str, user: dict = Depends(get_current_use
     if not campaign:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
+    # Calculate new next_run based on remaining time
+    remaining = campaign.get('remaining_time_on_pause')
+    now = datetime.now(timezone.utc)
+    
+    if remaining and remaining > 0:
+        next_run = (now + timedelta(seconds=remaining)).isoformat()
+    else:
+        next_run = calculate_next_run(campaign)
+    
     schedule_campaign(campaign)
-    await db.campaigns.update_one({'id': campaign_id}, {'$set': {'status': 'active'}})
-    return {'status': 'active'}
+    await db.campaigns.update_one(
+        {'id': campaign_id}, 
+        {'$set': {
+            'status': 'active',
+            'next_run': next_run,
+            'paused_at': None,
+            'remaining_time_on_pause': None
+        }}
+    )
+    
+    await log_activity(user['id'], user['username'], 'resume', 'campaign', campaign_id, campaign['title'], 'Campanha retomada')
+    
+    return {'status': 'active', 'next_run': next_run}
 
 @api_router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(campaign_id: str, user: dict = Depends(get_current_user)):
