@@ -1141,6 +1141,95 @@ async def list_images(user: dict = Depends(get_current_user)):
     images = await db.images.find(query, {'_id': 0}).to_list(1000)
     return images
 
+@api_router.get("/images/paginated")
+async def list_images_paginated(page: int = 1, limit: int = 20, user: dict = Depends(get_current_user)):
+    """List images with pagination"""
+    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    skip = (page - 1) * limit
+    total = await db.images.count_documents(query)
+    images = await db.images.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    return {
+        'images': images,
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'total_pages': (total + limit - 1) // limit
+    }
+
+@api_router.get("/images/{image_id}/file")
+async def get_image_file(image_id: str, user: dict = Depends(get_current_user)):
+    """Get image file as response"""
+    from fastapi.responses import FileResponse
+    
+    query = {'id': image_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    image = await db.images.find_one(query)
+    if not image:
+        # Try without user filter for campaign images
+        image = await db.images.find_one({'id': image_id})
+        if not image:
+            raise HTTPException(status_code=404, detail="Imagem não encontrada")
+    
+    filepath = UPLOADS_DIR / image['filename']
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    
+    # Determine content type
+    ext = image['filename'].split('.')[-1].lower()
+    content_types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+    }
+    content_type = content_types.get(ext, 'image/jpeg')
+    
+    return FileResponse(filepath, media_type=content_type)
+
+@api_router.put("/images/{image_id}")
+async def update_image(image_id: str, file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Replace an existing image with a new file"""
+    query = {'id': image_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    image = await db.images.find_one(query)
+    if not image:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
+    
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
+    
+    # Delete old file
+    old_filepath = UPLOADS_DIR / image['filename']
+    if old_filepath.exists():
+        old_filepath.unlink()
+    
+    # Save new file
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    new_filename = f"{uuid.uuid4()}.{ext}"
+    new_filepath = UPLOADS_DIR / new_filename
+    
+    async with aiofiles.open(new_filepath, 'wb') as f:
+        content = await file.read()
+        await f.write(content)
+    
+    # Update database
+    await db.images.update_one(
+        {'id': image_id},
+        {'$set': {
+            'filename': new_filename,
+            'original_name': file.filename,
+            'url': f"/uploads/{new_filename}"
+        }}
+    )
+    
+    updated = await db.images.find_one({'id': image_id}, {'_id': 0})
+    return updated
+
 @api_router.delete("/images/{image_id}")
 async def delete_image(image_id: str, user: dict = Depends(get_current_user)):
     query = {'id': image_id}
