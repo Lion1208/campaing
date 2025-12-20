@@ -2183,6 +2183,9 @@ async def startup_event():
         await db.users.insert_one(admin_user)
         logger.info("Usuário admin criado: admin / admin123")
     
+    # Start WhatsApp service if not running
+    await start_whatsapp_service()
+    
     # Reload active campaigns
     active_campaigns = await db.campaigns.find({'status': {'$in': ['active', 'pending']}}, {'_id': 0}).to_list(1000)
     for campaign in active_campaigns:
@@ -2190,6 +2193,63 @@ async def startup_event():
             schedule_campaign(campaign)
         except Exception as e:
             logger.error(f"Erro ao recarregar campanha {campaign['id']}: {e}")
+
+async def start_whatsapp_service():
+    """Ensure WhatsApp service is running"""
+    import subprocess
+    import asyncio
+    
+    # Check if WhatsApp service is responding
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+            if response.status_code == 200:
+                logger.info("WhatsApp service já está rodando")
+                return
+    except:
+        pass
+    
+    # Try to start it
+    logger.info("Tentando iniciar WhatsApp service...")
+    try:
+        # Try supervisor first
+        result = subprocess.run(['supervisorctl', 'start', 'whatsapp'], capture_output=True, text=True, timeout=10)
+        logger.info(f"Supervisor start result: {result.stdout} {result.stderr}")
+        await asyncio.sleep(3)
+        
+        # Check if it's running now
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+            if response.status_code == 200:
+                logger.info("WhatsApp service iniciado via supervisor")
+                return
+    except Exception as e:
+        logger.warning(f"Falha ao iniciar via supervisor: {e}")
+    
+    # Try to start directly with subprocess
+    try:
+        logger.info("Tentando iniciar WhatsApp service diretamente...")
+        process = subprocess.Popen(
+            ['node', '/app/whatsapp-service/index.js'],
+            cwd='/app/whatsapp-service',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            env={**os.environ, 'WHATSAPP_PORT': '3002'}
+        )
+        await asyncio.sleep(5)
+        
+        # Check if it's running
+        if process.poll() is None:  # Process is still running
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+                if response.status_code == 200:
+                    logger.info("WhatsApp service iniciado diretamente")
+                    return
+    except Exception as e:
+        logger.error(f"Falha ao iniciar WhatsApp service diretamente: {e}")
+    
+    logger.error("Não foi possível iniciar o WhatsApp service")
 
 @app.on_event("shutdown")
 async def shutdown_event():
