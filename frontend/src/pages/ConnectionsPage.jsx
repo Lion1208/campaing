@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useConnectionsStore, useAuthStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,43 +32,46 @@ export default function ConnectionsPage() {
   const [newConnectionName, setNewConnectionName] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [selectedConnection, setSelectedConnection] = useState(null);
+  const [selectedConnectionId, setSelectedConnectionId] = useState(null);
   const [qrData, setQrData] = useState({ qr_code: null, qr_image: null, status: 'connecting' });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [pollingActive, setPollingActive] = useState(false);
+  const pollingRef = useRef(null);
 
   useEffect(() => {
     fetchConnections();
   }, [fetchConnections]);
 
-  // Poll for QR code and connection status
-  const pollQRCode = useCallback(async () => {
-    if (!selectedConnection || !pollingActive) return;
-    
-    try {
-      const result = await getQRCode(selectedConnection.id);
-      setQrData(result);
-      
-      if (result.status === 'connected') {
-        setPollingActive(false);
-        setQrDialogOpen(false);
-        toast.success('WhatsApp conectado com sucesso!');
-        fetchConnections();
-      }
-    } catch (error) {
-      console.error('Erro ao obter QR:', error);
-    }
-  }, [selectedConnection, pollingActive, getQRCode, fetchConnections]);
-
+  // Poll for QR code
   useEffect(() => {
-    let interval;
-    if (pollingActive && qrDialogOpen) {
-      interval = setInterval(pollQRCode, 2000);
+    if (qrDialogOpen && selectedConnectionId) {
+      const poll = async () => {
+        try {
+          const result = await getQRCode(selectedConnectionId);
+          setQrData(result);
+          
+          if (result.status === 'connected') {
+            clearInterval(pollingRef.current);
+            setQrDialogOpen(false);
+            toast.success('WhatsApp conectado com sucesso!');
+            fetchConnections();
+          }
+        } catch (error) {
+          console.error('Erro ao obter QR:', error);
+        }
+      };
+
+      poll();
+      pollingRef.current = setInterval(poll, 2500);
+
+      return () => {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+        }
+      };
     }
-    return () => clearInterval(interval);
-  }, [pollingActive, qrDialogOpen, pollQRCode]);
+  }, [qrDialogOpen, selectedConnectionId, getQRCode, fetchConnections]);
 
   const handleCreateConnection = async () => {
     if (!newConnectionName.trim()) {
@@ -90,12 +93,11 @@ export default function ConnectionsPage() {
   };
 
   const handleConnect = async (connection) => {
-    setSelectedConnection(connection);
+    setSelectedConnectionId(connection.id);
     setActionLoading(true);
     try {
       await connectWhatsApp(connection.id);
       setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
-      setPollingActive(true);
       setQrDialogOpen(true);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao conectar');
@@ -144,8 +146,11 @@ export default function ConnectionsPage() {
   };
 
   const closeQRDialog = () => {
-    setPollingActive(false);
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
     setQrDialogOpen(false);
+    setSelectedConnectionId(null);
     setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
   };
 
@@ -154,6 +159,7 @@ export default function ConnectionsPage() {
       connected: { class: 'status-connected', label: 'Conectado' },
       connecting: { class: 'status-connecting', label: 'Conectando' },
       waiting_qr: { class: 'status-connecting', label: 'Aguardando QR' },
+      reconnecting: { class: 'status-connecting', label: 'Reconectando' },
       disconnected: { class: 'status-disconnected', label: 'Desconectado' },
     };
     const c = config[status] || config.disconnected;
@@ -172,7 +178,7 @@ export default function ConnectionsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-2xl md:text-3xl">Conexões WhatsApp</h1>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Conexões WhatsApp</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {connections.length} de {maxConnections} conexões
           </p>
@@ -188,22 +194,22 @@ export default function ConnectionsPage() {
               Nova Conexão
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
+          <DialogContent className="glass-card border-border mx-4 max-w-sm">
             <DialogHeader>
-              <DialogTitle className="font-heading">Nova Conexão</DialogTitle>
+              <DialogTitle className="font-heading text-foreground">Nova Conexão</DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 Dê um nome para identificar esta conexão.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label>Nome da Conexão</Label>
+                <Label className="text-foreground">Nome da Conexão</Label>
                 <Input
                   data-testid="connection-name-input"
                   placeholder="Ex: Marketing, Vendas..."
                   value={newConnectionName}
                   onChange={(e) => setNewConnectionName(e.target.value)}
-                  className="bg-background/50"
+                  className="bg-muted/50 border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
               <Button
@@ -228,7 +234,7 @@ export default function ConnectionsPage() {
         <Card className="glass-card">
           <CardContent className="p-8 text-center">
             <Wifi className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-            <h3 className="font-heading font-semibold text-lg mb-2">
+            <h3 className="font-heading font-semibold text-lg text-foreground mb-2">
               Nenhuma conexão
             </h3>
             <p className="text-muted-foreground text-sm mb-4">
@@ -251,12 +257,12 @@ export default function ConnectionsPage() {
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      connection.status === 'connected' ? 'bg-primary/15 animate-pulse-green' : 'bg-white/5'
+                      connection.status === 'connected' ? 'bg-primary/15 animate-pulse-green' : 'bg-muted/50'
                     }`}>
                       <Wifi className={`w-5 h-5 ${connection.status === 'connected' ? 'text-primary' : 'text-muted-foreground'}`} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold truncate">{connection.name}</h3>
+                      <h3 className="font-semibold text-foreground truncate">{connection.name}</h3>
                       <p className="text-xs text-muted-foreground truncate">
                         {connection.phone_number || 'Aguardando conexão'}
                       </p>
@@ -288,7 +294,7 @@ export default function ConnectionsPage() {
                         disabled={actionLoading}
                         variant="outline"
                         size="sm"
-                        className="flex-1 border-white/10"
+                        className="flex-1 border-border text-foreground hover:bg-muted/50"
                       >
                         <RefreshCw className="w-4 h-4 mr-1.5" />
                         Grupos
@@ -298,7 +304,7 @@ export default function ConnectionsPage() {
                         onClick={() => handleDisconnect(connection)}
                         variant="outline"
                         size="sm"
-                        className="border-white/10"
+                        className="border-border text-foreground hover:bg-muted/50"
                       >
                         Desconectar
                       </Button>
@@ -312,7 +318,7 @@ export default function ConnectionsPage() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="border-destructive/20 text-destructive hover:bg-destructive/10 flex-shrink-0"
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 flex-shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -325,9 +331,9 @@ export default function ConnectionsPage() {
 
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={closeQRDialog}>
-        <DialogContent className="glass-card border-white/10 mx-4 max-w-sm">
+        <DialogContent className="glass-card border-border mx-4 max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-heading flex items-center gap-2">
+            <DialogTitle className="font-heading text-foreground flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-primary" />
               Conectar WhatsApp
             </DialogTitle>
@@ -337,11 +343,11 @@ export default function ConnectionsPage() {
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
             {qrData.qr_image ? (
-              <div className="p-3 bg-white rounded-xl">
-                <img src={qrData.qr_image} alt="QR Code" className="w-56 h-56" />
+              <div className="p-3 bg-white rounded-xl shadow-lg">
+                <img src={qrData.qr_image} alt="QR Code WhatsApp" className="w-56 h-56" />
               </div>
             ) : (
-              <div className="w-56 h-56 bg-white/5 rounded-xl flex items-center justify-center">
+              <div className="w-56 h-56 bg-muted/50 rounded-xl flex items-center justify-center border border-border">
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground">Gerando QR Code...</p>
@@ -350,7 +356,7 @@ export default function ConnectionsPage() {
             )}
             <div className="mt-4 text-center">
               <p className="text-xs text-muted-foreground">
-                Abra o WhatsApp → Configurações → Dispositivos conectados → Conectar dispositivo
+                WhatsApp → Configurações → Dispositivos conectados → Conectar
               </p>
             </div>
           </div>
@@ -359,15 +365,15 @@ export default function ConnectionsPage() {
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="glass-card border-white/10 mx-4 max-w-sm">
+        <AlertDialogContent className="glass-card border-border mx-4 max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Deletar Conexão</AlertDialogTitle>
+            <AlertDialogTitle className="text-foreground">Deletar Conexão</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
               Tem certeza que deseja deletar "{connectionToDelete?.name}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/10">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="border-border text-foreground">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               data-testid="confirm-delete-connection"
               onClick={handleDelete}
