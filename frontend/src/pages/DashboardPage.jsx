@@ -13,7 +13,7 @@ import {
 import { Wifi, Calendar, Users, Send, TrendingUp, Zap, Sparkles } from 'lucide-react';
 import { api } from '@/store';
 
-// Pure Particle Animation
+// Elegant Particle Animation - Clean and Professional
 function ParticleBackground() {
   const canvasRef = useRef(null);
   
@@ -24,8 +24,8 @@ function ParticleBackground() {
     const ctx = canvas.getContext('2d');
     let animationId;
     let particles = [];
-    let mouseX = 0;
-    let mouseY = 0;
+    let mouseX = -1000;
+    let mouseY = -1000;
     
     const resize = () => {
       canvas.width = canvas.offsetWidth * window.devicePixelRatio;
@@ -36,91 +36,105 @@ function ParticleBackground() {
     resize();
     window.addEventListener('resize', resize);
     
-    // Mouse tracking for interactivity
+    // Mouse tracking for subtle interactivity
     const handleMouseMove = (e) => {
       const rect = canvas.getBoundingClientRect();
       mouseX = e.clientX - rect.left;
       mouseY = e.clientY - rect.top;
     };
-    canvas.addEventListener('mousemove', handleMouseMove);
     
-    // Create particles
+    const handleMouseLeave = () => {
+      mouseX = -1000;
+      mouseY = -1000;
+    };
+    
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    
+    // Create particles with varied sizes
     const createParticles = () => {
       particles = [];
-      const count = 80;
+      const count = 60;
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.offsetWidth,
           y: Math.random() * canvas.offsetHeight,
-          vx: (Math.random() - 0.5) * 0.8,
-          vy: (Math.random() - 0.5) * 0.8,
-          size: Math.random() * 2.5 + 0.5,
-          opacity: Math.random() * 0.6 + 0.2,
-          hue: 140 + Math.random() * 20, // Green hues
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: Math.random() * 2 + 0.5,
+          opacity: Math.random() * 0.4 + 0.1,
+          baseOpacity: Math.random() * 0.4 + 0.1,
+          pulseSpeed: Math.random() * 0.02 + 0.01,
+          pulseOffset: Math.random() * Math.PI * 2,
         });
       }
     };
     
     createParticles();
     
+    let time = 0;
+    
     const animate = () => {
+      time += 0.016;
       ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
       
+      // Draw connections first (behind particles)
       particles.forEach((p, i) => {
-        // Mouse attraction
-        const dx = mouseX - p.x;
-        const dy = mouseY - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 150) {
-          const force = (150 - dist) / 150 * 0.02;
-          p.vx += dx * force * 0.01;
-          p.vy += dy * force * 0.01;
-        }
-        
-        // Apply velocity with damping
-        p.vx *= 0.99;
-        p.vy *= 0.99;
-        p.x += p.vx;
-        p.y += p.vy;
-        
-        // Wrap around edges
-        if (p.x < 0) p.x = canvas.offsetWidth;
-        if (p.x > canvas.offsetWidth) p.x = 0;
-        if (p.y < 0) p.y = canvas.offsetHeight;
-        if (p.y > canvas.offsetHeight) p.y = 0;
-        
-        // Draw particle with glow
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
-        gradient.addColorStop(0, `hsla(${p.hue}, 80%, 55%, ${p.opacity})`);
-        gradient.addColorStop(1, `hsla(${p.hue}, 80%, 55%, 0)`);
-        
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        
-        // Core particle
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${p.hue}, 90%, 70%, ${p.opacity + 0.2})`;
-        ctx.fill();
-        
-        // Draw connections
         particles.slice(i + 1).forEach(p2 => {
           const dx = p.x - p2.x;
           const dy = p.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           
-          if (dist < 120) {
+          if (dist < 100) {
+            const lineOpacity = (1 - dist / 100) * 0.08;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
-            const lineOpacity = (1 - dist / 120) * 0.15;
-            ctx.strokeStyle = `hsla(150, 70%, 50%, ${lineOpacity})`;
+            ctx.strokeStyle = `rgba(34, 197, 94, ${lineOpacity})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
         });
+      });
+      
+      // Update and draw particles
+      particles.forEach((p) => {
+        // Subtle mouse repulsion
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 100 && dist > 0) {
+          const force = (100 - dist) / 100 * 0.5;
+          p.vx -= (dx / dist) * force * 0.05;
+          p.vy -= (dy / dist) * force * 0.05;
+        }
+        
+        // Apply velocity with strong damping for smooth motion
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        
+        // Add very subtle drift
+        p.vx += (Math.random() - 0.5) * 0.01;
+        p.vy += (Math.random() - 0.5) * 0.01;
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Soft wrap around edges
+        if (p.x < -10) p.x = canvas.offsetWidth + 10;
+        if (p.x > canvas.offsetWidth + 10) p.x = -10;
+        if (p.y < -10) p.y = canvas.offsetHeight + 10;
+        if (p.y > canvas.offsetHeight + 10) p.y = -10;
+        
+        // Subtle pulsing opacity
+        p.opacity = p.baseOpacity + Math.sin(time * p.pulseSpeed * 60 + p.pulseOffset) * 0.1;
+        
+        // Draw particle as a soft dot (no harsh glow)
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
+        ctx.fill();
       });
       
       animationId = requestAnimationFrame(animate);
@@ -132,13 +146,14 @@ function ParticleBackground() {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', resize);
       canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, []);
   
   return (
     <canvas 
       ref={canvasRef} 
-      className="absolute inset-0 w-full h-full"
+      className="absolute inset-0 w-full h-full pointer-events-auto"
       style={{ background: 'transparent' }}
     />
   );
@@ -198,11 +213,16 @@ export default function DashboardPage() {
 
   return (
     <div data-testid="dashboard-page" className="space-y-6 animate-fade-in">
-      {/* Hero Section - Single Card with Particle Background */}
-      <Card className="relative overflow-hidden border-primary/20 bg-card/80 backdrop-blur">
-        <ParticleBackground />
+      {/* Hero Section - Single Unified Card with Particle Background */}
+      <Card className="relative overflow-hidden border-primary/10 bg-gradient-to-br from-card via-card to-primary/5">
+        {/* Particle Animation Layer */}
+        <div className="absolute inset-0 z-0">
+          <ParticleBackground />
+        </div>
+        
+        {/* Content Layer */}
         <CardContent className="relative z-10 p-6">
-          {/* Header inside card */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -214,7 +234,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-32 bg-background/70 backdrop-blur border-border text-foreground">
+              <SelectTrigger className="w-32 bg-background/80 backdrop-blur-sm border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -224,83 +244,78 @@ export default function DashboardPage() {
             </Select>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Stats Grid - Clean Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Dispositivos */}
-            <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-primary/50 transition-all hover:scale-[1.02] hover:bg-background/80">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <Wifi className="w-5 h-5 text-primary" />
+            <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-primary/30 hover:bg-background/90">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center">
+                  <Wifi className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Conectados</span>
               </div>
-              <p className="font-heading font-bold text-3xl text-foreground">
-                {connectedCount}<span className="text-lg text-muted-foreground">/{connections.length}</span>
+              <p className="font-heading font-bold text-2xl sm:text-3xl text-foreground">
+                {connectedCount}<span className="text-base sm:text-lg text-muted-foreground">/{connections.length}</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Dispositivos</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Dispositivos</p>
             </div>
 
             {/* Campanhas Ativas */}
-            <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-blue-500/50 transition-all hover:scale-[1.02] hover:bg-background/80">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-blue-500" />
+            <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-blue-500/30 hover:bg-background/90">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-blue-500" />
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Ativas</span>
               </div>
-              <p className="font-heading font-bold text-3xl text-foreground">
-                {activeCampaigns}<span className="text-lg text-muted-foreground">/{campaigns.length}</span>
+              <p className="font-heading font-bold text-2xl sm:text-3xl text-foreground">
+                {activeCampaigns}<span className="text-base sm:text-lg text-muted-foreground">/{campaigns.length}</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Campanhas</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Campanhas</p>
             </div>
 
-            {/* Revendedores */}
+            {/* Revendedores / Envios do Período */}
             {(user?.role === 'admin' || user?.role === 'master') ? (
-              <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-purple-500/50 transition-all hover:scale-[1.02] hover:bg-background/80">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-purple-500" />
+              <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-purple-500/30 hover:bg-background/90">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-purple-500" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total</span>
                 </div>
-                <p className="font-heading font-bold text-3xl text-foreground">
+                <p className="font-heading font-bold text-2xl sm:text-3xl text-foreground">
                   {stats?.resellers_count || 0}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Revendedores</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Revendedores</p>
               </div>
             ) : (
-              <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-yellow-500/50 transition-all hover:scale-[1.02] hover:bg-background/80">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-yellow-500" />
+              <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-yellow-500/30 hover:bg-background/90">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-yellow-500/15 flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-yellow-500" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Período</span>
                 </div>
-                <p className="font-heading font-bold text-3xl text-foreground">
+                <p className="font-heading font-bold text-2xl sm:text-3xl text-foreground">
                   {stats?.sends_period || 0}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Envios</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Envios ({period}d)</p>
               </div>
             )}
 
             {/* Envios Hoje */}
-            <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-green-500/50 transition-all hover:scale-[1.02] hover:bg-background/80">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                  <Send className="w-5 h-5 text-green-500" />
+            <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-green-500/30 hover:bg-background/90">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-9 h-9 rounded-lg bg-green-500/15 flex items-center justify-center">
+                  <Send className="w-4 h-4 text-green-500" />
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hoje</span>
               </div>
-              <p className="font-heading font-bold text-3xl text-foreground">
+              <p className="font-heading font-bold text-2xl sm:text-3xl text-foreground">
                 {stats?.sends_today || 0}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Envios</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Envios Hoje</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Secondary Stats */}
+      {/* Secondary Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Envios do Período */}
         <Card className="glass-card">
