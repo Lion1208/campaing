@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, api } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { MessageSquare, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { MessageSquare, Eye, EyeOff, LogIn, UserPlus, X } from 'lucide-react';
+
+const SAVED_USER_KEY = 'nexuzap_saved_user';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,6 +20,24 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [savedUser, setSavedUser] = useState(null);
+  const passwordRef = useRef(null);
+
+  // Carrega usuário salvo ao montar
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_USER_KEY);
+    if (saved) {
+      setSavedUser(saved);
+      setUsername(saved);
+    }
+  }, []);
+
+  // Foca no campo de senha se já tem usuário salvo
+  useEffect(() => {
+    if (savedUser && !isRegister && passwordRef.current) {
+      passwordRef.current.focus();
+    }
+  }, [savedUser, isRegister]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -29,6 +49,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username.trim(), password);
+      // Salva o usuário no localStorage após login bem sucedido
+      localStorage.setItem(SAVED_USER_KEY, username.trim());
+      setSavedUser(username.trim());
       toast.success('Login realizado!');
       navigate('/dashboard');
     } catch (error) {
@@ -71,6 +94,18 @@ export default function LoginPage() {
     }
   };
 
+  const clearSavedUser = () => {
+    localStorage.removeItem(SAVED_USER_KEY);
+    setSavedUser(null);
+    setUsername('');
+    setPassword('');
+  };
+
+  const switchUser = () => {
+    setUsername('');
+    setPassword('');
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Background Effects */}
@@ -85,7 +120,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-4 flex items-center justify-center neon-glow">
             <MessageSquare className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="font-heading font-bold text-3xl text-foreground">NEXUS</h1>
+          <h1 className="font-heading font-bold text-3xl text-foreground">NEXUZAP</h1>
           <p className="text-primary font-mono text-sm mt-1">WHATSAPP CAMPAIGNS</p>
         </div>
 
@@ -118,22 +153,54 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={isRegister ? handleRegister : handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-foreground">Usuário</Label>
-                <Input
-                  data-testid="username-input"
-                  placeholder="Digite seu usuário"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-muted/50 border-border text-foreground placeholder:text-muted-foreground"
-                  autoComplete="username"
-                />
-              </div>
+              {/* Usuário salvo ou campo de input */}
+              {!isRegister && savedUser && username === savedUser ? (
+                <div className="space-y-2">
+                  <Label className="text-foreground">Usuário</Label>
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary font-semibold text-sm uppercase">
+                        {savedUser.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="text-foreground font-medium flex-1 truncate">{savedUser}</span>
+                    <button
+                      type="button"
+                      onClick={switchUser}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Trocar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSavedUser}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      title="Remover usuário salvo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-foreground">Usuário</Label>
+                  <Input
+                    data-testid="username-input"
+                    placeholder="Digite seu usuário"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-muted/50 border-border text-foreground placeholder:text-muted-foreground"
+                    autoComplete="username"
+                    autoFocus={!savedUser}
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label className="text-foreground">Senha</Label>
                 <div className="relative">
                   <Input
+                    ref={passwordRef}
                     data-testid="password-input"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Digite sua senha"
@@ -141,6 +208,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="bg-muted/50 border-border text-foreground placeholder:text-muted-foreground pr-12"
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    autoFocus={!isRegister && savedUser && username === savedUser}
                   />
                   <button
                     type="button"
