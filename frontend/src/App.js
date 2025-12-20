@@ -141,10 +141,10 @@ const Layout = ({ children }) => {
         </div>
         <div className="flex items-center gap-2">
           {/* Credits badge for mobile */}
-          {(user?.role === 'admin' || user?.role === 'master') && user?.credits !== undefined && (
+          {(user?.role === 'admin' || user?.role === 'master') && (
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-500 text-xs font-medium">
               <Coins className="w-3 h-3" />
-              {user.credits}
+              {user?.role === 'admin' ? '∞' : (user?.credits || 0)}
             </div>
           )}
           <button
