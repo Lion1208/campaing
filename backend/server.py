@@ -674,13 +674,13 @@ async def create_reseller(data: UserCreate, master: dict = Depends(get_master_us
 
 @api_router.post("/master/resellers/{user_id}/renew")
 async def renew_reseller(user_id: str, master: dict = Depends(get_master_user)):
-    """Renew a reseller subscription (costs 1 credit)"""
+    """Renew a reseller subscription (costs 1 credit for master, free for admin)"""
     # Check if reseller belongs to this master
     query = {'id': user_id}
     if master['role'] == 'master':
         query['created_by'] = master['id']
         
-        # Check credits
+        # Check credits (only for master, admin is free)
         if master.get('credits', 0) < 1:
             raise HTTPException(status_code=400, detail="Créditos insuficientes. Você precisa de pelo menos 1 crédito para renovar.")
     
@@ -704,7 +704,7 @@ async def renew_reseller(user_id: str, master: dict = Depends(get_master_user)):
     
     await db.users.update_one({'id': user_id}, {'$set': {'expires_at': new_expires, 'active': True}})
     
-    # Deduct credit from master
+    # Deduct credit from master only (admin never loses credits)
     if master['role'] == 'master':
         await db.users.update_one({'id': master['id']}, {'$inc': {'credits': -1}})
     
