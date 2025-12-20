@@ -197,13 +197,16 @@ app.post('/connections/:id/start', async (req, res) => {
     try {
         const connectionId = req.params.id;
         
-        // Stop existing connection if any
+        // Check if already connected
         if (connections.has(connectionId)) {
             const existing = connections.get(connectionId);
             if (existing.status === 'connected') {
                 return res.json({ status: 'already_connected', phoneNumber: existing.phoneNumber });
             }
-            // Close existing socket
+            if (existing.status === 'connecting' || existing.status === 'waiting_qr' || existing.status === 'reconnecting') {
+                return res.json({ status: existing.status, message: 'Conexão em andamento' });
+            }
+            // Close existing socket if in bad state
             try {
                 existing.socket?.end();
             } catch (e) {}
