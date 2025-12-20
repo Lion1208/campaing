@@ -18,6 +18,7 @@ import AllUsersPage from "@/pages/AllUsersPage";
 import ResellersPage from "@/pages/ResellersPage";
 import HistoryPage from "@/pages/HistoryPage";
 import MediaPage from "@/pages/MediaPage";
+import BlockedPage from "@/pages/BlockedPage";
 
 // Theme hook
 const useTheme = () => {
