@@ -675,6 +675,39 @@ async def execute_campaign(campaign_id: str):
             {'$set': {'status': 'failed', 'error': str(e)}}
         )
 
+def calculate_next_run(campaign: dict) -> str:
+    """Calculate next run time for recurring campaigns"""
+    now = datetime.now(timezone.utc)
+    
+    if campaign['schedule_type'] == 'interval':
+        hours = campaign.get('interval_hours', 1)
+        next_run = now + timedelta(hours=hours)
+        return next_run.isoformat()
+    
+    elif campaign['schedule_type'] == 'specific_times':
+        times = campaign.get('specific_times', [])
+        if not times:
+            return None
+        
+        # Find next time today or tomorrow
+        today = now.date()
+        for time_str in sorted(times):
+            hour, minute = map(int, time_str.split(':'))
+            next_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+            next_time = next_time.replace(tzinfo=timezone.utc)
+            
+            if next_time > now:
+                return next_time.isoformat()
+        
+        # If no time today, use first time tomorrow
+        tomorrow = today + timedelta(days=1)
+        hour, minute = map(int, sorted(times)[0].split(':'))
+        next_time = datetime.combine(tomorrow, datetime.min.time().replace(hour=hour, minute=minute))
+        next_time = next_time.replace(tzinfo=timezone.utc)
+        return next_time.isoformat()
+    
+    return None
+
 def schedule_campaign(campaign: dict):
     """Schedule campaign based on type"""
     campaign_id = campaign['id']
