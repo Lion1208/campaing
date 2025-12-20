@@ -308,9 +308,37 @@ async def login(data: UserLogin):
             'id': user['id'],
             'username': user['username'],
             'role': user['role'],
-            'max_connections': user['max_connections']
+            'max_connections': user['max_connections'],
+            'credits': user.get('credits', 0)
         }
     }
+
+@api_router.post("/auth/register")
+async def register_user(data: UserLogin):
+    """Register new user (public - joins admin's network as reseller)"""
+    existing = await db.users.find_one({'username': data.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Usuário já existe")
+    
+    # Find admin to link this user
+    admin = await db.users.find_one({'role': 'admin'})
+    
+    user = {
+        'id': str(uuid.uuid4()),
+        'username': data.username,
+        'password': hash_password(data.password),
+        'role': 'reseller',
+        'max_connections': 1,
+        'credits': 0,
+        'active': True,
+        'expires_at': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        'created_by': admin['id'] if admin else None,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(user)
+    
+    return {'message': 'Conta criada com sucesso'}
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
