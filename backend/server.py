@@ -1046,16 +1046,39 @@ async def execute_campaign(campaign_id: str):
     connection_id = campaign['connection_id']
     
     try:
-        # Get image if exists
+        # Determine which message/image to send
+        message_to_send = None
         image_base64 = None
-        if campaign.get('image_id'):
-            image = await db.images.find_one({'id': campaign['image_id']})
-            if image:
-                filepath = UPLOADS_DIR / image['filename']
-                if filepath.exists():
-                    async with aiofiles.open(filepath, 'rb') as f:
-                        content = await f.read()
-                        image_base64 = base64.b64encode(content).decode('utf-8')
+        
+        # Check if campaign has multiple messages
+        if campaign.get('messages') and len(campaign['messages']) > 0:
+            # Randomly select a message variation
+            import random
+            selected_msg = random.choice(campaign['messages'])
+            message_to_send = selected_msg.get('message')
+            
+            # Get image for selected message
+            if selected_msg.get('image_id'):
+                image = await db.images.find_one({'id': selected_msg['image_id']})
+                if image:
+                    filepath = UPLOADS_DIR / image['filename']
+                    if filepath.exists():
+                        async with aiofiles.open(filepath, 'rb') as f:
+                            content = await f.read()
+                            image_base64 = base64.b64encode(content).decode('utf-8')
+        else:
+            # Single message mode
+            message_to_send = campaign.get('message')
+            
+            # Get image if exists
+            if campaign.get('image_id'):
+                image = await db.images.find_one({'id': campaign['image_id']})
+                if image:
+                    filepath = UPLOADS_DIR / image['filename']
+                    if filepath.exists():
+                        async with aiofiles.open(filepath, 'rb') as f:
+                            content = await f.read()
+                            image_base64 = base64.b64encode(content).decode('utf-8')
         
         for group_id in campaign['group_ids']:
             try:
@@ -1066,9 +1089,9 @@ async def execute_campaign(campaign_id: str):
                 
                 await whatsapp_request("POST", f"/connections/{connection_id}/send", {
                     'groupId': group['group_id'],
-                    'message': campaign.get('message'),
+                    'message': message_to_send,
                     'imageBase64': image_base64,
-                    'caption': campaign.get('message') if image_base64 else None
+                    'caption': message_to_send if image_base64 else None
                 })
                 
                 sent_count += 1
