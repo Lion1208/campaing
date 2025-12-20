@@ -109,9 +109,6 @@ const Layout = ({ children }) => {
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/history', label: 'Histórico', icon: History },
   ];
-    { path: '/campaigns', label: 'Campanhas', icon: Calendar },
-    { path: '/templates', label: 'Templates', icon: FileText },
-  ];
 
   // Add resellers page for admin and master
   if (user?.role === 'admin' || user?.role === 'master') {
