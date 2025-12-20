@@ -318,8 +318,155 @@ async def get_me(user: dict = Depends(get_current_user)):
         'id': user['id'],
         'username': user['username'],
         'role': user['role'],
-        'max_connections': user['max_connections']
+        'max_connections': user['max_connections'],
+        'credits': user.get('credits', 0),
+        'expires_at': user.get('expires_at')
     }
+
+# ============= Profile Management =============
+
+@api_router.put("/auth/profile")
+async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_user)):
+    """Update user profile (username)"""
+    update_data = {}
+    
+    if data.username and data.username != user['username']:
+        # Check if username is taken
+        existing = await db.users.find_one({'username': data.username})
+        if existing:
+            raise HTTPException(status_code=400, detail="Nome de usuário já existe")
+        update_data['username'] = data.username
+    
+    if not update_data:
+        return {'message': 'Nenhuma alteração necessária'}
+    
+    await db.users.update_one({'id': user['id']}, {'$set': update_data})
+    
+    # Log activity
+    await log_activity(user['id'], user['username'], 'profile_update', 'user', user['id'], user['username'], 'Perfil atualizado')
+    
+    updated = await db.users.find_one({'id': user['id']}, {'_id': 0, 'password': 0})
+    return updated
+
+@api_router.put("/auth/password")
+async def change_password(data: PasswordChange, user: dict = Depends(get_current_user)):
+    """Change user password"""
+    # Verify current password
+    full_user = await db.users.find_one({'id': user['id']})
+    if not verify_password(data.current_password, full_user['password']):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    
+    # Update password
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one({'id': user['id']}, {'$set': {'password': new_hash}})
+    
+    # Log activity
+    await log_activity(user['id'], user['username'], 'password_change', 'user', user['id'], user['username'], 'Senha alterada')
+    
+    return {'message': 'Senha alterada com sucesso'}
+
+# ============= Activity Log =============
+
+async def log_activity(user_id: str, username: str, action: str, entity_type: str, entity_id: str = None, entity_name: str = None, details: str = None):
+    """Log user activity"""
+    log = {
+        'id': str(uuid.uuid4()),
+        'action': action,
+        'entity_type': entity_type,
+        'entity_id': entity_id,
+        'entity_name': entity_name,
+        'user_id': user_id,
+        'username': username,
+        'details': details,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.activity_logs.insert_one(log)
+
+@api_router.get("/activity-logs")
+async def get_activity_logs(limit: int = 50, user: dict = Depends(get_current_user)):
+    """Get recent activity logs"""
+    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    logs = await db.activity_logs.find(query, {'_id': 0}).sort('created_at', -1).limit(limit).to_list(limit)
+    return logs
+
+# ============= Templates =============
+
+@api_router.get("/templates")
+async def list_templates(user: dict = Depends(get_current_user)):
+    """List message templates"""
+    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    templates = await db.templates.find(query, {'_id': 0}).sort('created_at', -1).to_list(1000)
+    return templates
+
+@api_router.post("/templates")
+async def create_template(data: TemplateCreate, user: dict = Depends(get_current_user)):
+    """Create a new message template"""
+    image_url = None
+    if data.image_id:
+        image = await db.images.find_one({'id': data.image_id})
+        if image:
+            image_url = image['url']
+    
+    template = {
+        'id': str(uuid.uuid4()),
+        'name': data.name,
+        'message': data.message,
+        'image_id': data.image_id,
+        'image_url': image_url,
+        'user_id': user['id'],
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.templates.insert_one(template)
+    await log_activity(user['id'], user['username'], 'create', 'template', template['id'], data.name, 'Template criado')
+    
+    return template
+
+@api_router.put("/templates/{template_id}")
+async def update_template(template_id: str, data: TemplateCreate, user: dict = Depends(get_current_user)):
+    """Update a message template"""
+    query = {'id': template_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    template = await db.templates.find_one(query)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template não encontrado")
+    
+    image_url = None
+    if data.image_id:
+        image = await db.images.find_one({'id': data.image_id})
+        if image:
+            image_url = image['url']
+    
+    update_data = {
+        'name': data.name,
+        'message': data.message,
+        'image_id': data.image_id,
+        'image_url': image_url
+    }
+    
+    await db.templates.update_one({'id': template_id}, {'$set': update_data})
+    await log_activity(user['id'], user['username'], 'update', 'template', template_id, data.name, 'Template atualizado')
+    
+    updated = await db.templates.find_one({'id': template_id}, {'_id': 0})
+    return updated
+
+@api_router.delete("/templates/{template_id}")
+async def delete_template(template_id: str, user: dict = Depends(get_current_user)):
+    """Delete a message template"""
+    query = {'id': template_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    template = await db.templates.find_one(query)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template não encontrado")
+    
+    await db.templates.delete_one({'id': template_id})
+    await log_activity(user['id'], user['username'], 'delete', 'template', template_id, template['name'], 'Template excluído')
+    
+    return {'message': 'Template deletado'}
 
 # ============= Admin - User Management =============
 
