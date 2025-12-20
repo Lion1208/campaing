@@ -19,7 +19,6 @@ function ParticleBackground() {
   const [isReady, setIsReady] = useState(false);
   
   useEffect(() => {
-    // Small delay to ensure canvas is mounted
     const timer = setTimeout(() => setIsReady(true), 100);
     return () => clearTimeout(timer);
   }, []);
@@ -48,7 +47,6 @@ function ParticleBackground() {
       createParticles(rect.width, rect.height);
     };
     
-    // Mouse tracking for subtle interactivity
     const handleMouseMove = (e) => {
       const rect = canvas.getBoundingClientRect();
       mouseX = e.clientX - rect.left;
@@ -60,7 +58,6 @@ function ParticleBackground() {
       mouseY = -1000;
     };
     
-    // Create particles with varied sizes
     const createParticles = (width, height) => {
       particles = [];
       const count = 50;
@@ -68,8 +65,8 @@ function ParticleBackground() {
         particles.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.4,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
           size: Math.random() * 2.5 + 1,
           opacity: Math.random() * 0.5 + 0.2,
           baseOpacity: Math.random() * 0.5 + 0.2,
@@ -91,10 +88,7 @@ function ParticleBackground() {
       time += 0.016;
       ctx.clearRect(0, 0, width, height);
       
-      // Draw connections first (behind particles)
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.08)';
-      ctx.lineWidth = 0.5;
-      
+      // Draw connections
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         for (let j = i + 1; j < particles.length; j++) {
@@ -104,11 +98,12 @@ function ParticleBackground() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           
           if (dist < 100) {
-            const lineOpacity = (1 - dist / 100) * 0.1;
+            const lineOpacity = (1 - dist / 100) * 0.12;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.strokeStyle = `rgba(34, 197, 94, ${lineOpacity})`;
+            ctx.lineWidth = 0.5;
             ctx.stroke();
           }
         }
@@ -116,7 +111,7 @@ function ParticleBackground() {
       
       // Update and draw particles
       particles.forEach((p) => {
-        // Subtle mouse repulsion
+        // Mouse repulsion
         const dx = mouseX - p.x;
         const dy = mouseY - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -127,24 +122,22 @@ function ParticleBackground() {
           p.vy -= (dy / dist) * force * 0.05;
         }
         
-        // Apply velocity with strong damping for smooth motion
+        // Damping and drift
         p.vx *= 0.99;
         p.vy *= 0.99;
-        
-        // Add subtle drift
         p.vx += (Math.random() - 0.5) * 0.02;
         p.vy += (Math.random() - 0.5) * 0.02;
         
         p.x += p.vx;
         p.y += p.vy;
         
-        // Soft wrap around edges
+        // Wrap edges
         if (p.x < -10) p.x = width + 10;
         if (p.x > width + 10) p.x = -10;
         if (p.y < -10) p.y = height + 10;
         if (p.y > height + 10) p.y = -10;
         
-        // Pulsing opacity
+        // Pulse opacity
         p.opacity = p.baseOpacity + Math.sin(time * p.pulseSpeed * 60 + p.pulseOffset) * 0.15;
         
         // Draw particle
@@ -161,7 +154,6 @@ function ParticleBackground() {
     window.addEventListener('resize', resize);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseleave', handleMouseLeave);
-    
     animate();
     
     return () => {
@@ -177,91 +169,7 @@ function ParticleBackground() {
     <canvas 
       ref={canvasRef} 
       className="absolute inset-0 w-full h-full"
-      style={{ 
-        background: 'transparent',
-        pointerEvents: 'auto'
-      }}
-    />
-  );
-}
-      
-      // Draw connections first (behind particles)
-      particles.forEach((p, i) => {
-        particles.slice(i + 1).forEach(p2 => {
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist < 100) {
-            const lineOpacity = (1 - dist / 100) * 0.08;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(34, 197, 94, ${lineOpacity})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        });
-      });
-      
-      // Update and draw particles
-      particles.forEach((p) => {
-        // Subtle mouse repulsion
-        const dx = mouseX - p.x;
-        const dy = mouseY - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist < 100 && dist > 0) {
-          const force = (100 - dist) / 100 * 0.5;
-          p.vx -= (dx / dist) * force * 0.05;
-          p.vy -= (dy / dist) * force * 0.05;
-        }
-        
-        // Apply velocity with strong damping for smooth motion
-        p.vx *= 0.98;
-        p.vy *= 0.98;
-        
-        // Add very subtle drift
-        p.vx += (Math.random() - 0.5) * 0.01;
-        p.vy += (Math.random() - 0.5) * 0.01;
-        
-        p.x += p.vx;
-        p.y += p.vy;
-        
-        // Soft wrap around edges
-        if (p.x < -10) p.x = canvas.offsetWidth + 10;
-        if (p.x > canvas.offsetWidth + 10) p.x = -10;
-        if (p.y < -10) p.y = canvas.offsetHeight + 10;
-        if (p.y > canvas.offsetHeight + 10) p.y = -10;
-        
-        // Subtle pulsing opacity
-        p.opacity = p.baseOpacity + Math.sin(time * p.pulseSpeed * 60 + p.pulseOffset) * 0.1;
-        
-        // Draw particle as a soft dot (no harsh glow)
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
-        ctx.fill();
-      });
-      
-      animationId = requestAnimationFrame(animate);
-    };
-    
-    animate();
-    
-    return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', resize);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
-  
-  return (
-    <canvas 
-      ref={canvasRef} 
-      className="absolute inset-0 w-full h-full pointer-events-auto"
-      style={{ background: 'transparent' }}
+      style={{ background: 'transparent', pointerEvents: 'auto' }}
     />
   );
 }
@@ -320,7 +228,7 @@ export default function DashboardPage() {
 
   return (
     <div data-testid="dashboard-page" className="space-y-6 animate-fade-in">
-      {/* Hero Section - Single Unified Card with Particle Background */}
+      {/* Hero Section with Particle Background */}
       <Card className="relative overflow-hidden border-primary/10 bg-gradient-to-br from-card via-card to-primary/5">
         {/* Particle Animation Layer */}
         <div className="absolute inset-0 z-0">
@@ -351,7 +259,7 @@ export default function DashboardPage() {
             </Select>
           </div>
 
-          {/* Stats Grid - Clean Cards */}
+          {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Dispositivos */}
             <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-primary/30 hover:bg-background/90">
@@ -379,7 +287,7 @@ export default function DashboardPage() {
               <p className="text-xs text-muted-foreground mt-0.5">Campanhas</p>
             </div>
 
-            {/* Revendedores / Envios do Período */}
+            {/* Revendedores / Envios */}
             {(user?.role === 'admin' || user?.role === 'master') ? (
               <div className="bg-background/70 backdrop-blur-sm rounded-xl p-4 border border-border/30 transition-all hover:border-purple-500/30 hover:bg-background/90">
                 <div className="flex items-center justify-between mb-2">
@@ -424,7 +332,6 @@ export default function DashboardPage() {
 
       {/* Secondary Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Envios do Período */}
         <Card className="glass-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -443,7 +350,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Taxa de Sucesso */}
         <Card className="glass-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -462,7 +368,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Campanhas Concluídas */}
         <Card className="glass-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
