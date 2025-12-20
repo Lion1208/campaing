@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useConnectionsStore, useCampaignsStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,100 +10,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Wifi, Calendar, Users, Send, TrendingUp, Zap } from 'lucide-react';
+import { Wifi, Calendar, Users, Send, TrendingUp, Zap, Sparkles } from 'lucide-react';
 import { api } from '@/store';
 
-// Particle Animation Component
-function ParticleBackground() {
-  const canvasRef = useRef(null);
-  
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    let animationId;
-    let particles = [];
-    
-    const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    };
-    
-    resize();
-    window.addEventListener('resize', resize);
-    
-    // Create particles
-    const createParticles = () => {
-      particles = [];
-      const count = 50;
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * canvas.offsetWidth,
-          y: Math.random() * canvas.offsetHeight,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          size: Math.random() * 2 + 1,
-          opacity: Math.random() * 0.5 + 0.2,
-        });
-      }
-    };
-    
-    createParticles();
-    
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-      
-      particles.forEach((p, i) => {
-        // Update position
-        p.x += p.vx;
-        p.y += p.vy;
-        
-        // Wrap around edges
-        if (p.x < 0) p.x = canvas.offsetWidth;
-        if (p.x > canvas.offsetWidth) p.x = 0;
-        if (p.y < 0) p.y = canvas.offsetHeight;
-        if (p.y > canvas.offsetHeight) p.y = 0;
-        
-        // Draw particle
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
-        ctx.fill();
-        
-        // Draw connections
-        particles.slice(i + 1).forEach(p2 => {
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist < 100) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(34, 197, 94, ${0.1 * (1 - dist / 100)})`;
-            ctx.stroke();
-          }
-        });
-      });
-      
-      animationId = requestAnimationFrame(animate);
-    };
-    
-    animate();
-    
-    return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-  
+// Animated Gradient Background
+function AnimatedBackground() {
   return (
-    <canvas 
-      ref={canvasRef} 
-      className="absolute inset-0 w-full h-full pointer-events-none"
-    />
+    <div className="absolute inset-0 overflow-hidden rounded-2xl">
+      {/* Gradient orbs */}
+      <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-primary/30 via-transparent to-transparent animate-pulse" style={{ animationDuration: '4s' }} />
+      <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-emerald-500/20 via-transparent to-transparent animate-pulse" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gradient-radial from-cyan-500/10 via-transparent to-transparent animate-pulse" style={{ animationDuration: '5s', animationDelay: '2s' }} />
+      
+      {/* Floating particles */}
+      <div className="absolute inset-0">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-primary/40 rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${3 + Math.random() * 4}s`,
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* Grid overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '40px 40px'
+        }}
+      />
+      
+      {/* Noise texture */}
+      <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+      }} />
+    </div>
   );
 }
 
@@ -130,6 +79,7 @@ function MiniChart({ data, color = '#22c55e' }) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { connections, fetchConnections } = useConnectionsStore();
   const { campaigns, fetchCampaigns } = useCampaignsStore();
@@ -159,109 +109,111 @@ export default function DashboardPage() {
 
   return (
     <div data-testid="dashboard-page" className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Olá, <span className="text-primary font-medium">{user?.username}</span>
-          </p>
-        </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-32 bg-muted/50 border-border text-foreground">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">7 dias</SelectItem>
-            <SelectItem value="30">30 dias</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Main Stats with Particles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Dispositivos */}
-        <Card className="glass-card relative overflow-hidden group">
-          <ParticleBackground />
-          <CardContent className="p-4 relative z-10">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Wifi className="w-5 h-5 text-primary" />
+      {/* Hero Section - Single Card with Animated Background */}
+      <Card className="relative overflow-hidden border-primary/20">
+        <AnimatedBackground />
+        <CardContent className="relative z-10 p-6">
+          {/* Header inside card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Dashboard</h1>
               </div>
-              <span className="text-xs text-muted-foreground">Conectados</span>
-            </div>
-            <div className="mt-2">
-              <p className="font-heading font-bold text-3xl text-foreground">
-                {connectedCount}<span className="text-muted-foreground text-lg">/{connections.length}</span>
+              <p className="text-muted-foreground text-sm">
+                Olá, <span className="text-primary font-semibold">{user?.username}</span>! Aqui está seu resumo.
               </p>
-              <p className="text-xs text-muted-foreground">Dispositivos</p>
             </div>
-          </CardContent>
-        </Card>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-32 bg-background/50 backdrop-blur border-primary/30 text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 dias</SelectItem>
+                <SelectItem value="30">30 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Campanhas Ativas */}
-        <Card className="glass-card relative overflow-hidden group">
-          <ParticleBackground />
-          <CardContent className="p-4 relative z-10">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Calendar className="w-5 h-5 text-blue-500" />
-              </div>
-              <span className="text-xs text-muted-foreground">Ativas</span>
-            </div>
-            <div className="mt-2">
-              <p className="font-heading font-bold text-3xl text-foreground">
-                {activeCampaigns}<span className="text-muted-foreground text-lg">/{campaigns.length}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Campanhas</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Revendedores */}
-        {(user?.role === 'admin' || user?.role === 'master') && (
-          <Card className="glass-card relative overflow-hidden group">
-            <ParticleBackground />
-            <CardContent className="p-4 relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Users className="w-5 h-5 text-purple-500" />
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Dispositivos */}
+            <div className="bg-background/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-primary/30 transition-all hover:scale-[1.02]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Wifi className="w-5 h-5 text-primary" />
                 </div>
-                <span className="text-xs text-muted-foreground">Total</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Conectados</span>
               </div>
-              <div className="mt-2">
+              <p className="font-heading font-bold text-3xl text-foreground">
+                {connectedCount}<span className="text-lg text-muted-foreground">/{connections.length}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Dispositivos</p>
+            </div>
+
+            {/* Campanhas Ativas */}
+            <div className="bg-background/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-blue-500/30 transition-all hover:scale-[1.02]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-blue-500" />
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Ativas</span>
+              </div>
+              <p className="font-heading font-bold text-3xl text-foreground">
+                {activeCampaigns}<span className="text-lg text-muted-foreground">/{campaigns.length}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Campanhas</p>
+            </div>
+
+            {/* Revendedores */}
+            {(user?.role === 'admin' || user?.role === 'master') ? (
+              <div className="bg-background/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-purple-500/30 transition-all hover:scale-[1.02]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total</span>
+                </div>
                 <p className="font-heading font-bold text-3xl text-foreground">
                   {stats?.resellers_count || 0}
                 </p>
-                <p className="text-xs text-muted-foreground">Revendedores</p>
+                <p className="text-xs text-muted-foreground mt-1">Revendedores</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="bg-background/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-yellow-500/30 transition-all hover:scale-[1.02]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Período</span>
+                </div>
+                <p className="font-heading font-bold text-3xl text-foreground">
+                  {stats?.sends_period || 0}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Envios</p>
+              </div>
+            )}
 
-        {/* Envios Hoje */}
-        <Card className="glass-card relative overflow-hidden group">
-          <ParticleBackground />
-          <CardContent className="p-4 relative z-10">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Send className="w-5 h-5 text-green-500" />
+            {/* Envios Hoje */}
+            <div className="bg-background/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-green-500/30 transition-all hover:scale-[1.02]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <Send className="w-5 h-5 text-green-500" />
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hoje</span>
               </div>
-              <span className="text-xs text-muted-foreground">Hoje</span>
-            </div>
-            <div className="mt-2">
               <p className="font-heading font-bold text-3xl text-foreground">
                 {stats?.sends_today || 0}
               </p>
-              <p className="text-xs text-muted-foreground">Envios</p>
+              <p className="text-xs text-muted-foreground mt-1">Envios</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Envios da Semana */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Envios do Período */}
         <Card className="glass-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -271,7 +223,7 @@ export default function DashboardPage() {
               </div>
               <span className="text-2xl font-bold text-primary">{stats?.sends_period || 0}</span>
             </div>
-            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-yellow-500 to-green-500 rounded-full transition-all"
                 style={{ width: `${Math.min(100, (stats?.sends_period || 0) / 10)}%` }}
@@ -290,7 +242,7 @@ export default function DashboardPage() {
               </div>
               <span className="text-2xl font-bold text-green-500">{stats?.success_rate || 100}%</span>
             </div>
-            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
                 style={{ width: `${stats?.success_rate || 100}%` }}
@@ -311,7 +263,7 @@ export default function DashboardPage() {
                 {campaigns.filter(c => c.status === 'completed').length}
               </span>
             </div>
-            <div className="h-1 bg-muted/50 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all"
                 style={{ 
@@ -357,7 +309,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
-              onClick={() => window.location.href = '/connections'}
+              onClick={() => navigate('/connections')}
             >
               <Wifi className="w-5 h-5 text-primary" />
               <span className="text-xs">Nova Conexão</span>
@@ -365,7 +317,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
-              onClick={() => window.location.href = '/campaigns/new'}
+              onClick={() => navigate('/campaigns/new')}
             >
               <Calendar className="w-5 h-5 text-primary" />
               <span className="text-xs">Nova Campanha</span>
@@ -373,7 +325,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
-              onClick={() => window.location.href = '/templates'}
+              onClick={() => navigate('/templates')}
             >
               <Send className="w-5 h-5 text-primary" />
               <span className="text-xs">Templates</span>
@@ -381,7 +333,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col gap-2 border-border hover:border-primary hover:bg-primary/5"
-              onClick={() => window.location.href = '/history'}
+              onClick={() => navigate('/history')}
             >
               <TrendingUp className="w-5 h-5 text-primary" />
               <span className="text-xs">Histórico</span>
