@@ -124,6 +124,117 @@ function NextScheduleTime({ campaign }) {
   );
 }
 
+// Componente de preview animado para campanhas com múltiplas variações
+function AnimatedCampaignPreview({ campaign, imageCache, loadImagePreview }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentImage, setCurrentImage] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  const messages = campaign.messages || [];
+  const hasMultiple = messages.length > 1;
+  
+  // Load image for current variation
+  useEffect(() => {
+    const loadCurrentImage = async () => {
+      if (messages.length === 0) {
+        // Fallback to single message mode
+        const imageId = campaign.image_id;
+        if (imageId && imageCache[`${campaign.id}_${imageId}`]) {
+          setCurrentImage(imageCache[`${campaign.id}_${imageId}`]);
+        } else if (imageId) {
+          loadImagePreview(imageId, `${campaign.id}_${imageId}`);
+        }
+        return;
+      }
+      
+      const currentMsg = messages[currentIndex];
+      const imageId = currentMsg?.image_id;
+      const cacheKey = `${campaign.id}_${currentIndex}`;
+      
+      if (imageId && imageCache[cacheKey]) {
+        setCurrentImage(imageCache[cacheKey]);
+      } else if (imageId) {
+        loadImagePreview(imageId, cacheKey);
+        // Temporary null until loaded
+        setCurrentImage(null);
+      } else {
+        setCurrentImage(null);
+      }
+    };
+    
+    loadCurrentImage();
+  }, [currentIndex, messages, campaign.id, campaign.image_id, imageCache, loadImagePreview]);
+  
+  // Update currentImage when cache updates
+  useEffect(() => {
+    if (messages.length === 0) {
+      const imageId = campaign.image_id;
+      const cacheKey = `${campaign.id}_${imageId}`;
+      if (imageId && imageCache[cacheKey]) {
+        setCurrentImage(imageCache[cacheKey]);
+      }
+      return;
+    }
+    
+    const currentMsg = messages[currentIndex];
+    const imageId = currentMsg?.image_id;
+    const cacheKey = `${campaign.id}_${currentIndex}`;
+    
+    if (imageId && imageCache[cacheKey]) {
+      setCurrentImage(imageCache[cacheKey]);
+    }
+  }, [imageCache, currentIndex, messages, campaign.id, campaign.image_id]);
+  
+  // Animation timer for multiple variations
+  useEffect(() => {
+    if (!hasMultiple) return;
+    
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex(prev => (prev + 1) % messages.length);
+        setIsTransitioning(false);
+      }, 300);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [hasMultiple, messages.length]);
+  
+  return (
+    <div className="h-28 bg-muted/20 relative overflow-hidden flex-shrink-0">
+      {currentImage ? (
+        <>
+          <img 
+            src={currentImage}
+            alt="Preview"
+            className={`w-full h-full object-cover transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+        </>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Image className="w-10 h-10 text-muted-foreground/20" />
+        </div>
+      )}
+      
+      {/* Variation indicator dots */}
+      {hasMultiple && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          {messages.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${
+                idx === currentIndex ? 'bg-primary w-3' : 'bg-white/40'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CampaignsPage() {
   const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
   const navigate = useNavigate();
@@ -264,34 +375,50 @@ export default function CampaignsPage() {
   const canResume = (status) => status === 'paused';
   const canEdit = (status) => ['pending', 'paused', 'completed', 'active'].includes(status);
 
-  // Get image URL - use API endpoint to load image
+  // Image cache for all campaigns
   const [imageCache, setImageCache] = useState({});
   
-  const loadImagePreview = useCallback(async (imageId, campaignId) => {
-    if (imageCache[campaignId] || !imageId) return;
+  const loadImagePreview = useCallback(async (imageId, cacheKey) => {
+    if (imageCache[cacheKey] || !imageId) return;
     
     try {
       const response = await api.get(`/images/${imageId}/file`, { responseType: 'blob' });
       const blobUrl = URL.createObjectURL(response.data);
-      setImageCache(prev => ({ ...prev, [campaignId]: blobUrl }));
+      setImageCache(prev => ({ ...prev, [cacheKey]: blobUrl }));
     } catch (error) {
       console.error('Error loading image:', error);
     }
   }, [imageCache]);
 
-  // Load images for campaigns
+  // Preload images for all campaigns
   useEffect(() => {
     paginatedCampaigns.forEach(campaign => {
-      const imageId = campaign.image_id || (campaign.messages?.[0]?.image_id);
-      if (imageId && !imageCache[campaign.id]) {
-        loadImagePreview(imageId, campaign.id);
+      // Load images for campaigns with multiple messages
+      if (campaign.messages && campaign.messages.length > 0) {
+        campaign.messages.forEach((msg, idx) => {
+          if (msg.image_id) {
+            const cacheKey = `${campaign.id}_${idx}`;
+            if (!imageCache[cacheKey]) {
+              loadImagePreview(msg.image_id, cacheKey);
+            }
+          }
+        });
+      } else if (campaign.image_id) {
+        // Single message campaign
+        const cacheKey = `${campaign.id}_${campaign.image_id}`;
+        if (!imageCache[cacheKey]) {
+          loadImagePreview(campaign.image_id, cacheKey);
+        }
       }
     });
   }, [paginatedCampaigns, loadImagePreview, imageCache]);
 
-  // Get cached image URL for campaign
-  const getImageUrl = (campaign) => {
-    return imageCache[campaign.id] || null;
+  // Get current message text for preview
+  const getCurrentMessage = (campaign) => {
+    if (campaign.messages && campaign.messages.length > 0) {
+      return campaign.messages[0]?.message || '';
+    }
+    return campaign.message || '';
   };
 
   return (
@@ -344,7 +471,7 @@ export default function CampaignsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {paginatedCampaigns.map((campaign, index) => {
             const scheduleInfo = getScheduleInfo(campaign);
-            const imageUrl = getImageUrl(campaign);
+            const hasMultipleVariations = campaign.messages && campaign.messages.length > 1;
             
             return (
               <Card
@@ -352,31 +479,29 @@ export default function CampaignsPage() {
                 data-testid={`campaign-card-${campaign.id}`}
                 className={`glass-card hover-lift animate-fade-in stagger-${(index % 5) + 1} overflow-hidden flex flex-col`}
               >
-                {/* Image Preview */}
-                <div className="h-28 bg-muted/20 relative overflow-hidden flex-shrink-0">
-                  {imageUrl ? (
-                    <>
-                      <img 
-                        src={imageUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Image className="w-10 h-10 text-muted-foreground/20" />
-                    </div>
-                  )}
+                {/* Animated Image Preview */}
+                <div className="relative">
+                  <AnimatedCampaignPreview 
+                    campaign={campaign} 
+                    imageCache={imageCache}
+                    loadImagePreview={loadImagePreview}
+                  />
                   {/* Status badge */}
-                  <div className="absolute top-2 left-2">
+                  <div className="absolute top-2 left-2 z-10">
                     {getStatusBadge(campaign.status)}
                   </div>
                   {/* Timer */}
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 z-10">
                     <CampaignTimer campaign={campaign} />
                   </div>
+                  {/* Multiple variations badge */}
+                  {hasMultipleVariations && (
+                    <div className="absolute bottom-10 right-2 z-10">
+                      <span className="text-[10px] bg-purple-500/80 text-white px-1.5 py-0.5 rounded font-medium">
+                        {campaign.messages.length} variações
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <CardContent className="p-4 flex flex-col flex-1">
@@ -385,7 +510,7 @@ export default function CampaignsPage() {
 
                   {/* Message Preview */}
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1 min-h-[2.5rem]">
-                    {campaign.message || (campaign.messages && campaign.messages[0]?.message) || <span className="italic">Sem mensagem de texto</span>}
+                    {getCurrentMessage(campaign) || <span className="italic">Sem mensagem de texto</span>}
                   </p>
 
                   {/* Info */}
