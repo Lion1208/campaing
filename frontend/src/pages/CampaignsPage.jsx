@@ -264,44 +264,34 @@ export default function CampaignsPage() {
   const canResume = (status) => status === 'paused';
   const canEdit = (status) => ['pending', 'paused', 'completed', 'active'].includes(status);
 
-  // Get image URL - use fetch to load as blob for preview
+  // Get image URL - use API endpoint to load image
   const [imageCache, setImageCache] = useState({});
   
-  const loadImageAsBlob = useCallback(async (url, campaignId) => {
-    if (imageCache[campaignId]) return;
+  const loadImagePreview = useCallback(async (imageId, campaignId) => {
+    if (imageCache[campaignId] || !imageId) return;
     
     try {
-      const response = await fetch(url, { credentials: 'include' });
-      if (response.ok) {
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        setImageCache(prev => ({ ...prev, [campaignId]: blobUrl }));
-      }
+      const response = await api.get(`/images/${imageId}/file`, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(response.data);
+      setImageCache(prev => ({ ...prev, [campaignId]: blobUrl }));
     } catch (error) {
       console.error('Error loading image:', error);
     }
   }, [imageCache]);
 
-  // Get image URL for campaign
+  // Load images for campaigns
+  useEffect(() => {
+    paginatedCampaigns.forEach(campaign => {
+      const imageId = campaign.image_id || (campaign.messages?.[0]?.image_id);
+      if (imageId && !imageCache[campaign.id]) {
+        loadImagePreview(imageId, campaign.id);
+      }
+    });
+  }, [paginatedCampaigns, loadImagePreview, imageCache]);
+
+  // Get cached image URL for campaign
   const getImageUrl = (campaign) => {
-    // First check cache
-    if (imageCache[campaign.id]) {
-      return imageCache[campaign.id];
-    }
-    
-    // Get server URL and trigger load
-    let serverUrl = null;
-    if (campaign.image_url) {
-      serverUrl = `${process.env.REACT_APP_BACKEND_URL}${campaign.image_url}`;
-    } else if (campaign.messages && campaign.messages.length > 0 && campaign.messages[0].image_url) {
-      serverUrl = `${process.env.REACT_APP_BACKEND_URL}${campaign.messages[0].image_url}`;
-    }
-    
-    if (serverUrl && !imageCache[campaign.id]) {
-      loadImageAsBlob(serverUrl, campaign.id);
-    }
-    
-    return null; // Return null until loaded
+    return imageCache[campaign.id] || null;
   };
 
   return (
