@@ -1088,7 +1088,7 @@ async def execute_campaign(campaign_id: str):
             new_status = 'completed'
             await db.campaigns.update_one(
                 {'id': campaign_id},
-                {'$set': {'status': new_status, 'sent_count': sent_count}}
+                {'$set': {'status': new_status, 'sent_count': sent_count, 'last_run': datetime.now(timezone.utc).isoformat(), 'next_run': None}}
             )
         else:
             # Para campanhas recorrentes, reseta o contador para próxima execução
@@ -1096,7 +1096,7 @@ async def execute_campaign(campaign_id: str):
             next_run = calculate_next_run(campaign)
             await db.campaigns.update_one(
                 {'id': campaign_id},
-                {'$set': {'status': new_status, 'sent_count': 0, 'next_run': next_run}}
+                {'$set': {'status': new_status, 'sent_count': 0, 'last_run': datetime.now(timezone.utc).isoformat(), 'next_run': next_run}}
             )
         
         logger.info(f"Campanha {campaign_id} executada. Enviado para {sent_count} grupos.")
