@@ -88,29 +88,29 @@ function calculateTimeLeftForCampaign(campaign) {
 
 // Componente de próximo horário específico
 function NextScheduleTime({ campaign }) {
-  const [nextTime, setNextTime] = useState('');
+  const calculateNext = useCallback(() => {
+    if (campaign.schedule_type !== 'specific_times' || !campaign.specific_times?.length) {
+      return '';
+    }
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const sortedTimes = [...campaign.specific_times].sort();
+    return sortedTimes.find(t => t > currentTime) || sortedTimes[0] + ' (amanhã)';
+  }, [campaign.schedule_type, campaign.specific_times]);
+
+  const [nextTime, setNextTime] = useState(calculateNext);
   
   useEffect(() => {
     if (campaign.schedule_type !== 'specific_times' || !campaign.specific_times?.length) {
-      setNextTime('');
       return;
     }
     
-    const calculateNext = () => {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      
-      const sortedTimes = [...campaign.specific_times].sort();
-      return sortedTimes.find(t => t > currentTime) || sortedTimes[0] + ' (amanhã)';
-    };
-    
-    setNextTime(calculateNext());
     const interval = setInterval(() => {
       setNextTime(calculateNext());
-    }, 60000); // Update every minute
+    }, 60000);
     
     return () => clearInterval(interval);
-  }, [campaign.specific_times, campaign.schedule_type]);
+  }, [campaign.specific_times, campaign.schedule_type, calculateNext]);
 
   if (!nextTime || campaign.status !== 'active') return null;
 
