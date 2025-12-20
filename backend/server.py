@@ -1074,9 +1074,17 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
         )
         
         return {'status': 'connecting', 'message': 'Conexão iniciada. Aguarde o QR Code.'}
+    except httpx.ConnectError:
+        logger.error(f"Serviço WhatsApp não está acessível")
+        raise HTTPException(status_code=503, detail="Serviço WhatsApp não está disponível. Tente novamente em alguns segundos.")
     except Exception as e:
         logger.error(f"Erro ao conectar WhatsApp: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao iniciar conexão WhatsApp")
+        # Try to reset and start fresh
+        try:
+            await whatsapp_request("DELETE", f"/connections/{connection_id}")
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Erro ao iniciar conexão: {str(e)}")
 
 @api_router.get("/connections/{connection_id}/qr")
 async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
