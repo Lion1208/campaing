@@ -148,12 +148,17 @@ class GroupResponse(BaseModel):
     name: str
     participants_count: int
 
+class CampaignMessageItem(BaseModel):
+    message: Optional[str] = None
+    image_id: Optional[str] = None
+
 class CampaignCreate(BaseModel):
     title: str
     connection_id: str
     group_ids: List[str]
     message: Optional[str] = None
     image_id: Optional[str] = None
+    messages: Optional[List[CampaignMessageItem]] = None  # Multiple messages/images
     schedule_type: str = "once"  # once, interval, specific_times
     scheduled_time: Optional[str] = None  # ISO format for "once"
     interval_hours: Optional[int] = None  # For interval type (1, 2, 4, 6, 12, 24)
