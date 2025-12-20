@@ -354,6 +354,16 @@ function App() {
           }
         />
         <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <HistoryPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/profile"
           element={
             <ProtectedRoute>
