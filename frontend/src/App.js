@@ -3,7 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore, useUIStore } from "@/store";
-import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, Image } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, Image, Terminal } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -19,6 +19,7 @@ import ResellersPage from "@/pages/ResellersPage";
 import HistoryPage from "@/pages/HistoryPage";
 import MediaPage from "@/pages/MediaPage";
 import BlockedPage from "@/pages/BlockedPage";
+import LogsPage from "@/pages/LogsPage";
 
 // Theme hook
 const useTheme = () => {
