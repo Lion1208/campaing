@@ -524,21 +524,25 @@ export default function CreateCampaignPage() {
                 )}
               </div>
               
-              <div className="bg-[#0B141A] rounded-lg p-4 min-h-[120px] transition-all duration-500">
-                <div className={`transition-opacity duration-300 ${messageItems.length > 1 ? 'animate-fade-in' : ''}`} key={previewIndex}>
+              <div className="bg-[#0B141A] rounded-lg p-4 h-[180px] overflow-hidden transition-all duration-500">
+                <div className={`transition-opacity duration-300 h-full flex flex-col ${messageItems.length > 1 ? 'animate-fade-in' : ''}`} key={previewIndex}>
                   {currentPreviewItem.imagePreview && (
                     <img 
                       src={currentPreviewItem.imagePreview}
                       alt="Preview"
-                      className="w-full max-w-[200px] rounded-lg mb-2"
+                      className="w-full max-w-[180px] h-24 object-cover rounded-lg mb-2 flex-shrink-0"
                     />
                   )}
-                  {currentPreviewItem.message && (
-                    <p className="text-white text-sm whitespace-pre-wrap">{currentPreviewItem.message}</p>
-                  )}
-                  {!currentPreviewItem.imagePreview && !currentPreviewItem.message && (
+                  {currentPreviewItem.message ? (
+                    <div className="relative flex-1 overflow-hidden">
+                      <p className="text-white text-sm whitespace-pre-wrap line-clamp-4">{currentPreviewItem.message}</p>
+                      {currentPreviewItem.message.length > 150 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0B141A] to-transparent" />
+                      )}
+                    </div>
+                  ) : !currentPreviewItem.imagePreview ? (
                     <p className="text-gray-500 text-sm italic">Mensagem vazia</p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
