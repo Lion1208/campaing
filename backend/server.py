@@ -472,36 +472,71 @@ async def delete_template(template_id: str, user: dict = Depends(get_current_use
 
 @api_router.get("/admin/users", response_model=List[UserResponse])
 async def list_users(admin: dict = Depends(get_admin_user)):
-    users = await db.users.find({'role': 'reseller'}, {'_id': 0, 'password': 0}).to_list(1000)
+    """List all users (except admin)"""
+    users = await db.users.find({'role': {'$ne': 'admin'}}, {'_id': 0, 'password': 0}).to_list(1000)
     return users
+
+@api_router.get("/admin/all-users")
+async def list_all_users(page: int = 1, limit: int = 10, admin: dict = Depends(get_admin_user)):
+    """List all users with pagination"""
+    skip = (page - 1) * limit
+    total = await db.users.count_documents({'role': {'$ne': 'admin'}})
+    users = await db.users.find({'role': {'$ne': 'admin'}}, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    return {
+        'users': users,
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'total_pages': (total + limit - 1) // limit
+    }
 
 @api_router.post("/admin/users", response_model=UserResponse)
 async def create_user(data: UserCreate, admin: dict = Depends(get_admin_user)):
+    """Create a new user (admin only)"""
     existing = await db.users.find_one({'username': data.username})
     if existing:
         raise HTTPException(status_code=400, detail="Usuário já existe")
+    
+    # Calculate expiration date (1 month from now)
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() if data.role in ['reseller', 'master'] else None
     
     user = {
         'id': str(uuid.uuid4()),
         'username': data.username,
         'password': hash_password(data.password),
-        'role': 'reseller',
+        'role': data.role if data.role in ['reseller', 'master'] else 'reseller',
         'max_connections': data.max_connections,
+        'credits': data.credits if data.role == 'master' else 0,
         'active': True,
+        'expires_at': expires_at,
+        'created_by': admin['id'],
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     
     await db.users.insert_one(user)
+    await log_activity(admin['id'], admin['username'], 'create', 'user', user['id'], data.username, f"Usuário {data.role} criado")
+    
     del user['password']
     return user
 
 @api_router.put("/admin/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, data: UserUpdate, admin: dict = Depends(get_admin_user)):
+    """Update user details"""
     update_data = {}
+    if data.username is not None:
+        # Check if username is taken
+        existing = await db.users.find_one({'username': data.username, 'id': {'$ne': user_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Nome de usuário já existe")
+        update_data['username'] = data.username
     if data.max_connections is not None:
         update_data['max_connections'] = data.max_connections
+    if data.credits is not None:
+        update_data['credits'] = data.credits
     if data.active is not None:
         update_data['active'] = data.active
+    if data.expires_at is not None:
+        update_data['expires_at'] = data.expires_at
     
     if not update_data:
         raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
@@ -511,19 +546,220 @@ async def update_user(user_id: str, data: UserUpdate, admin: dict = Depends(get_
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
     user = await db.users.find_one({'id': user_id}, {'_id': 0, 'password': 0})
+    await log_activity(admin['id'], admin['username'], 'update', 'user', user_id, user['username'], 'Usuário atualizado')
+    
     return user
+
+@api_router.post("/admin/users/{user_id}/add-credits")
+async def add_credits_to_user(user_id: str, amount: int, admin: dict = Depends(get_admin_user)):
+    """Add credits to a user"""
+    user = await db.users.find_one({'id': user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    current_credits = user.get('credits', 0)
+    new_credits = current_credits + amount
+    
+    await db.users.update_one({'id': user_id}, {'$set': {'credits': new_credits}})
+    await log_activity(admin['id'], admin['username'], 'add_credits', 'user', user_id, user['username'], f"+{amount} créditos")
+    
+    return {'credits': new_credits, 'message': f'{amount} créditos adicionados'}
+
+@api_router.post("/admin/users/{user_id}/renew")
+async def renew_user(user_id: str, months: int = 1, admin: dict = Depends(get_admin_user)):
+    """Renew user subscription"""
+    user = await db.users.find_one({'id': user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Calculate new expiration
+    current_expires = user.get('expires_at')
+    if current_expires:
+        try:
+            base_date = datetime.fromisoformat(current_expires.replace('Z', '+00:00'))
+            if base_date < datetime.now(timezone.utc):
+                base_date = datetime.now(timezone.utc)
+        except:
+            base_date = datetime.now(timezone.utc)
+    else:
+        base_date = datetime.now(timezone.utc)
+    
+    new_expires = (base_date + timedelta(days=30 * months)).isoformat()
+    
+    await db.users.update_one({'id': user_id}, {'$set': {'expires_at': new_expires, 'active': True}})
+    await log_activity(admin['id'], admin['username'], 'renew', 'user', user_id, user['username'], f"+{months} mês(es)")
+    
+    return {'expires_at': new_expires, 'message': f'Renovado por {months} mês(es)'}
 
 @api_router.delete("/admin/users/{user_id}")
 async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
-    result = await db.users.delete_one({'id': user_id})
-    if result.deleted_count == 0:
+    """Delete a user and all related data"""
+    user = await db.users.find_one({'id': user_id})
+    if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
+    username = user['username']
+    
+    await db.users.delete_one({'id': user_id})
+    await db.connections.delete_many({'user_id': user_id})
+    await db.campaigns.delete_many({'user_id': user_id})
+    await db.groups.delete_many({'user_id': user_id})
+    await db.templates.delete_many({'user_id': user_id})
+    
+    await log_activity(admin['id'], admin['username'], 'delete', 'user', user_id, username, 'Usuário excluído')
+    
+    return {'message': 'Usuário deletado com sucesso'}
+
+# ============= Master User - Reseller Management =============
+
+async def get_master_user(user: dict = Depends(get_current_user)):
+    """Get current user if they are a master or admin"""
+    if user['role'] not in ['master', 'admin']:
+        raise HTTPException(status_code=403, detail="Acesso negado. Apenas masters podem criar revendedores.")
+    return user
+
+@api_router.get("/master/resellers")
+async def list_master_resellers(page: int = 1, limit: int = 10, master: dict = Depends(get_master_user)):
+    """List resellers created by this master"""
+    query = {'created_by': master['id']} if master['role'] == 'master' else {'role': 'reseller'}
+    skip = (page - 1) * limit
+    total = await db.users.count_documents(query)
+    users = await db.users.find(query, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    return {
+        'users': users,
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'total_pages': (total + limit - 1) // limit
+    }
+
+@api_router.post("/master/resellers")
+async def create_reseller(data: UserCreate, master: dict = Depends(get_master_user)):
+    """Create a new reseller (master only - costs 1 credit)"""
+    # Check credits (only for master, not admin)
+    if master['role'] == 'master':
+        if master.get('credits', 0) < 1:
+            raise HTTPException(status_code=400, detail="Créditos insuficientes. Você precisa de pelo menos 1 crédito para criar um revendedor.")
+    
+    existing = await db.users.find_one({'username': data.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Usuário já existe")
+    
+    # Calculate expiration date (1 month from now)
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    
+    user = {
+        'id': str(uuid.uuid4()),
+        'username': data.username,
+        'password': hash_password(data.password),
+        'role': 'reseller',
+        'max_connections': data.max_connections,
+        'credits': 0,
+        'active': True,
+        'expires_at': expires_at,
+        'created_by': master['id'],
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(user)
+    
+    # Deduct credit from master
+    if master['role'] == 'master':
+        await db.users.update_one({'id': master['id']}, {'$inc': {'credits': -1}})
+    
+    await log_activity(master['id'], master['username'], 'create', 'reseller', user['id'], data.username, 'Revendedor criado')
+    
+    del user['password']
+    return user
+
+@api_router.post("/master/resellers/{user_id}/renew")
+async def renew_reseller(user_id: str, master: dict = Depends(get_master_user)):
+    """Renew a reseller subscription (costs 1 credit)"""
+    # Check if reseller belongs to this master
+    query = {'id': user_id}
+    if master['role'] == 'master':
+        query['created_by'] = master['id']
+        
+        # Check credits
+        if master.get('credits', 0) < 1:
+            raise HTTPException(status_code=400, detail="Créditos insuficientes. Você precisa de pelo menos 1 crédito para renovar.")
+    
+    user = await db.users.find_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="Revendedor não encontrado")
+    
+    # Calculate new expiration
+    current_expires = user.get('expires_at')
+    if current_expires:
+        try:
+            base_date = datetime.fromisoformat(current_expires.replace('Z', '+00:00'))
+            if base_date < datetime.now(timezone.utc):
+                base_date = datetime.now(timezone.utc)
+        except:
+            base_date = datetime.now(timezone.utc)
+    else:
+        base_date = datetime.now(timezone.utc)
+    
+    new_expires = (base_date + timedelta(days=30)).isoformat()
+    
+    await db.users.update_one({'id': user_id}, {'$set': {'expires_at': new_expires, 'active': True}})
+    
+    # Deduct credit from master
+    if master['role'] == 'master':
+        await db.users.update_one({'id': master['id']}, {'$inc': {'credits': -1}})
+    
+    await log_activity(master['id'], master['username'], 'renew', 'reseller', user_id, user['username'], '+1 mês')
+    
+    return {'expires_at': new_expires, 'message': 'Renovado por 1 mês'}
+
+@api_router.put("/master/resellers/{user_id}")
+async def update_reseller(user_id: str, data: UserUpdate, master: dict = Depends(get_master_user)):
+    """Update reseller details"""
+    query = {'id': user_id}
+    if master['role'] == 'master':
+        query['created_by'] = master['id']
+    
+    user = await db.users.find_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="Revendedor não encontrado")
+    
+    update_data = {}
+    if data.max_connections is not None:
+        update_data['max_connections'] = data.max_connections
+    if data.active is not None:
+        update_data['active'] = data.active
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
+    
+    await db.users.update_one({'id': user_id}, {'$set': update_data})
+    
+    updated = await db.users.find_one({'id': user_id}, {'_id': 0, 'password': 0})
+    await log_activity(master['id'], master['username'], 'update', 'reseller', user_id, updated['username'], 'Revendedor atualizado')
+    
+    return updated
+
+@api_router.delete("/master/resellers/{user_id}")
+async def delete_reseller(user_id: str, master: dict = Depends(get_master_user)):
+    """Delete a reseller"""
+    query = {'id': user_id}
+    if master['role'] == 'master':
+        query['created_by'] = master['id']
+    
+    user = await db.users.find_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="Revendedor não encontrado")
+    
+    username = user['username']
+    
+    await db.users.delete_one({'id': user_id})
     await db.connections.delete_many({'user_id': user_id})
     await db.campaigns.delete_many({'user_id': user_id})
     await db.groups.delete_many({'user_id': user_id})
     
-    return {'message': 'Usuário deletado com sucesso'}
+    await log_activity(master['id'], master['username'], 'delete', 'reseller', user_id, username, 'Revendedor excluído')
+    
+    return {'message': 'Revendedor deletado'}
 
 # ============= Connections =============
 
