@@ -123,7 +123,6 @@ function NextScheduleTime({ campaign }) {
     </span>
   );
 }
-}
 
 export default function CampaignsPage() {
   const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
