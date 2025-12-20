@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuthStore } from "@/store";
+import { useAuthStore, useUIStore } from "@/store";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -32,7 +33,10 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   if (checking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-primary font-mono">Carregando...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-primary font-mono text-sm">Carregando...</span>
+        </div>
       </div>
     );
   }
@@ -48,9 +52,10 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   return children;
 };
 
-// Layout Component
+// Layout Component with Responsive Sidebar
 const Layout = ({ children }) => {
   const { user, logout } = useAuthStore();
+  const { sidebarOpen, setSidebarOpen } = useUIStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,82 +64,130 @@ const Layout = ({ children }) => {
     navigate('/login');
   };
 
+  const handleNavigation = (path) => {
+    navigate(path);
+    setSidebarOpen(false);
+  };
+
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-    { path: '/connections', label: 'Conexões', icon: 'M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0' },
-    { path: '/campaigns', label: 'Campanhas', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+    { path: '/dashboard', label: 'Painel', icon: LayoutDashboard },
+    { path: '/connections', label: 'Conexões', icon: Wifi },
+    { path: '/campaigns', label: 'Campanhas', icon: Calendar },
   ];
 
   if (user?.role === 'admin') {
-    navItems.push({ path: '/users', label: 'Revendedores', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' });
+    navItems.push({ path: '/users', label: 'Revendedores', icon: Users });
   }
 
   return (
-    <div className="min-h-screen bg-background grid-bg">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 glass border-r border-white/5 z-50">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center neon-glow">
-              <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="font-heading font-bold text-lg text-foreground">NEXUS</h1>
-              <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">WhatsApp</p>
-            </div>
+    <div className="min-h-screen bg-background">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 glass border-b border-white/5 z-50 flex items-center justify-between px-4 safe-top">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground"
+          data-testid="mobile-menu-btn"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
-
-          <nav className="space-y-2">
-            {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                data-testid={`nav-${item.path.slice(1)}`}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  location.pathname === item.path
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                </svg>
-                <span className="font-medium text-sm">{item.label}</span>
-              </button>
-            ))}
-          </nav>
+          <span className="font-heading font-bold text-lg">NEXUS</span>
         </div>
+        <div className="w-10" /> {/* Spacer */}
+      </header>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-white/5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="font-heading font-bold text-primary uppercase">
-                {user?.username?.[0] || 'U'}
-              </span>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed top-0 left-0 h-full w-72 glass border-r border-white/5 z-50
+        transform transition-transform duration-300 ease-out
+        lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-4 lg:p-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center neon-glow">
+                <MessageSquare className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="font-heading font-bold text-xl">NEXUS</h1>
+                <p className="text-[10px] font-mono text-primary uppercase tracking-widest">WhatsApp</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-foreground truncate">{user?.username}</p>
-              <p className="text-xs font-mono text-primary uppercase">{user?.role}</p>
-            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            data-testid="logout-btn"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sair
-          </button>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => handleNavigation(item.path)}
+                  data-testid={`nav-${item.path.slice(1)}`}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-3 rounded-xl
+                    transition-all duration-200 touch-target
+                    ${isActive 
+                      ? 'bg-primary/15 text-primary border border-primary/20' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                    }
+                  `}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={1.5} />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* User Section */}
+          <div className="p-4 border-t border-white/5 safe-bottom">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                <span className="font-heading font-bold text-primary uppercase">
+                  {user?.username?.[0] || 'U'}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{user?.username}</p>
+                <p className="text-xs font-mono text-primary uppercase">{user?.role === 'admin' ? 'Administrador' : 'Revendedor'}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              data-testid="logout-btn"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors touch-target"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="ml-64 min-h-screen">
-        <div className="p-8">
+      <main className="lg:ml-72 min-h-screen pt-14 lg:pt-0">
+        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
@@ -202,7 +255,7 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="top-center" />
     </div>
   );
 }
