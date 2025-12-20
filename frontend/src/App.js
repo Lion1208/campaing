@@ -192,10 +192,12 @@ const Layout = ({ children }) => {
           </div>
 
           {/* Credits Badge (Desktop) */}
-          {(user?.role === 'admin' || user?.role === 'master') && user?.credits !== undefined && (
+          {(user?.role === 'admin' || user?.role === 'master') && (
             <div className="hidden lg:flex mx-4 mb-2 items-center justify-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/15 text-yellow-500">
               <Coins className="w-4 h-4" />
-              <span className="font-medium">{user.credits} créditos</span>
+              <span className="font-medium">
+                {user?.role === 'admin' ? '∞ créditos' : `${user?.credits || 0} créditos`}
+              </span>
             </div>
           )}
 
