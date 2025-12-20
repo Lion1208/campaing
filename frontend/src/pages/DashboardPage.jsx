@@ -77,7 +77,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Painel</h1>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Olá, <span className="text-primary font-medium">{user?.username}</span>
           </p>
