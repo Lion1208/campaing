@@ -635,8 +635,8 @@ async def list_master_resellers(page: int = 1, limit: int = 10, master: dict = D
 
 @api_router.post("/master/resellers")
 async def create_reseller(data: UserCreate, master: dict = Depends(get_master_user)):
-    """Create a new reseller (master only - costs 1 credit)"""
-    # Check credits (only for master, not admin)
+    """Create a new reseller (master only - costs 1 credit, admin is free)"""
+    # Check credits (only for master, not admin - admin has unlimited)
     if master['role'] == 'master':
         if master.get('credits', 0) < 1:
             raise HTTPException(status_code=400, detail="Créditos insuficientes. Você precisa de pelo menos 1 crédito para criar um revendedor.")
@@ -663,7 +663,7 @@ async def create_reseller(data: UserCreate, master: dict = Depends(get_master_us
     
     await db.users.insert_one(user)
     
-    # Deduct credit from master
+    # Deduct credit from master only (admin never loses credits)
     if master['role'] == 'master':
         await db.users.update_one({'id': master['id']}, {'$inc': {'credits': -1}})
     
