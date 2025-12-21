@@ -122,7 +122,7 @@ const Layout = ({ children }) => {
   // Add all users page for admin only
   if (user?.role === 'admin') {
     navItems.push({ path: '/users', label: 'Usuários', icon: Shield });
-    navItems.push({ path: '/logs', label: 'Logs', icon: Terminal });
+    navItems.push({ path: '/dependencies', label: 'Dependências', icon: Package });
   }
 
   return (
@@ -412,11 +412,11 @@ function App() {
           }
         />
         <Route
-          path="/logs"
+          path="/dependencies"
           element={
             <ProtectedRoute adminOnly>
               <Layout>
-                <LogsPage />
+                <DependenciesPage />
               </Layout>
             </ProtectedRoute>
           }
