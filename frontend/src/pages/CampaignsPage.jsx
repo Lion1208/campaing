@@ -382,6 +382,9 @@ export default function CampaignsPage() {
   const canPause = (status) => ['active', 'running'].includes(status);
   const canResume = (status) => status === 'paused';
   const canEdit = (status) => ['pending', 'paused', 'completed', 'active'].includes(status);
+  
+  // Verifica se a campanha nunca rodou (para decidir entre Iniciar vs Retomar)
+  const neverRan = (campaign) => !campaign.last_run;
 
   // Image cache for all campaigns
   const [imageCache, setImageCache] = useState({});
