@@ -735,6 +735,8 @@ async def start_whatsapp_service(admin: dict = Depends(get_admin_user)):
 async def full_setup(admin: dict = Depends(get_admin_user)):
     """Run full setup: install Node.js, WhatsApp deps, and start service"""
     import subprocess
+    import urllib.request
+    import platform
     
     logs = []
     
@@ -744,17 +746,42 @@ async def full_setup(admin: dict = Depends(get_admin_user)):
         if not node_installed:
             logs.append("📦 Passo 1: Instalando Node.js...")
             
-            commands = [
-                ['curl', '-fsSL', 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz', '-o', '/tmp/node.tar.xz'],
-                ['tar', '-xJf', '/tmp/node.tar.xz', '-C', '/usr/local', '--strip-components=1'],
-                ['rm', '-f', '/tmp/node.tar.xz'],
-            ]
+            # Detect architecture
+            arch = platform.machine()
+            if arch == 'x86_64':
+                node_arch = 'x64'
+            elif arch == 'aarch64' or arch == 'arm64':
+                node_arch = 'arm64'
+            else:
+                node_arch = 'x64'
             
-            for cmd in commands:
-                success, _, stderr = run_command(cmd, timeout=180)
-                if not success:
-                    logs.append(f"❌ Erro ao instalar Node.js: {stderr}")
-                    raise HTTPException(status_code=500, detail=f"Erro ao instalar Node.js: {stderr}")
+            node_url = f'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-{node_arch}.tar.xz'
+            node_file = '/tmp/node.tar.xz'
+            
+            logs.append(f"Baixando Node.js ({node_arch})...")
+            
+            try:
+                urllib.request.urlretrieve(node_url, node_file)
+                logs.append("Download concluído")
+            except Exception as e:
+                logs.append(f"❌ Erro no download: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Erro no download: {str(e)}")
+            
+            # Extract
+            logs.append("Extraindo arquivos...")
+            success, _, stderr = run_command(
+                ['tar', '-xJf', node_file, '-C', '/usr/local', '--strip-components=1'],
+                timeout=180
+            )
+            if not success:
+                logs.append(f"❌ Erro ao extrair: {stderr}")
+                raise HTTPException(status_code=500, detail=f"Erro ao extrair: {stderr}")
+            
+            # Cleanup
+            try:
+                os.remove(node_file)
+            except:
+                pass
             
             node_installed, node_version, _ = check_node_installed()
             if node_installed:
