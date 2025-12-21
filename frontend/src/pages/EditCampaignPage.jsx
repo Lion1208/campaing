@@ -168,11 +168,20 @@ export default function EditCampaignPage() {
 
   useEffect(() => {
     if (selectedConnection) {
+      // Verifica se a conexão selecionada existe nas conexões disponíveis
+      const connectionExists = connections.some(c => c.id === selectedConnection);
+      if (!connectionExists && connections.length > 0) {
+        console.warn('Conexão da campanha não existe mais:', selectedConnection);
+        toast.error('A conexão desta campanha não existe mais. Selecione outra.');
+        setSelectedConnection('');
+        setGroups([]);
+        return;
+      }
       loadGroups(selectedConnection);
     } else {
       setGroups([]);
     }
-  }, [selectedConnection, loadGroups]);
+  }, [selectedConnection, loadGroups, connections]);
 
   const handleImageUpload = async (e, index) => {
     const file = e.target.files?.[0];
