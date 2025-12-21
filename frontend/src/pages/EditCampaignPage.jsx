@@ -567,8 +567,8 @@ export default function EditCampaignPage() {
                     value={`item-${index}`}
                     className="border border-border/50 rounded-lg bg-muted/20 px-4"
                   >
-                    <AccordionTrigger className="hover:no-underline py-3">
-                      <div className="flex items-center justify-between w-full pr-2">
+                    <div className="flex items-center justify-between py-3">
+                      <AccordionTrigger className="hover:no-underline flex-1 py-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">Variação {index + 1}</span>
                           {item.imagePreview && (
@@ -580,17 +580,17 @@ export default function EditCampaignPage() {
                             </span>
                           )}
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); removeMessageItem(index); }}
-                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </AccordionTrigger>
+                      </AccordionTrigger>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => { e.stopPropagation(); removeMessageItem(index); }}
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 ml-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                     <AccordionContent className="pb-4 space-y-3">
                       {/* Image Upload */}
                       <div className="space-y-2">
