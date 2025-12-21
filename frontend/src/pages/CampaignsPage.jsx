@@ -566,13 +566,21 @@ export default function CampaignsPage() {
                     {/* Start/Resume Button */}
                     {canStart(campaign.status) && (
                       <Button
-                        onClick={() => canResume(campaign.status) ? handleResume(campaign) : handleStart(campaign)}
+                        onClick={() => {
+                          // Se nunca rodou ou está pendente, usar Start (executa agora)
+                          // Se já rodou antes e está pausada, usar Resume (continua de onde parou)
+                          if (neverRan(campaign) || campaign.status === 'pending') {
+                            handleStart(campaign);
+                          } else {
+                            handleResume(campaign);
+                          }
+                        }}
                         disabled={actionLoading === campaign.id}
                         size="sm"
                         className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-8"
                       >
                         <Zap className="w-3.5 h-3.5 mr-1" />
-                        {canResume(campaign.status) ? 'Retomar' : 'Iniciar'}
+                        {neverRan(campaign) || campaign.status === 'pending' ? 'Iniciar' : 'Retomar'}
                       </Button>
                     )}
 
