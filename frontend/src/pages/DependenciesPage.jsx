@@ -40,7 +40,7 @@ export default function DependenciesPage() {
     setInstallLogs(["Iniciando instalação do Node.js..."]);
     
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("nexus-token");
       const response = await fetch(`${API_URL}/api/admin/dependencies/install-node`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
