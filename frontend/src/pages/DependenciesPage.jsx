@@ -69,7 +69,7 @@ export default function DependenciesPage() {
     setInstallLogs(["Instalando dependências do WhatsApp Service..."]);
     
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("nexus-token");
       const response = await fetch(`${API_URL}/api/admin/dependencies/install-whatsapp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -97,7 +97,7 @@ export default function DependenciesPage() {
     setStartingService(true);
     
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("nexus-token");
       const response = await fetch(`${API_URL}/api/admin/dependencies/start-whatsapp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -124,7 +124,7 @@ export default function DependenciesPage() {
     setInstallLogs(["🚀 Iniciando setup completo..."]);
     
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("nexus-token");
       const response = await fetch(`${API_URL}/api/admin/dependencies/full-setup`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
