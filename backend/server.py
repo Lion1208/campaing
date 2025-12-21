@@ -1805,11 +1805,21 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_cu
     unique_id = str(uuid.uuid4())[:8]
     ext = file.filename.split('.')[-1].lower() if '.' in file.filename else 'jpg'
     filename = f"img_{timestamp}_{unique_id}.{ext}"
-    filepath = UPLOADS_DIR / filename
     
-    async with aiofiles.open(filepath, 'wb') as f:
-        content = await file.read()
-        await f.write(content)
+    # Read file content
+    content = await file.read()
+    
+    # Store in MongoDB as base64
+    import base64
+    content_base64 = base64.b64encode(content).decode('utf-8')
+    
+    # Also save to filesystem for backwards compatibility (will be lost on deploy but OK)
+    filepath = UPLOADS_DIR / filename
+    try:
+        async with aiofiles.open(filepath, 'wb') as f:
+            await f.write(content)
+    except Exception as e:
+        logger.warning(f"Could not save to filesystem: {e}")
     
     image = {
         'id': str(uuid.uuid4()),
@@ -1817,11 +1827,23 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_cu
         'original_name': file.filename,
         'url': f"/uploads/{filename}",
         'user_id': user['id'],
-        'created_at': datetime.now(timezone.utc).isoformat()
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'content_type': file.content_type,
+        'data': content_base64,  # Store image data in MongoDB
+        'size': len(content)
     }
     
     await db.images.insert_one(image)
-    return image
+    
+    # Return without the data field (too large)
+    return {
+        'id': image['id'],
+        'filename': image['filename'],
+        'original_name': image['original_name'],
+        'url': image['url'],
+        'user_id': image['user_id'],
+        'created_at': image['created_at']
+    }
 
 @api_router.get("/images", response_model=List[ImageResponse])
 async def list_images(user: dict = Depends(get_current_user)):
