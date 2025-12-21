@@ -2575,61 +2575,61 @@ async def startup_event():
             logger.error(f"Erro ao recarregar campanha {campaign['id']}: {e}")
 
 async def start_whatsapp_service():
-    """Ensure WhatsApp service is running"""
+    """Ensure WhatsApp service is running - with auto-setup"""
     import subprocess
     import asyncio
     
+    global whatsapp_process
+    
     # Check if WhatsApp service is responding
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+        async with httpx.AsyncClient(timeout=3.0) as http_client:
+            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/health")
             if response.status_code == 200:
                 logger.info("WhatsApp service já está rodando")
                 return
     except:
         pass
     
-    # Try to start it
-    logger.info("Tentando iniciar WhatsApp service...")
-    try:
-        # Try supervisor first
-        result = subprocess.run(['supervisorctl', 'start', 'whatsapp'], capture_output=True, text=True, timeout=10)
-        logger.info(f"Supervisor start result: {result.stdout} {result.stderr}")
-        await asyncio.sleep(3)
-        
-        # Check if it's running now
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
-            if response.status_code == 200:
-                logger.info("WhatsApp service iniciado via supervisor")
-                return
-    except Exception as e:
-        logger.warning(f"Falha ao iniciar via supervisor: {e}")
+    logger.info("WhatsApp service não está rodando. Iniciando auto-setup...")
     
-    # Try to start directly with subprocess
+    # Run auto-setup script
     try:
-        logger.info("Tentando iniciar WhatsApp service diretamente...")
-        process = subprocess.Popen(
-            ['node', '/app/whatsapp-service/index.js'],
-            cwd='/app/whatsapp-service',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True,
-            env={**os.environ, 'WHATSAPP_PORT': '3002'}
+        result = subprocess.run(
+            ['python3', '/app/backend/auto_setup.py'],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes max
+            cwd='/app/backend'
         )
-        await asyncio.sleep(5)
         
-        # Check if it's running
-        if process.poll() is None:  # Process is still running
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+        if result.stdout:
+            for line in result.stdout.split('\n'):
+                if line.strip():
+                    logger.info(f"[auto-setup] {line}")
+        
+        if result.stderr:
+            for line in result.stderr.split('\n'):
+                if line.strip():
+                    logger.warning(f"[auto-setup] {line}")
+        
+        # Check if service is now running
+        await asyncio.sleep(2)
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as http_client:
+                response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/health")
                 if response.status_code == 200:
-                    logger.info("WhatsApp service iniciado diretamente")
+                    logger.info("WhatsApp service iniciado com sucesso via auto-setup")
                     return
+        except:
+            pass
+        
+        logger.warning("Auto-setup concluído, mas serviço ainda não responde. Pode estar iniciando...")
+        
+    except subprocess.TimeoutExpired:
+        logger.error("Auto-setup timeout - pode demorar mais para instalar dependências")
     except Exception as e:
-        logger.error(f"Falha ao iniciar WhatsApp service diretamente: {e}")
-    
-    logger.error("Não foi possível iniciar o WhatsApp service")
+        logger.error(f"Erro no auto-setup: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
