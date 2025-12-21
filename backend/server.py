@@ -1858,7 +1858,8 @@ async def list_images_paginated(page: int = 1, limit: int = 20, user: dict = Dep
     query = {} if user['role'] == 'admin' else {'user_id': user['id']}
     skip = (page - 1) * limit
     total = await db.images.count_documents(query)
-    images = await db.images.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    # Exclude 'data' field as it's too large
+    images = await db.images.find(query, {'_id': 0, 'data': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     return {
         'images': images,
         'total': total,
