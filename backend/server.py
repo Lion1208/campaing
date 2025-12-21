@@ -462,6 +462,342 @@ async def change_password(data: PasswordChange, user: dict = Depends(get_current
     
     return {'message': 'Senha alterada com sucesso'}
 
+# ============= Dependencies Management (Admin Only) =============
+
+# Global variable to track WhatsApp service process
+whatsapp_process = None
+
+def run_command(cmd: list, timeout: int = 120) -> tuple:
+    """Run a command and return (success, output, error)"""
+    import subprocess
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return result.returncode == 0, result.stdout, result.stderr
+    except subprocess.TimeoutExpired:
+        return False, "", "Timeout"
+    except Exception as e:
+        return False, "", str(e)
+
+def check_node_installed() -> tuple:
+    """Check if Node.js is installed and return version"""
+    import shutil
+    import subprocess
+    
+    # Check multiple possible paths
+    node_paths = ['/usr/local/bin/node', '/usr/bin/node', shutil.which('node')]
+    
+    for node_path in node_paths:
+        if node_path and os.path.exists(node_path):
+            try:
+                result = subprocess.run([node_path, '--version'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    return True, result.stdout.strip(), node_path
+            except:
+                pass
+    
+    return False, None, None
+
+def check_npm_installed() -> tuple:
+    """Check if NPM is installed and return version"""
+    import shutil
+    import subprocess
+    
+    npm_paths = ['/usr/local/bin/npm', '/usr/bin/npm', shutil.which('npm')]
+    
+    for npm_path in npm_paths:
+        if npm_path and os.path.exists(npm_path):
+            try:
+                result = subprocess.run([npm_path, '--version'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    return True, result.stdout.strip(), npm_path
+            except:
+                pass
+    
+    return False, None, None
+
+def check_whatsapp_deps_installed() -> bool:
+    """Check if WhatsApp service dependencies are installed"""
+    node_modules = Path('/app/whatsapp-service/node_modules')
+    return node_modules.exists() and (node_modules / '@whiskeysockets').exists()
+
+def check_whatsapp_service_running() -> bool:
+    """Check if WhatsApp service is responding"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', f'{WHATSAPP_SERVICE_URL}/health'],
+            capture_output=True, text=True, timeout=5
+        )
+        return result.stdout.strip() == '200'
+    except:
+        return False
+
+@api_router.get("/admin/dependencies/status")
+async def get_dependencies_status(admin: dict = Depends(get_admin_user)):
+    """Get status of all dependencies"""
+    import platform
+    import sys
+    
+    node_installed, node_version, node_path = check_node_installed()
+    npm_installed, npm_version, npm_path = check_npm_installed()
+    
+    return {
+        'node_installed': node_installed,
+        'node_version': node_version,
+        'node_path': node_path,
+        'npm_installed': npm_installed,
+        'npm_version': npm_version,
+        'npm_path': npm_path,
+        'whatsapp_deps_installed': check_whatsapp_deps_installed(),
+        'whatsapp_service_running': check_whatsapp_service_running(),
+        'system_info': {
+            'platform': platform.system(),
+            'arch': platform.machine(),
+            'python_version': sys.version.split()[0],
+            'whatsapp_dir_exists': os.path.exists('/app/whatsapp-service'),
+        }
+    }
+
+@api_router.post("/admin/dependencies/install-node")
+async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(get_admin_user)):
+    """Install Node.js"""
+    import subprocess
+    
+    logs = []
+    
+    # Check if already installed
+    node_installed, node_version, _ = check_node_installed()
+    if node_installed:
+        return {'success': True, 'logs': [f'Node.js já está instalado: {node_version}']}
+    
+    try:
+        logs.append("📦 Baixando Node.js v20.x...")
+        
+        # Download and install Node.js using official binary
+        commands = [
+            # Download Node.js binary
+            ['curl', '-fsSL', 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz', '-o', '/tmp/node.tar.xz'],
+            # Extract to /usr/local
+            ['tar', '-xJf', '/tmp/node.tar.xz', '-C', '/usr/local', '--strip-components=1'],
+            # Cleanup
+            ['rm', '-f', '/tmp/node.tar.xz'],
+        ]
+        
+        for cmd in commands:
+            logs.append(f"Executando: {' '.join(cmd[:3])}...")
+            success, stdout, stderr = run_command(cmd, timeout=180)
+            if not success:
+                logs.append(f"❌ Erro: {stderr}")
+                raise HTTPException(status_code=500, detail=f"Erro ao instalar Node.js: {stderr}")
+        
+        # Verify installation
+        node_installed, node_version, _ = check_node_installed()
+        if node_installed:
+            logs.append(f"✅ Node.js instalado: {node_version}")
+            return {'success': True, 'logs': logs}
+        else:
+            logs.append("❌ Instalação falhou - Node.js não encontrado após instalação")
+            raise HTTPException(status_code=500, detail="Instalação falhou")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logs.append(f"❌ Erro: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/admin/dependencies/install-whatsapp")
+async def install_whatsapp_deps(admin: dict = Depends(get_admin_user)):
+    """Install WhatsApp service dependencies"""
+    import subprocess
+    
+    logs = []
+    
+    # Check if Node.js is installed
+    node_installed, _, node_path = check_node_installed()
+    if not node_installed:
+        raise HTTPException(status_code=400, detail="Node.js não está instalado. Instale primeiro.")
+    
+    # Check if already installed
+    if check_whatsapp_deps_installed():
+        return {'success': True, 'logs': ['Dependências já estão instaladas']}
+    
+    try:
+        logs.append("📦 Instalando dependências do WhatsApp Service...")
+        
+        # Get npm path
+        _, _, npm_path = check_npm_installed()
+        if not npm_path:
+            npm_path = '/usr/local/bin/npm'
+        
+        # Install dependencies
+        success, stdout, stderr = run_command(
+            [npm_path, 'install', '--prefix', '/app/whatsapp-service'],
+            timeout=300
+        )
+        
+        if success or check_whatsapp_deps_installed():
+            logs.append("✅ Dependências instaladas com sucesso")
+            return {'success': True, 'logs': logs}
+        else:
+            logs.append(f"❌ Erro: {stderr}")
+            raise HTTPException(status_code=500, detail=f"Erro ao instalar dependências: {stderr}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logs.append(f"❌ Erro: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/admin/dependencies/start-whatsapp")
+async def start_whatsapp_service(admin: dict = Depends(get_admin_user)):
+    """Start WhatsApp service"""
+    import subprocess
+    global whatsapp_process
+    
+    # Check prerequisites
+    node_installed, _, node_path = check_node_installed()
+    if not node_installed:
+        raise HTTPException(status_code=400, detail="Node.js não está instalado")
+    
+    if not check_whatsapp_deps_installed():
+        raise HTTPException(status_code=400, detail="Dependências do WhatsApp não estão instaladas")
+    
+    # Check if already running
+    if check_whatsapp_service_running():
+        return {'success': True, 'message': 'Serviço já está rodando'}
+    
+    try:
+        # Kill any existing process
+        if whatsapp_process:
+            try:
+                whatsapp_process.terminate()
+                whatsapp_process.wait(timeout=5)
+            except:
+                pass
+        
+        # Start the service
+        env = os.environ.copy()
+        env['PATH'] = f"/usr/local/bin:{env.get('PATH', '')}"
+        
+        whatsapp_process = subprocess.Popen(
+            [node_path or '/usr/local/bin/node', '/app/whatsapp-service/index.js'],
+            cwd='/app/whatsapp-service',
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        
+        # Wait a bit and check if it started
+        await asyncio.sleep(3)
+        
+        if check_whatsapp_service_running():
+            logger.info("WhatsApp service started successfully")
+            return {'success': True, 'message': 'Serviço iniciado com sucesso'}
+        else:
+            # Check if process died
+            if whatsapp_process.poll() is not None:
+                _, stderr = whatsapp_process.communicate()
+                raise HTTPException(status_code=500, detail=f"Serviço encerrou: {stderr.decode()[:500]}")
+            
+            return {'success': True, 'message': 'Serviço iniciando... aguarde alguns segundos'}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting WhatsApp service: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/admin/dependencies/full-setup")
+async def full_setup(admin: dict = Depends(get_admin_user)):
+    """Run full setup: install Node.js, WhatsApp deps, and start service"""
+    import subprocess
+    
+    logs = []
+    
+    try:
+        # Step 1: Install Node.js if needed
+        node_installed, node_version, _ = check_node_installed()
+        if not node_installed:
+            logs.append("📦 Passo 1: Instalando Node.js...")
+            
+            commands = [
+                ['curl', '-fsSL', 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz', '-o', '/tmp/node.tar.xz'],
+                ['tar', '-xJf', '/tmp/node.tar.xz', '-C', '/usr/local', '--strip-components=1'],
+                ['rm', '-f', '/tmp/node.tar.xz'],
+            ]
+            
+            for cmd in commands:
+                success, _, stderr = run_command(cmd, timeout=180)
+                if not success:
+                    logs.append(f"❌ Erro ao instalar Node.js: {stderr}")
+                    raise HTTPException(status_code=500, detail=f"Erro ao instalar Node.js: {stderr}")
+            
+            node_installed, node_version, _ = check_node_installed()
+            if node_installed:
+                logs.append(f"✅ Node.js instalado: {node_version}")
+            else:
+                raise HTTPException(status_code=500, detail="Falha ao instalar Node.js")
+        else:
+            logs.append(f"✅ Node.js já instalado: {node_version}")
+        
+        # Step 2: Install WhatsApp dependencies if needed
+        if not check_whatsapp_deps_installed():
+            logs.append("📦 Passo 2: Instalando dependências do WhatsApp...")
+            
+            _, _, npm_path = check_npm_installed()
+            npm_path = npm_path or '/usr/local/bin/npm'
+            
+            success, _, stderr = run_command(
+                [npm_path, 'install', '--prefix', '/app/whatsapp-service'],
+                timeout=300
+            )
+            
+            if check_whatsapp_deps_installed():
+                logs.append("✅ Dependências do WhatsApp instaladas")
+            else:
+                logs.append(f"⚠️ Possível problema nas dependências: {stderr[:200]}")
+        else:
+            logs.append("✅ Dependências do WhatsApp já instaladas")
+        
+        # Step 3: Start WhatsApp service
+        if not check_whatsapp_service_running():
+            logs.append("🚀 Passo 3: Iniciando serviço WhatsApp...")
+            
+            global whatsapp_process
+            
+            node_path = check_node_installed()[2] or '/usr/local/bin/node'
+            env = os.environ.copy()
+            env['PATH'] = f"/usr/local/bin:{env.get('PATH', '')}"
+            
+            whatsapp_process = subprocess.Popen(
+                [node_path, '/app/whatsapp-service/index.js'],
+                cwd='/app/whatsapp-service',
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            
+            # Wait for service to start
+            for i in range(10):
+                await asyncio.sleep(1)
+                if check_whatsapp_service_running():
+                    logs.append("✅ Serviço WhatsApp iniciado")
+                    break
+            else:
+                logs.append("⚠️ Serviço iniciando em background... pode demorar alguns segundos")
+        else:
+            logs.append("✅ Serviço WhatsApp já está rodando")
+        
+        return {'success': True, 'logs': logs}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logs.append(f"❌ Erro: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============= System Logs (Admin Only) =============
 
 @api_router.get("/admin/logs/{service}")
