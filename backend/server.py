@@ -1848,7 +1848,8 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_cu
 @api_router.get("/images", response_model=List[ImageResponse])
 async def list_images(user: dict = Depends(get_current_user)):
     query = {} if user['role'] == 'admin' else {'user_id': user['id']}
-    images = await db.images.find(query, {'_id': 0}).to_list(1000)
+    # Exclude 'data' field as it's too large
+    images = await db.images.find(query, {'_id': 0, 'data': 0}).to_list(1000)
     return images
 
 @api_router.get("/images/paginated")
