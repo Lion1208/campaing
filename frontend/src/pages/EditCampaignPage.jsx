@@ -175,6 +175,7 @@ export default function EditCampaignPage() {
         toast.error('A conexão desta campanha não existe mais. Selecione outra.');
         setSelectedConnection('');
         setGroups([]);
+        setSelectedGroups([]);  // Limpar grupos selecionados também
         return;
       }
       loadGroups(selectedConnection);
