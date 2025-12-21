@@ -9,13 +9,25 @@ import subprocess
 import sys
 import time
 import logging
+import urllib.request
+import platform
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 WHATSAPP_SERVICE_DIR = '/app/whatsapp-service'
 NODE_VERSION = 'v20.11.0'
-NODE_URL = f'https://nodejs.org/dist/{NODE_VERSION}/node-{NODE_VERSION}-linux-x64.tar.xz'
+
+def get_node_url():
+    """Get the correct Node.js URL for the current architecture"""
+    arch = platform.machine()
+    if arch == 'x86_64':
+        node_arch = 'x64'
+    elif arch == 'aarch64' or arch == 'arm64':
+        node_arch = 'arm64'
+    else:
+        node_arch = 'x64'
+    return f'https://nodejs.org/dist/{NODE_VERSION}/node-{NODE_VERSION}-linux-{node_arch}.tar.xz'
 
 def run_command(cmd, timeout=120, cwd=None):
     """Run a command and return (success, stdout, stderr)"""
@@ -55,30 +67,44 @@ def check_whatsapp_deps():
 def check_whatsapp_service():
     """Check if WhatsApp service is running"""
     try:
-        result = subprocess.run(
-            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', 'http://localhost:3002/health'],
-            capture_output=True, text=True, timeout=5
-        )
-        return result.stdout.strip() == '200'
+        import urllib.request
+        req = urllib.request.Request('http://localhost:3002/health', method='GET')
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status == 200
     except:
         return False
 
 def install_node():
-    """Install Node.js"""
+    """Install Node.js using Python urllib"""
     logger.info(f"Installing Node.js {NODE_VERSION}...")
     
-    commands = [
-        ['curl', '-fsSL', NODE_URL, '-o', '/tmp/node.tar.xz'],
-        ['tar', '-xJf', '/tmp/node.tar.xz', '-C', '/usr/local', '--strip-components=1'],
-        ['rm', '-f', '/tmp/node.tar.xz'],
-    ]
+    node_url = get_node_url()
+    node_file = '/tmp/node.tar.xz'
     
-    for cmd in commands:
-        logger.info(f"Running: {' '.join(cmd[:3])}...")
-        success, stdout, stderr = run_command(cmd, timeout=180)
-        if not success:
-            logger.error(f"Failed: {stderr}")
-            return False
+    logger.info(f"Downloading from {node_url}...")
+    
+    try:
+        urllib.request.urlretrieve(node_url, node_file)
+        logger.info("Download completed")
+    except Exception as e:
+        logger.error(f"Download failed: {e}")
+        return False
+    
+    # Extract
+    logger.info("Extracting files...")
+    success, stdout, stderr = run_command(
+        ['tar', '-xJf', node_file, '-C', '/usr/local', '--strip-components=1'],
+        timeout=180
+    )
+    if not success:
+        logger.error(f"Extraction failed: {stderr}")
+        return False
+    
+    # Cleanup
+    try:
+        os.remove(node_file)
+    except:
+        pass
     
     # Verify
     installed, version, _ = check_node()
