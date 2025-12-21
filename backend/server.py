@@ -560,8 +560,10 @@ async def get_dependencies_status(admin: dict = Depends(get_admin_user)):
 
 @api_router.post("/admin/dependencies/install-node")
 async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(get_admin_user)):
-    """Install Node.js"""
+    """Install Node.js using Python to download"""
     import subprocess
+    import urllib.request
+    import platform
     
     logs = []
     
@@ -571,24 +573,45 @@ async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(
         return {'success': True, 'logs': [f'Node.js já está instalado: {node_version}']}
     
     try:
-        logs.append("📦 Baixando Node.js v20.x...")
+        # Detect architecture
+        arch = platform.machine()
+        if arch == 'x86_64':
+            node_arch = 'x64'
+        elif arch == 'aarch64' or arch == 'arm64':
+            node_arch = 'arm64'
+        else:
+            node_arch = 'x64'  # fallback
         
-        # Download and install Node.js using official binary
-        commands = [
-            # Download Node.js binary
-            ['curl', '-fsSL', 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz', '-o', '/tmp/node.tar.xz'],
-            # Extract to /usr/local
-            ['tar', '-xJf', '/tmp/node.tar.xz', '-C', '/usr/local', '--strip-components=1'],
-            # Cleanup
-            ['rm', '-f', '/tmp/node.tar.xz'],
-        ]
+        node_url = f'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-{node_arch}.tar.xz'
+        node_file = '/tmp/node.tar.xz'
         
-        for cmd in commands:
-            logs.append(f"Executando: {' '.join(cmd[:3])}...")
-            success, stdout, stderr = run_command(cmd, timeout=180)
-            if not success:
-                logs.append(f"❌ Erro: {stderr}")
-                raise HTTPException(status_code=500, detail=f"Erro ao instalar Node.js: {stderr}")
+        logs.append(f"📦 Baixando Node.js v20.11.0 ({node_arch})...")
+        logs.append(f"URL: {node_url}")
+        
+        # Download using Python urllib (no curl needed)
+        try:
+            urllib.request.urlretrieve(node_url, node_file)
+            logs.append("✅ Download concluído")
+        except Exception as e:
+            logs.append(f"❌ Erro no download: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro no download: {str(e)}")
+        
+        # Extract to /usr/local
+        logs.append("📦 Extraindo arquivos...")
+        success, stdout, stderr = run_command(
+            ['tar', '-xJf', node_file, '-C', '/usr/local', '--strip-components=1'],
+            timeout=180
+        )
+        if not success:
+            logs.append(f"❌ Erro ao extrair: {stderr}")
+            raise HTTPException(status_code=500, detail=f"Erro ao extrair: {stderr}")
+        logs.append("✅ Extração concluída")
+        
+        # Cleanup
+        try:
+            os.remove(node_file)
+        except:
+            pass
         
         # Verify installation
         node_installed, node_version, _ = check_node_installed()
