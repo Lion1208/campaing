@@ -152,7 +152,15 @@ export default function EditCampaignPage() {
       const data = await fetchGroupsByConnection(connectionId);
       setGroups(data);
     } catch (error) {
-      toast.error('Erro ao carregar grupos');
+      console.error('Erro ao carregar grupos:', error);
+      // Se a conexão não existe mais, limpar a seleção
+      if (error.response?.status === 404) {
+        setSelectedConnection('');
+        setGroups([]);
+        toast.error('Conexão não encontrada. Selecione outra conexão.');
+      } else {
+        toast.error('Erro ao carregar grupos');
+      }
     } finally {
       setLoadingGroups(false);
     }
