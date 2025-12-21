@@ -1907,6 +1907,8 @@ async def get_image_file(image_id: str, user: dict = Depends(get_current_user)):
 @api_router.put("/images/{image_id}")
 async def update_image(image_id: str, file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     """Replace an existing image with a new file"""
+    import base64
+    
     query = {'id': image_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1918,7 +1920,7 @@ async def update_image(image_id: str, file: UploadFile = File(...), user: dict =
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
     
-    # Delete old file
+    # Delete old file from filesystem
     old_filepath = UPLOADS_DIR / image['filename']
     if old_filepath.exists():
         old_filepath.unlink()
@@ -1930,9 +1932,17 @@ async def update_image(image_id: str, file: UploadFile = File(...), user: dict =
     new_filename = f"img_{timestamp}_{unique_id}.{ext}"
     new_filepath = UPLOADS_DIR / new_filename
     
-    async with aiofiles.open(new_filepath, 'wb') as f:
-        content = await file.read()
-        await f.write(content)
+    content = await file.read()
+    
+    # Save to filesystem (for backwards compatibility)
+    try:
+        async with aiofiles.open(new_filepath, 'wb') as f:
+            await f.write(content)
+    except Exception as e:
+        logger.warning(f"Could not save to filesystem: {e}")
+    
+    # Store in MongoDB as base64
+    content_base64 = base64.b64encode(content).decode('utf-8')
     
     # Update database
     await db.images.update_one(
@@ -1940,11 +1950,14 @@ async def update_image(image_id: str, file: UploadFile = File(...), user: dict =
         {'$set': {
             'filename': new_filename,
             'original_name': file.filename,
-            'url': f"/uploads/{new_filename}"
+            'url': f"/uploads/{new_filename}",
+            'content_type': file.content_type,
+            'data': content_base64,
+            'size': len(content)
         }}
     )
     
-    updated = await db.images.find_one({'id': image_id}, {'_id': 0})
+    updated = await db.images.find_one({'id': image_id}, {'_id': 0, 'data': 0})
     return updated
 
 @api_router.delete("/images/{image_id}")
