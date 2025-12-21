@@ -157,6 +157,7 @@ export default function EditCampaignPage() {
       if (error.response?.status === 404) {
         setSelectedConnection('');
         setGroups([]);
+        setSelectedGroups([]);  // Limpar grupos selecionados também
         toast.error('Conexão não encontrada. Selecione outra conexão.');
       } else {
         toast.error('Erro ao carregar grupos');
