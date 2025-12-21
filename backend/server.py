@@ -2033,28 +2033,16 @@ async def execute_campaign(campaign_id: str):
             selected_msg = random.choice(campaign['messages'])
             message_to_send = selected_msg.get('message')
             
-            # Get image for selected message
+            # Get image for selected message using helper function
             if selected_msg.get('image_id'):
-                image = await db.images.find_one({'id': selected_msg['image_id']})
-                if image:
-                    filepath = UPLOADS_DIR / image['filename']
-                    if filepath.exists():
-                        async with aiofiles.open(filepath, 'rb') as f:
-                            content = await f.read()
-                            image_base64 = base64.b64encode(content).decode('utf-8')
+                image_base64 = await get_image_base64(selected_msg['image_id'])
         else:
             # Single message mode
             message_to_send = campaign.get('message')
             
-            # Get image if exists
+            # Get image if exists using helper function
             if campaign.get('image_id'):
-                image = await db.images.find_one({'id': campaign['image_id']})
-                if image:
-                    filepath = UPLOADS_DIR / image['filename']
-                    if filepath.exists():
-                        async with aiofiles.open(filepath, 'rb') as f:
-                            content = await f.read()
-                            image_base64 = base64.b64encode(content).decode('utf-8')
+                image_base64 = await get_image_base64(campaign['image_id'])
         
         for group_id in campaign['group_ids']:
             try:
