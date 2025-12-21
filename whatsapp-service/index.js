@@ -7,6 +7,10 @@ import path from 'path';
 import pino from 'pino';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
