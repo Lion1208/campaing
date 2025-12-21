@@ -1,10 +1,15 @@
-const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
-const express = require('express');
-const cors = require('cors');
-const QRCode = require('qrcode');
-const fs = require('fs');
-const path = require('path');
-const pino = require('pino');
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
+import express from 'express';
+import cors from 'cors';
+import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
+import pino from 'pino';
+import { fileURLToPath } from 'url';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
