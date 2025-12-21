@@ -1869,17 +1869,14 @@ async def list_images_paginated(page: int = 1, limit: int = 20, user: dict = Dep
 @api_router.get("/images/{image_id}/file")
 async def get_image_file(image_id: str, user: dict = Depends(get_current_user)):
     """Get image file as response"""
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, Response
+    import base64
     
     # Primeiro tenta encontrar a imagem sem filtro de usuário
     # Isso permite que qualquer usuário autenticado veja imagens em campanhas
     image = await db.images.find_one({'id': image_id})
     if not image:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
-    
-    filepath = UPLOADS_DIR / image['filename']
-    if not filepath.exists():
-        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
     
     # Determine content type
     ext = image['filename'].split('.')[-1].lower()
@@ -1890,9 +1887,22 @@ async def get_image_file(image_id: str, user: dict = Depends(get_current_user)):
         'gif': 'image/gif',
         'webp': 'image/webp'
     }
-    content_type = content_types.get(ext, 'image/jpeg')
+    content_type = image.get('content_type') or content_types.get(ext, 'image/jpeg')
     
-    return FileResponse(filepath, media_type=content_type)
+    # First try filesystem
+    filepath = UPLOADS_DIR / image['filename']
+    if filepath.exists():
+        return FileResponse(filepath, media_type=content_type)
+    
+    # If not in filesystem, try to get from MongoDB
+    if 'data' in image and image['data']:
+        try:
+            image_data = base64.b64decode(image['data'])
+            return Response(content=image_data, media_type=content_type)
+        except Exception as e:
+            logger.error(f"Error decoding image from MongoDB: {e}")
+    
+    raise HTTPException(status_code=404, detail="Arquivo não encontrado")
 
 @api_router.put("/images/{image_id}")
 async def update_image(image_id: str, file: UploadFile = File(...), user: dict = Depends(get_current_user)):
