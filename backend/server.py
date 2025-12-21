@@ -522,13 +522,11 @@ def check_whatsapp_deps_installed() -> bool:
 
 def check_whatsapp_service_running() -> bool:
     """Check if WhatsApp service is responding"""
-    import subprocess
+    import urllib.request
     try:
-        result = subprocess.run(
-            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', f'{WHATSAPP_SERVICE_URL}/health'],
-            capture_output=True, text=True, timeout=5
-        )
-        return result.stdout.strip() == '200'
+        req = urllib.request.Request(f'{WHATSAPP_SERVICE_URL}/health', method='GET')
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status == 200
     except:
         return False
 
