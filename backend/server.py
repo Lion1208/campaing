@@ -1979,6 +1979,29 @@ async def delete_image(image_id: str, user: dict = Depends(get_current_user)):
 
 # ============= Campaigns =============
 
+async def get_image_base64(image_id: str) -> str:
+    """Get image as base64 - first tries filesystem, then MongoDB"""
+    if not image_id:
+        return None
+    
+    image = await db.images.find_one({'id': image_id})
+    if not image:
+        return None
+    
+    # First try filesystem
+    filepath = UPLOADS_DIR / image['filename']
+    if filepath.exists():
+        async with aiofiles.open(filepath, 'rb') as f:
+            content = await f.read()
+            return base64.b64encode(content).decode('utf-8')
+    
+    # If not in filesystem, try to get from MongoDB
+    if 'data' in image and image['data']:
+        return image['data']  # Already base64
+    
+    logger.warning(f"Image {image_id} not found in filesystem or MongoDB")
+    return None
+
 async def execute_campaign(campaign_id: str):
     """Execute campaign - send messages to groups"""
     campaign = await db.campaigns.find_one({'id': campaign_id})
