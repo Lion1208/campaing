@@ -2623,10 +2623,45 @@ async def get_admin_stats(admin: dict = Depends(get_admin_user)):
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+# ============= Media Endpoint (serves from MongoDB if not in filesystem) =============
+
+@api_router.get("/media/{filename}")
+async def get_media_file(filename: str):
+    """Serve media file - first tries filesystem, then MongoDB"""
+    from fastapi.responses import FileResponse, Response
+    import base64
+    
+    # Determine content type
+    ext = filename.split('.')[-1].lower() if '.' in filename else 'jpg'
+    content_types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+    }
+    content_type = content_types.get(ext, 'image/jpeg')
+    
+    # First try filesystem
+    filepath = UPLOADS_DIR / filename
+    if filepath.exists():
+        return FileResponse(filepath, media_type=content_type)
+    
+    # If not in filesystem, try to get from MongoDB
+    image = await db.images.find_one({'filename': filename})
+    if image and 'data' in image and image['data']:
+        try:
+            image_data = base64.b64decode(image['data'])
+            return Response(content=image_data, media_type=image.get('content_type', content_type))
+        except Exception as e:
+            logger.error(f"Error decoding image from MongoDB: {e}")
+    
+    raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+
 # Include the router in the main app
 app.include_router(api_router)
 
-# Serve uploaded files
+# Serve uploaded files - fallback to static files if available
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 app.add_middleware(
