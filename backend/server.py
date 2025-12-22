@@ -1795,6 +1795,11 @@ async def refresh_groups(connection_id: str, user: dict = Depends(get_current_us
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
+    # Ensure WhatsApp service is running
+    whatsapp_ready = await ensure_whatsapp_running()
+    if not whatsapp_ready:
+        raise HTTPException(status_code=503, detail="Serviço em preparação. Tente novamente em alguns segundos.")
+    
     await sync_groups(connection_id, user['id'])
     groups = await db.groups.find({'connection_id': connection_id}, {'_id': 0}).to_list(1000)
     return {'groups': groups, 'count': len(groups)}
