@@ -2182,11 +2182,21 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
             if campaign.get('image_id'):
                 image_base64 = await get_image_base64(campaign['image_id'])
         
-        for group_id in campaign['group_ids']:
+        # Get groups to process, starting from the resume index
+        groups_to_process = campaign['group_ids'][start_index:]
+        
+        for idx, group_id in enumerate(groups_to_process):
+            current_index = start_index + idx
+            
             try:
                 # Get actual group_id from our db
                 group = await db.groups.find_one({'id': group_id})
                 if not group:
+                    # Update index even if group not found
+                    await db.campaigns.update_one(
+                        {'id': campaign_id},
+                        {'$set': {'current_group_index': current_index + 1}}
+                    )
                     continue
                 
                 await whatsapp_request("POST", f"/connections/{connection_id}/send", {
@@ -2197,9 +2207,14 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
                 })
                 
                 sent_count += 1
+                
+                # Save progress after each successful send
                 await db.campaigns.update_one(
                     {'id': campaign_id},
-                    {'$set': {'sent_count': sent_count}}
+                    {'$set': {
+                        'sent_count': sent_count,
+                        'current_group_index': current_index + 1
+                    }}
                 )
                 
                 # Log each send for dashboard stats
@@ -2219,6 +2234,12 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
                 
             except Exception as e:
                 logger.error(f"Erro ao enviar para grupo {group_id}: {e}")
+                
+                # Save progress even on error
+                await db.campaigns.update_one(
+                    {'id': campaign_id},
+                    {'$set': {'current_group_index': current_index + 1}}
+                )
                 
                 # Log failed send
                 await db.send_logs.insert_one({
