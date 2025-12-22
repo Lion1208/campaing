@@ -2910,7 +2910,36 @@ async def startup_event():
     # Start WhatsApp service if not running
     await start_whatsapp_service()
     
-    # Reload active campaigns
+    # Resume campaigns that were running when server stopped
+    running_campaigns = await db.campaigns.find({'status': 'running'}, {'_id': 0}).to_list(1000)
+    for campaign in running_campaigns:
+        try:
+            current_index = campaign.get('current_group_index', 0)
+            total_groups = len(campaign.get('group_ids', []))
+            
+            if current_index < total_groups:
+                logger.info(f"Retomando campanha {campaign['id']} do grupo {current_index}/{total_groups}")
+                # Use background task to resume campaign
+                import asyncio
+                asyncio.create_task(execute_campaign(campaign['id'], resume_from_index=current_index))
+            else:
+                # Campaign was completed but status wasn't updated
+                logger.info(f"Campanha {campaign['id']} já foi concluída, atualizando status")
+                if campaign['schedule_type'] == 'once':
+                    await db.campaigns.update_one(
+                        {'id': campaign['id']},
+                        {'$set': {'status': 'completed', 'current_group_index': 0}}
+                    )
+                else:
+                    next_run = calculate_next_run(campaign)
+                    await db.campaigns.update_one(
+                        {'id': campaign['id']},
+                        {'$set': {'status': 'active', 'current_group_index': 0, 'next_run': next_run}}
+                    )
+        except Exception as e:
+            logger.error(f"Erro ao retomar campanha {campaign['id']}: {e}")
+    
+    # Reload active campaigns (scheduled ones)
     active_campaigns = await db.campaigns.find({'status': {'$in': ['active', 'pending']}}, {'_id': 0}).to_list(1000)
     for campaign in active_campaigns:
         try:
