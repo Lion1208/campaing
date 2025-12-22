@@ -2206,7 +2206,10 @@ def calculate_next_run(campaign: dict) -> str:
 
 def schedule_campaign(campaign: dict):
     """Schedule campaign based on type"""
+    import pytz
+    
     campaign_id = campaign['id']
+    sp_tz = pytz.timezone('America/Sao_Paulo')
     
     # Remove existing jobs for this campaign
     try:
@@ -2243,7 +2246,7 @@ def schedule_campaign(campaign: dict):
         logger.info(f"Campanha {campaign_id} agendada a cada {hours} horas")
     
     elif campaign['schedule_type'] == 'specific_times':
-        # Specific times daily
+        # Specific times daily - use São Paulo timezone
         times = campaign.get('specific_times', [])
         for i, time_str in enumerate(times):
             hour, minute = map(int, time_str.split(':'))
@@ -2258,14 +2261,15 @@ def schedule_campaign(campaign: dict):
             start_date = datetime.fromisoformat(campaign['start_date'].replace('Z', '+00:00')) if campaign.get('start_date') else None
             end_date = datetime.fromisoformat(campaign['end_date'].replace('Z', '+00:00')) if campaign.get('end_date') else None
             
+            # Use timezone='America/Sao_Paulo' to ensure correct time interpretation
             scheduler.add_job(
                 execute_campaign,
-                trigger=CronTrigger(hour=hour, minute=minute, start_date=start_date, end_date=end_date),
+                trigger=CronTrigger(hour=hour, minute=minute, timezone=sp_tz, start_date=start_date, end_date=end_date),
                 args=[campaign_id],
                 id=job_id
             )
         
-        logger.info(f"Campanha {campaign_id} agendada para horários: {times}")
+        logger.info(f"Campanha {campaign_id} agendada para horários (Brasília): {times}")
 
 @api_router.post("/campaigns", response_model=CampaignResponse)
 async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
