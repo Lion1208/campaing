@@ -309,13 +309,22 @@ export default function ConnectionsPage() {
                     <>
                       <Button
                         onClick={() => handleRefreshGroups(connection)}
-                        disabled={actionLoading}
+                        disabled={syncingConnection === connection.id}
                         variant="outline"
                         size="sm"
                         className="flex-1 border-border text-foreground hover:bg-muted/50"
                       >
-                        <RefreshCw className="w-4 h-4 mr-1.5" />
-                        Grupos
+                        {syncingConnection === connection.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                            Sincronizando...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-1.5" />
+                            Grupos
+                          </>
+                        )}
                       </Button>
                       <Button
                         data-testid={`disconnect-btn-${connection.id}`}
