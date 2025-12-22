@@ -2450,6 +2450,7 @@ async def create_campaign(data: CampaignCreate, background_tasks: BackgroundTask
         'sent_count': 0,
         'total_count': len(data.group_ids),
         'current_message_index': 0,
+        'current_group_index': 0,  # Track progress for resume
         'last_run': None,
         'next_run': None,
         'paused_at': None,
