@@ -146,6 +146,9 @@ export default function HistoryPage() {
               <SelectItem value="delete">Exclusão</SelectItem>
               <SelectItem value="add_credits">Créditos</SelectItem>
               <SelectItem value="renew">Renovação</SelectItem>
+              <SelectItem value="block">Bloqueio</SelectItem>
+              <SelectItem value="unblock">Desbloqueio</SelectItem>
+              <SelectItem value="grant_trial">Teste Grátis</SelectItem>
             </SelectContent>
           </Select>
         </div>
