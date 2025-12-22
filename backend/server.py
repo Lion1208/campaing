@@ -2895,6 +2895,16 @@ async def startup_event():
     scheduler.start()
     logger.info("Scheduler iniciado")
     
+    # Create indexes for better query performance
+    try:
+        await db.send_logs.create_index([("user_id", 1), ("sent_at", -1)])
+        await db.send_logs.create_index([("sent_at", -1)])
+        await db.send_logs.create_index([("campaign_id", 1)])
+        await db.send_logs.create_index([("status", 1)])
+        logger.info("Indexes criados para send_logs")
+    except Exception as e:
+        logger.warning(f"Erro ao criar indexes: {e}")
+    
     admin = await db.users.find_one({'username': 'admin'})
     if not admin:
         admin_user = {
