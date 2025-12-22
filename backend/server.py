@@ -2135,11 +2135,35 @@ async def execute_campaign(campaign_id: str):
                     {'$set': {'sent_count': sent_count}}
                 )
                 
+                # Log each send for dashboard stats
+                await db.send_logs.insert_one({
+                    'id': str(uuid.uuid4()),
+                    'campaign_id': campaign_id,
+                    'user_id': campaign.get('user_id'),
+                    'group_id': group_id,
+                    'group_name': group.get('name', ''),
+                    'connection_id': connection_id,
+                    'sent_at': datetime.now(timezone.utc).isoformat(),
+                    'status': 'sent'
+                })
+                
                 # Delay between messages
                 await asyncio.sleep(campaign['delay_seconds'])
                 
             except Exception as e:
                 logger.error(f"Erro ao enviar para grupo {group_id}: {e}")
+                
+                # Log failed send
+                await db.send_logs.insert_one({
+                    'id': str(uuid.uuid4()),
+                    'campaign_id': campaign_id,
+                    'user_id': campaign.get('user_id'),
+                    'group_id': group_id,
+                    'connection_id': connection_id,
+                    'sent_at': datetime.now(timezone.utc).isoformat(),
+                    'status': 'failed',
+                    'error': str(e)
+                })
         
         # Update status based on schedule type
         if campaign['schedule_type'] == 'once':
