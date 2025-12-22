@@ -2004,6 +2004,65 @@ async def get_image_base64(image_id: str) -> str:
     logger.warning(f"Image {image_id} not found in filesystem or MongoDB")
     return None
 
+async def ensure_whatsapp_running():
+    """Ensure WhatsApp service is running before campaign execution"""
+    global whatsapp_process
+    
+    # Check if WhatsApp service is responding
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as http_client:
+            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/health")
+            if response.status_code == 200:
+                return True
+    except:
+        pass
+    
+    logger.info("WhatsApp service não está rodando. Tentando iniciar...")
+    
+    # Check if node is installed
+    node_installed, _, node_path = check_node_installed()
+    if not node_installed:
+        logger.error("Node.js não está instalado. Não é possível iniciar o serviço WhatsApp.")
+        return False
+    
+    if not check_whatsapp_deps_installed():
+        logger.error("Dependências do WhatsApp não estão instaladas.")
+        return False
+    
+    # Try to start the service
+    try:
+        import subprocess
+        
+        env = os.environ.copy()
+        env['PATH'] = f"/usr/local/bin:{env.get('PATH', '')}"
+        
+        whatsapp_process = subprocess.Popen(
+            [node_path or '/usr/local/bin/node', '/app/whatsapp-service/index.js'],
+            cwd='/app/whatsapp-service',
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        
+        # Wait for service to start
+        for i in range(10):
+            await asyncio.sleep(1)
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as http_client:
+                    response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/health")
+                    if response.status_code == 200:
+                        logger.info("WhatsApp service iniciado automaticamente")
+                        return True
+            except:
+                pass
+        
+        logger.warning("WhatsApp service pode estar iniciando em background...")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao iniciar WhatsApp service: {e}")
+        return False
+
 async def execute_campaign(campaign_id: str):
     """Execute campaign - send messages to groups"""
     campaign = await db.campaigns.find_one({'id': campaign_id})
@@ -2013,6 +2072,16 @@ async def execute_campaign(campaign_id: str):
     
     if campaign['status'] == 'paused':
         logger.info(f"Campanha {campaign_id} pausada, pulando execução")
+        return
+    
+    # Ensure WhatsApp service is running before execution
+    whatsapp_ready = await ensure_whatsapp_running()
+    if not whatsapp_ready:
+        logger.error(f"Campanha {campaign_id}: WhatsApp service não disponível")
+        await db.campaigns.update_one(
+            {'id': campaign_id},
+            {'$set': {'status': 'failed', 'error': 'WhatsApp service não disponível'}}
+        )
         return
     
     await db.campaigns.update_one(
