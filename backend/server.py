@@ -1039,8 +1039,18 @@ async def get_activity_logs_paginated(
 @api_router.get("/stats/dashboard")
 async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_user)):
     """Get dashboard statistics"""
-    from_date = datetime.now(timezone.utc) - timedelta(days=days)
+    import pytz
+    
+    sp_tz = pytz.timezone('America/Sao_Paulo')
+    now_sp = datetime.now(sp_tz)
+    now_utc = datetime.now(timezone.utc)
+    
+    from_date = now_utc - timedelta(days=days)
     from_date_str = from_date.isoformat()
+    
+    # Start of today in São Paulo timezone, converted to UTC
+    today_start_sp = sp_tz.localize(datetime.combine(now_sp.date(), datetime.min.time()))
+    today_start_utc = today_start_sp.astimezone(timezone.utc)
     
     # Query filter based on role
     user_query = {} if user['role'] == 'admin' else {'user_id': user['id']}
@@ -1052,49 +1062,45 @@ async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_us
     elif user['role'] == 'master':
         resellers_count = await db.users.count_documents({'created_by': user['id']})
     
-    # Count sends from campaigns
-    campaigns = await db.campaigns.find(user_query, {'_id': 0}).to_list(1000)
+    # Get send logs for accurate stats
+    send_logs_query = user_query.copy()
+    send_logs_query['status'] = 'sent'
     
-    # Calculate total sends
-    total_sends = sum(c.get('sent_count', 0) for c in campaigns)
+    # Count total sends from send_logs
+    total_sends = await db.send_logs.count_documents(send_logs_query)
     
-    # Calculate sends today
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    sends_today = 0
-    sends_period = 0
+    # Count sends today
+    today_query = send_logs_query.copy()
+    today_query['sent_at'] = {'$gte': today_start_utc.isoformat()}
+    sends_today = await db.send_logs.count_documents(today_query)
     
-    for c in campaigns:
-        last_run = c.get('last_run')
-        if last_run:
-            try:
-                last_run_dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
-                if last_run_dt >= today_start:
-                    sends_today += c.get('sent_count', 0)
-                if last_run_dt >= from_date:
-                    sends_period += c.get('sent_count', 0)
-            except:
-                pass
+    # Count sends in period
+    period_query = send_logs_query.copy()
+    period_query['sent_at'] = {'$gte': from_date_str}
+    sends_period = await db.send_logs.count_documents(period_query)
     
     # Generate daily sends data for chart
     daily_sends = []
     for i in range(days):
-        day_date = datetime.now(timezone.utc).date() - timedelta(days=days-1-i)
-        day_sends = 0
-        for c in campaigns:
-            last_run = c.get('last_run')
-            if last_run:
-                try:
-                    last_run_dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
-                    if last_run_dt.date() == day_date:
-                        day_sends += c.get('sent_count', 0)
-                except:
-                    pass
-        daily_sends.append(day_sends)
+        day_offset = days - 1 - i
+        day_date_sp = (now_sp - timedelta(days=day_offset)).date()
+        
+        # Start and end of day in São Paulo, converted to UTC
+        day_start_sp = sp_tz.localize(datetime.combine(day_date_sp, datetime.min.time()))
+        day_end_sp = sp_tz.localize(datetime.combine(day_date_sp + timedelta(days=1), datetime.min.time()))
+        
+        day_start_utc = day_start_sp.astimezone(timezone.utc).isoformat()
+        day_end_utc = day_end_sp.astimezone(timezone.utc).isoformat()
+        
+        day_query = send_logs_query.copy()
+        day_query['sent_at'] = {'$gte': day_start_utc, '$lt': day_end_utc}
+        day_count = await db.send_logs.count_documents(day_query)
+        daily_sends.append(day_count)
     
-    # Success rate (simplified - based on completed vs total)
-    completed = len([c for c in campaigns if c.get('status') == 'completed'])
-    total_camps = len(campaigns)
-    success_rate = int((completed / total_camps * 100) if total_camps > 0 else 100)
+    # Success rate from send_logs
+    total_logs = await db.send_logs.count_documents(user_query)
+    failed_logs = await db.send_logs.count_documents({**user_query, 'status': 'failed'})
+    success_rate = int(((total_logs - failed_logs) / total_logs * 100) if total_logs > 0 else 100)
     
     return {
         'resellers_count': resellers_count,
