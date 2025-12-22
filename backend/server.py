@@ -189,6 +189,7 @@ class CampaignResponse(BaseModel):
     sent_count: int
     total_count: int
     current_message_index: int = 0
+    current_group_index: int = 0  # Track progress for resume functionality
     last_run: Optional[str] = None
     next_run: Optional[str] = None
     paused_at: Optional[str] = None
