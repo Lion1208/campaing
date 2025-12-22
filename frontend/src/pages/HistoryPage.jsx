@@ -59,6 +59,9 @@ export default function HistoryPage() {
       pause: Pause,
       resume: Play,
       duplicate: Copy,
+      block: Pause,
+      unblock: Play,
+      grant_trial: User,
     };
     return icons[action] || History;
   };
@@ -74,6 +77,9 @@ export default function HistoryPage() {
       pause: 'text-orange-500 bg-orange-500/10',
       resume: 'text-green-500 bg-green-500/10',
       duplicate: 'text-cyan-500 bg-cyan-500/10',
+      block: 'text-red-500 bg-red-500/10',
+      unblock: 'text-green-500 bg-green-500/10',
+      grant_trial: 'text-purple-500 bg-purple-500/10',
     };
     return colors[action] || 'text-gray-500 bg-gray-500/10';
   };
@@ -91,6 +97,9 @@ export default function HistoryPage() {
       duplicate: 'Duplicado',
       profile_update: 'Perfil',
       password_change: 'Senha',
+      block: 'Bloqueio',
+      unblock: 'Desbloqueio',
+      grant_trial: 'Teste Grátis',
     };
     return labels[action] || action;
   };
