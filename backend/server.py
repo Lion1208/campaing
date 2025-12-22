@@ -2111,8 +2111,13 @@ async def ensure_whatsapp_running():
         logger.error(f"Erro ao iniciar WhatsApp service: {e}")
         return False
 
-async def execute_campaign(campaign_id: str):
-    """Execute campaign - send messages to groups"""
+async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
+    """Execute campaign - send messages to groups
+    
+    Args:
+        campaign_id: ID da campanha
+        resume_from_index: Índice do grupo para retomar (0 = início)
+    """
     campaign = await db.campaigns.find_one({'id': campaign_id})
     if not campaign:
         logger.error(f"Campanha {campaign_id} não encontrada")
@@ -2132,13 +2137,27 @@ async def execute_campaign(campaign_id: str):
         )
         return
     
+    # Get current progress if resuming
+    current_sent = campaign.get('sent_count', 0) if resume_from_index > 0 else 0
+    current_group_index = campaign.get('current_group_index', 0) if resume_from_index > 0 else 0
+    
+    # Use the larger of resume_from_index or saved progress
+    start_index = max(resume_from_index, current_group_index)
+    
     await db.campaigns.update_one(
         {'id': campaign_id},
-        {'$set': {'status': 'running', 'last_run': datetime.now(timezone.utc).isoformat()}}
+        {'$set': {
+            'status': 'running', 
+            'last_run': datetime.now(timezone.utc).isoformat(),
+            'current_group_index': start_index
+        }}
     )
     
-    sent_count = 0
+    sent_count = current_sent
     connection_id = campaign['connection_id']
+    
+    if start_index > 0:
+        logger.info(f"Campanha {campaign_id} retomando do grupo {start_index}/{len(campaign['group_ids'])}")
     
     try:
         # Determine which message/image to send
