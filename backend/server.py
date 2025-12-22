@@ -2258,7 +2258,13 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
             new_status = 'completed'
             await db.campaigns.update_one(
                 {'id': campaign_id},
-                {'$set': {'status': new_status, 'sent_count': sent_count, 'last_run': datetime.now(timezone.utc).isoformat(), 'next_run': None}}
+                {'$set': {
+                    'status': new_status, 
+                    'sent_count': sent_count, 
+                    'last_run': datetime.now(timezone.utc).isoformat(), 
+                    'next_run': None,
+                    'current_group_index': 0  # Reset index after completion
+                }}
             )
         else:
             # Para campanhas recorrentes, reseta o contador para próxima execução
@@ -2266,13 +2272,20 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
             next_run = calculate_next_run(campaign)
             await db.campaigns.update_one(
                 {'id': campaign_id},
-                {'$set': {'status': new_status, 'sent_count': 0, 'last_run': datetime.now(timezone.utc).isoformat(), 'next_run': next_run}}
+                {'$set': {
+                    'status': new_status, 
+                    'sent_count': 0, 
+                    'last_run': datetime.now(timezone.utc).isoformat(), 
+                    'next_run': next_run,
+                    'current_group_index': 0  # Reset index for next run
+                }}
             )
         
         logger.info(f"Campanha {campaign_id} executada. Enviado para {sent_count} grupos.")
         
     except Exception as e:
         logger.error(f"Campanha {campaign_id} falhou: {str(e)}")
+        # Keep current_group_index so it can resume later
         await db.campaigns.update_one(
             {'id': campaign_id},
             {'$set': {'status': 'failed', 'error': str(e)}}
