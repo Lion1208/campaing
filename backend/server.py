@@ -2168,34 +2168,39 @@ async def execute_campaign(campaign_id: str):
 
 def calculate_next_run(campaign: dict) -> str:
     """Calculate next run time for recurring campaigns"""
-    now = datetime.now(timezone.utc)
+    import pytz
+    
+    # Use São Paulo timezone for all calculations
+    sp_tz = pytz.timezone('America/Sao_Paulo')
+    now_sp = datetime.now(sp_tz)
     
     if campaign['schedule_type'] == 'interval':
         hours = campaign.get('interval_hours', 1)
-        next_run = now + timedelta(hours=hours)
-        return next_run.isoformat()
+        next_run = now_sp + timedelta(hours=hours)
+        # Convert to UTC for storage
+        return next_run.astimezone(timezone.utc).isoformat()
     
     elif campaign['schedule_type'] == 'specific_times':
         times = campaign.get('specific_times', [])
         if not times:
             return None
         
-        # Find next time today or tomorrow
-        today = now.date()
+        # Find next time today or tomorrow (in São Paulo timezone)
+        today = now_sp.date()
         for time_str in sorted(times):
             hour, minute = map(int, time_str.split(':'))
-            next_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
-            next_time = next_time.replace(tzinfo=timezone.utc)
+            # Create datetime in São Paulo timezone
+            next_time = sp_tz.localize(datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute)))
             
-            if next_time > now:
-                return next_time.isoformat()
+            if next_time > now_sp:
+                # Convert to UTC for storage
+                return next_time.astimezone(timezone.utc).isoformat()
         
         # If no time today, use first time tomorrow
         tomorrow = today + timedelta(days=1)
         hour, minute = map(int, sorted(times)[0].split(':'))
-        next_time = datetime.combine(tomorrow, datetime.min.time().replace(hour=hour, minute=minute))
-        next_time = next_time.replace(tzinfo=timezone.utc)
-        return next_time.isoformat()
+        next_time = sp_tz.localize(datetime.combine(tomorrow, datetime.min.time().replace(hour=hour, minute=minute)))
+        return next_time.astimezone(timezone.utc).isoformat()
     
     return None
 
