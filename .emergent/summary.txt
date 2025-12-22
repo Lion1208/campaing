@@ -1,244 +1,193 @@
 <analysis>**original_problem_statement:**
-O usuário solicitou uma série de melhorias e correções em um sistema SaaS de campanhas de WhatsApp. As solicitações mais recentes, que se tornaram a prioridade, incluem:
+O usuário solicitou uma série de melhorias e correções em um sistema SaaS de campanhas de WhatsApp. As principais solicitações abordadas nesta sessão foram:
+- Corrigir um erro crítico (503 Service Unavailable) que impedia a conexão com o WhatsApp em produção devido à ausência de Node.js no ambiente. A solução escolhida pelo usuário foi criar um script de auto-instalação no backend.
+- Corrigir a perda de dados (imagens e sessões do WhatsApp) a cada novo deploy, migrando o armazenamento do sistema de arquivos para o MongoDB.
+- Corrigir um erro na lógica de início de campanhas, garantindo que campanhas de intervalo rodem imediatamente na primeira execução.
+- Corrigir um erro de UI (botão aninhado) e um bug de carregamento de grupos em campanhas com conexões inválidas.
 
 **PRODUCT REQUIREMENTS:**
-- **Bugs e UI/UX:**
-    - Corrigir a animação do background da Dashboard, que não estava funcionando.
-    - Corrigir um erro grave na conexão com o WhatsApp onde a sessão era perdida após o reinício do backend, forçando o usuário a re-sincronizar grupos.
-    - Corrigir um erro de  no React que ocorria ao fazer login em produção, possivelmente devido à tradução automática do navegador.
-    - Corrigir um erro de cálculo no temporizador de contagem regressiva da campanha quando o tipo de agendamento era alterado (ex: de intervalo para horários específicos).
-    - Corrigir a exibição de um  extra na tela de edição de campanha.
-    - Corrigir o problema de imagens com o mesmo nome que causavam conflitos no upload.
-    - Corrigir o preview de imagens em campanhas: imagens selecionadas da página Mídias não apareciam no preview.
-    - Corrigir um erro crítico (503 Service Unavailable) que impedia a conexão com o WhatsApp no ambiente de produção.
-- **Novas Funcionalidades:**
-    - Fazer com que novos usuários cadastrados pelo formulário de login venham com o status bloqueado (), necessitando de liberação manual pelo admin.
-    - Implementar um sistema de lembrar usuário na tela de login, salvando o username no .
-    - Padronizar o tamanho do preview das variações de mensagens na página de edição de campanha.
-    - Melhorar o seletor de horários na edição de campanha para um sistema de seleção múltipla (grid de horários).
-    - Implementar uma funcionalidade de teste de 24 horas para revendedores que nunca utilizaram.
-    - Implementar um fluxo para usuários bloqueados/expirados: ao logar, devem ser redirecionados para uma tela de bloqueio e ter suas sessões do WhatsApp desconectadas automaticamente.
-    - Ao renovar ou liberar um teste para um cliente, gerar um comprovante em uma janela flutuante com texto copiável.
-    - Mudar as meta tags (Open Graph) do site para remover a marca Emergent e usar a marca NexuZap.
-    - Criar uma página de logs no sistema, visível apenas para o admin, para ajudar a diagnosticar problemas de produção.
-- **Tradução:**
-    - Traduzir completamente a tela de login para Português (pt-BR).
+- Implementar uma página de Dependências no painel de admin para instalar Node.js e outras dependências em tempo de execução.
+- Garantir que as imagens enviadas pelos usuários persistam entre os deploys.
+- Garantir que as sessões do WhatsApp (conexões ativas) persistam entre os deploys, evitando a necessidade de escanear o QR code novamente.
+- Corrigir a lógica para que o botão Iniciar execute uma campanha de intervalo imediatamente se ela nunca tiver rodado.
+- Corrigir bugs de UI e de tratamento de erros na página de edição de campanha.
+- Implementar um mecanismo de keep-alive para evitar que a conexão com o WhatsApp caia silenciosamente.
 
 **User's preferred language**: Portuguese (pt-BR)
 
 **what currently exists?**
-A aplicação possui um backend em FastAPI e um frontend em React. A maioria das funcionalidades de UI/UX solicitadas pelo usuário foi implementada, incluindo o novo seletor de horários, o fluxo para usuários bloqueados, o sistema de teste para revendedores e as melhorias na tela de login. O backend foi atualizado para suportar essas funcionalidades, e o problema de nomenclatura de imagens foi resolvido usando um timestamp + UUID.
-
-O problema mais crítico, a falha de conexão com o WhatsApp em produção (erro 503), foi diagnosticado. O agente criou um endpoint de depuração () que revelou que o ambiente de produção não possui Node.js instalado, tornando o microserviço de WhatsApp baseado em Node.js/Baileys inoperante. Com a aprovação do usuário, o próximo passo é migrar essa funcionalidade para uma biblioteca Python.
+A aplicação agora possui um sistema de auto-instalação de dependências (Node.js, npm) que é executado na inicialização do backend FastAPI. Uma nova página de Dependências foi adicionada ao painel de administração, permitindo monitorar e acionar essa instalação. Para resolver a perda de dados entre deploys, o armazenamento de imagens foi migrado com sucesso do sistema de arquivos para o MongoDB (salvas como strings Base64). A lógica de inicialização de campanhas foi corrigida no frontend, e vários bugs de UI, incluindo um aninhamento de botões e o não-reset de grupos selecionados, foram resolvidos. O serviço de WhatsApp em Node.js foi atualizado para usar módulos ES (import/export) e foi implementado um mecanismo de keep-alive para manter a conexão ativa.
 
 **Last working item**:
-    - Last item agent was working: O agente obteve a confirmação do usuário para iniciar a migração do serviço de WhatsApp, que atualmente usa Node.js e Baileys, para uma solução puramente em Python usando a biblioteca . Esta é uma resposta direta à descoberta de que o ambiente de produção não tem Node.js instalado, o que é a causa raiz do erro 503 que impede a conexão com o WhatsApp.
-    - Status: NOT STARTED
-    - Agent Testing Done: N
-    - Which testing method agent to use? both
-    - User Testing Done: N
+- **Last item agent was working**: O agente estava implementando a persistência das sessões do WhatsApp no MongoDB para evitar que os usuários precisassem se reconectar a cada deploy. O código do  foi reescrito para substituir o  (baseado em arquivos) por uma lógica customizada que salva e lê as credenciais de autenticação de uma coleção no MongoDB. O agente instalou as dependências  e  no serviço Node.js e tentou reiniciar para verificar a funcionalidade.
+- **Status**: IN PROGRESS
+- **Agent Testing Done**: N
+- **Which testing method agent to use?** both (É crucial testar o fluxo de ponta a ponta: iniciar o serviço, criar uma conexão, reiniciar o serviço e verificar se a conexão é restaurada automaticamente sem escanear o QR code novamente).
+- **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Serviço de WhatsApp falha em produção com erro 503 (P0)
-  - Issue 2: Preview de imagem não funciona para mídias selecionadas (P2)
-  - Issue 3: A página de Logs não exibe logs em produção (P3)
-  
-  Issues Detail:
-  - Issue 1: 
-     - **Description**: O serviço de WhatsApp, escrito em Node.js, não funciona no ambiente de produção, retornando um erro 503 (Service Unavailable). A comunicação entre o backend Python e o serviço Node.js falha porque o  não resolve corretamente e, mais importante, o container de produção não possui Node.js.
-     - **Attempted fixes**: 
-        - Alterar a URL do serviço de  para . Falhou.
-        - Tentar iniciar o serviço Node.js como um subprocesso a partir do backend Python. Falhou.
-        - Criar um endpoint de diagnóstico que confirmou a ausência do Node.js no ambiente de produção.
-     - **Next debug checklist**: A correção não é um debug, mas uma migração de tecnologia. O trabalho deve começar na tarefa Migrate WhatsApp service from Node.js to Python.
-     - **Why fix this issue and what will be achieved with the fix?**: Esta é a funcionalidade principal do aplicativo. Corrigi-la tornará a aplicação utilizável em produção.
-     - **Status**:  BLOCKED
-     - **Is recurring issue?** Y
-     - **Should Test frontend/backend/both after fix?** both
-     - **Blocked on other issue**: Não, esta é a principal issue bloqueadora.
-  - Issue 2: 
-     - **Description**: O usuário relatou que imagens enviadas pela página Mídias não aparecem no preview ao serem selecionadas na página de criação/edição de campanha.
-     - **Attempted fixes**: O agente inspecionou o código e adicionou logs, mas o problema não foi verificado como resolvido.
-     - **Next debug checklist**: 
-        - Em , verificar a função  e a chamada de rede correspondente no browser ao selecionar uma imagem da biblioteca.
-        - Garantir que o endpoint  esteja servindo a imagem corretamente, independentemente de onde ela foi carregada.
-     - **Why fix this issue and what will be achieved with the fix?**: Melhora a usabilidade e consistência da gestão de mídias.
-     - **Status**:  NOT STARTED
-     - **Is recurring issue?** N
-     - **Should Test frontend/backend/both after fix?** frontend
-     - **Blocked on other issue**: None
-  - Issue 3: 
-     - **Description**: A página de logs criada para depuração não exibe informações no ambiente de produção, de acordo com o usuário.
-     - **Attempted fixes**: Nenhuma.
-     - **Next debug checklist**: 
-        - Verificar se os caminhos dos arquivos de log (ex: ) são os mesmos no ambiente de produção.
-        - O problema pode estar relacionado a permissões de arquivo no container de produção.
-        - Este problema tem baixa prioridade, pois a causa raiz do problema do WhatsApp foi encontrada por outros meios.
-     - **Why fix this issue and what will be achieved with the fix?**: Forneceria uma ferramenta de diagnóstico útil para futuros problemas em produção.
-     - **Status**:  NOT STARTED
-     - **Is recurring issue?** N
-     - **Should Test frontend/backend/both after fix?** backend
-     - **Blocked on other issue**: None
+- **Issue 1**: Persistência da sessão do WhatsApp no MongoDB não está funcionando como esperado (P0)
+- **Issue 2**: Preview de imagem não funciona para mídias selecionadas da página Mídias (P2)
+- **Issue 3**: Mensagens não estão sendo enviadas em produção, embora o sistema reporte o envio (P1)
+- **Issue 4**: A página de Logs não exibe logs em produção (P3)
 
-**In progress Task List**:
-  - Task 1:  Migrate WhatsApp service from Node.js to Python (P0)
+**Issues Detail**:
+- **Issue 1**:
+  - **Description**: O agente está implementando a persistência da sessão do WhatsApp no MongoDB, mas os últimos testes foram inconclusivos. Após reiniciar o serviço, o status mostrou 0 conexões ativas, sugerindo que a sessão não foi recarregada corretamente do banco de dados.
+  - **Attempted fixes**: O código em  foi totalmente reescrito para usar uma store customizada com o driver . As variáveis de ambiente foram configuradas com .
+  - **Next debug checklist**:
+    1.  Verificar os logs do serviço  imediatamente após a reinicialização para procurar por erros de conexão com o MongoDB ou erros na lógica de leitura/escrita da sessão.
+    2.  Adicionar logs detalhados dentro da store customizada (funções , , ) em  para ver se os dados estão sendo salvos e recuperados corretamente.
+    3.  Confirmar manualmente (usando Current Mongosh Log ID:	6949750fac403779513f118b
+Connecting to:		mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.5.10
+Using MongoDB:		7.0.26
+Using Mongosh:		2.5.10
 
- Task Detail:
-  - Task 1: 
-     - **Where to resume**: 
-        1. Instalar a biblioteca  no ambiente backend (Looking in indexes: https://pypi.org/simple, https://d33sy5i8bnduwe.cloudfront.net/simple/
-Requirement already satisfied: neonize in /root/.venv/lib/python3.11/site-packages (0.3.12)
-Requirement already satisfied: httpx>=0.28.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.28.1)
-Requirement already satisfied: linkpreview>=0.11.0 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.12.1)
-Requirement already satisfied: phonenumbers>=8.13.52 in /root/.venv/lib/python3.11/site-packages (from neonize) (9.0.21)
-Requirement already satisfied: pillow>=11.1.0 in /root/.venv/lib/python3.11/site-packages (from neonize) (12.0.0)
-Requirement already satisfied: protobuf==6.32.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (6.32.1)
-Requirement already satisfied: python-magic>=0.4.27 in /root/.venv/lib/python3.11/site-packages (from neonize) (0.4.27)
-Requirement already satisfied: requests>=2.32.3 in /root/.venv/lib/python3.11/site-packages (from neonize) (2.32.5)
-Requirement already satisfied: segno>=1.6.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (1.6.6)
-Requirement already satisfied: tqdm>=4.67.1 in /root/.venv/lib/python3.11/site-packages (from neonize) (4.67.1)
-Requirement already satisfied: anyio in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (4.12.0)
-Requirement already satisfied: certifi in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (2025.11.12)
-Requirement already satisfied: httpcore==1.* in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (1.0.9)
-Requirement already satisfied: idna in /root/.venv/lib/python3.11/site-packages (from httpx>=0.28.1->neonize) (3.11)
-Requirement already satisfied: h11>=0.16 in /root/.venv/lib/python3.11/site-packages (from httpcore==1.*->httpx>=0.28.1->neonize) (0.16.0)
-Requirement already satisfied: beautifulsoup4>=4.4.0 in /root/.venv/lib/python3.11/site-packages (from linkpreview>=0.11.0->neonize) (4.14.3)
-Requirement already satisfied: soupsieve>=1.6.1 in /root/.venv/lib/python3.11/site-packages (from beautifulsoup4>=4.4.0->linkpreview>=0.11.0->neonize) (2.8.1)
-Requirement already satisfied: typing-extensions>=4.0.0 in /root/.venv/lib/python3.11/site-packages (from beautifulsoup4>=4.4.0->linkpreview>=0.11.0->neonize) (4.15.0)
-Requirement already satisfied: charset_normalizer<4,>=2 in /root/.venv/lib/python3.11/site-packages (from requests>=2.32.3->neonize) (3.4.4)
-Requirement already satisfied: urllib3<3,>=1.21.1 in /root/.venv/lib/python3.11/site-packages (from requests>=2.32.3->neonize) (2.6.1)).
-        2. Criar um novo módulo Python (ex: ) para conter toda a lógica de conexão, envio de QR code, gerenciamento de sessão e envio de mensagens, replicando a funcionalidade do  atual.
-        3. Integrar este novo módulo em , substituindo todas as chamadas  para o antigo serviço Node.js por chamadas diretas às funções do novo módulo Python.
-     - **What will be achieved with this?**: Isso resolverá o bloqueador crítico de produção, eliminando a dependência do Node.js e permitindo que a funcionalidade do WhatsApp opere dentro do mesmo processo do backend FastAPI.
-     - **Status**:  NOT STARTED
-     - **Should Test frontend/backend/both after fix?** both
-     - **Blocked on something**: None. Esta é a tarefa principal.
+For mongosh info see: https://www.mongodb.com/docs/mongodb-shell/
+
+
+To help improve our products, anonymous usage data is collected and sent to MongoDB periodically (https://www.mongodb.com/legal/privacy-policy).
+You can opt-out by running the disableTelemetry() command.
+
+------
+   The server generated these startup warnings when booting
+   2025-12-22T16:42:51.398+00:00: Using the XFS filesystem is strongly recommended with the WiredTiger storage engine. See http://dochub.mongodb.org/core/prodnotes-filesystem
+   2025-12-22T16:42:53.863+00:00: Access control is not enabled for the database. Read and write access to data and configuration is unrestricted
+   2025-12-22T16:42:53.863+00:00: You are running this process as the root user, which is not recommended
+   2025-12-22T16:42:53.863+00:00: Soft rlimits for open file descriptors too low
+------
+
+test>  ou um cliente de DB) que a coleção  está sendo criada e populada com os dados da sessão após escanear um QR code.
+    4.  Verificar se as variáveis de ambiente  e  estão sendo lidas corretamente pelo serviço Node.js.
+  - **Why fix this issue and what will be achieved with the fix?**: É a correção mais crítica. Resolver isso tornará a aplicação utilizável em produção, pois os usuários não precisarão re-conectar o WhatsApp a cada deploy.
+  - **Status**: IN PROGRESS
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** both
+  - **Blocked on other issue**: Não.
+
+- **Issue 2**:
+  - **Description**: Imagens enviadas pela página Mídias não aparecem no preview ao serem selecionadas na página de criação/edição de campanha. (Issue herdada do fork anterior).
+  - **Status**: NOT STARTED
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** frontend
+
+- **Issue 3**:
+  - **Description**: O usuário relatou que em produção as mensagens não são enviadas, apesar de o sistema indicar o contrário. Isso está provavelmente ligado à conexão morta que o agente tentou corrigir com o keep-alive. O problema de persistência (Issue 1) precisa ser resolvido primeiro, pois um deploy apaga a conexão, tornando o teste em produção impossível.
+  - **Status**: BLOCKED
+  - **Is recurring issue?** Y
+  - **Should Test frontend/backend/both after fix?** both
+  - **Blocked on other issue**: Issue 1: Persistência da sessão do WhatsApp.
+
+- **Issue 4**:
+  - **Description**: A página de logs criada para depuração não exibe informações no ambiente de produção. (Issue herdada do fork anterior).
+  - **Status**: NOT STARTED
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** backend
 
 **Upcoming and Future Tasks**
-    Upcoming Tasks:
-    - (P2) Implementar paginação nas páginas  e , conforme solicitado no handoff inicial.
-    - (P2) Exibir o nome do arquivo na página Mídias. O agente perguntou ao usuário como ele gostaria que os nomes fossem exibidos (original, único ou ambos), mas a implementação está pendente da resposta ou de uma decisão.
-    
-    Future Tasks:
-    - (P3) Investigar e resolver a causa raiz do erro recorrente  no React, que é uma dívida técnica conhecida.
+- **Upcoming Tasks**:
+    - (P2) Implementar paginação nas páginas  e .
+    - (P2) Exibir o nome do arquivo na página Mídias.
+- **Future Tasks**:
+    - (P3) Investigar e resolver a causa raiz do erro recorrente  no React.
 
 **Completed work in this session**
-- **Diagnóstico e Planejamento Crítico**:
-  - Identificada a causa raiz da falha do serviço WhatsApp em produção: a ausência de Node.js no container.
-  - Obtida a aprovação do usuário para a migração estratégica do serviço de Node.js para Python ().
-- **Melhorias de Autenticação e UX**:
-  - Implementado o recurso Lembrar Usuário na tela de login usando .
-  - Criada uma página e um fluxo de redirecionamento para usuários bloqueados ou com assinatura expirada.
-  - Novos usuários registrados agora são criados como inativos () por padrão.
-- **Funcionalidades de Revendedor**:
-  - Adicionado um botão para conceder um Teste de 24 horas.
-  - Implementado um modal de Comprovante copiável para renovações e liberações de teste.
-- **UI de Campanhas**:
-  - Padronizado o tamanho dos previews de variação de mensagem na página de edição.
-  - Substituído o seletor de tempo por uma grade de seleção de horários mais intuitiva.
-  - Corrigido um bug de cálculo de timer quando o tipo de agendamento da campanha era alterado.
-- **Backend e Infraestrutura**:
-  - Corrigido o problema de CORS para o domínio de produção ().
-  - Implementado o renomeamento de arquivos de imagem no upload com  para evitar conflitos.
-  - Criada uma página de Logs () e um endpoint de diagnóstico ().
-- **Branding e Traduções**:
-  - Removida a marca Emergent dos meta tags do site e do .
-  - Concluída a tradução da página de login para Português (pt-BR).
+- **Persistência de Dados**:
+  - Migração bem-sucedida do armazenamento de **imagens** do sistema de arquivos para o MongoDB, resolvendo a perda de imagens em deploys.
+- **Ambiente e Dependências**:
+  - Criada uma página de Dependências e um script de auto-instalação para  e npm <command>
 
-**Earlier issues found/mentioned but not fixed**
-   - **Issue 1**: Loop de renderização () no React. Este é um problema recorrente de uma fork anterior, indicando uma dívida técnica no gerenciamento de estado do frontend. Embora não tenha ocorrido nesta sessão, a causa raiz não foi tratada.
-   - **Status**: NOT STARTED
+Usage:
 
-**Known issue recurrence from previous fork**
-  - **Issue recurrence in previous fork**: Erro .
-  - **Recurrence count**: Pelo menos 2.
-  - **Status**: NOT STARTED
+npm install        install all the dependencies in your project
+npm install <foo>  add the <foo> dependency to your project
+npm test           run this project's tests
+npm run <foo>      run the script named <foo>
+npm <command> -h   quick help on <command>
+npm -l             display usage info for all commands
+npm help <term>    search for help on <term>
+npm help npm       more involved overview
+
+All commands:
+
+    access, adduser, audit, bugs, cache, ci, completion,
+    config, dedupe, deprecate, diff, dist-tag, docs, doctor,
+    edit, exec, explain, explore, find-dupes, fund, get, help,
+    help-search, hook, init, install, install-ci-test,
+    install-test, link, ll, login, logout, ls, org, outdated,
+    owner, pack, ping, pkg, prefix, profile, prune, publish,
+    query, rebuild, repo, restart, root, run-script, sbom,
+    search, set, shrinkwrap, star, stars, start, stop, team,
+    test, token, uninstall, unpublish, unstar, update, version,
+    view, whoami
+
+Specify configs in the ini-formatted file:
+    /root/.npmrc
+or on the command line via: npm <command> --key=value
+
+More configuration info: npm help config
+Configuration fields: npm help 7 config
+
+npm@10.8.2 /usr/lib/node_modules/npm no startup do backend.
+  - O script de instalação foi refatorado para não depender do , usando  do Python.
+- **Serviço WhatsApp**:
+  - O código do serviço foi migrado de CommonJS () para ES Modules () para compatibilidade com a versão mais recente da biblioteca Baileys.
+  - Implementado um sistema de keep-alive para monitorar e tentar manter a conexão do WhatsApp ativa.
+- **Bugs e UX**:
+  - Corrigida a lógica de Iniciar vs Retomar campanhas, garantindo que a primeira execução de uma campanha de intervalo seja imediata.
+  - Corrigido um erro de HTML inválido (botão aninhado) na página de edição de campanha.
+  - Adicionado tratamento de erro na UI para limpar a contagem de grupos selecionados quando uma conexão de campanha é inválida.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend**: React, Tailwind CSS, Zustand, Recharts.
-- **Backend**: FastAPI, Motor (MongoDB driver), JWT.
-- **Database**: MongoDB.
-- **Diagnóstico de Produção**: Uso de um endpoint de API () para inspecionar o ambiente de produção e identificar a ausência de dependências (Node.js).
-- **Próxima Tecnologia**: **** (Python) para substituir Baileys (Node.js) para a integração com o WhatsApp.
+- **Persistência em Containers**: A principal lição da sessão. Dados que precisam sobreviver a reinicializações (imagens, sessões de auth) devem ser armazenados em um serviço externo (MongoDB) e não no sistema de arquivos do container.
+- **ES Modules (ESM) vs. CommonJS**: O serviço Node.js precisou ser modernizado para  para usar a versão mais recente da biblioteca .
+- **Gerenciamento de Dependências em Tempo de Execução**: Implementação de um script () que é executado no evento de  do FastAPI para preparar o ambiente para um serviço secundário (Node.js).
 
 **key DB schema**
-  - : Adicionados campos , , .
-  - : Lógica de  refinada para limpar campos obsoletos na edição.
-  - : Adicionado  para rastrear o nome do arquivo original do usuário.
+- : A estrutura agora inclui um campo  para armazenar o conteúdo da imagem em Base64, além de metadados como , .
+- **(Novo)** : Nova coleção para armazenar os dados de autenticação do WhatsApp. A estrutura é definida pela biblioteca Baileys e consiste em documentos com uma chave () e um valor (), ambos strings.
 
 **changes in tech stack**
-  - **Planejado**: Migração completa do serviço de WhatsApp, abandonando o microserviço em Node.js/Baileys em favor de uma integração direta no backend Python com a biblioteca .
+- O serviço  agora depende diretamente do **MongoDB** para armazenamento de sessão, utilizando o driver  para Node.js.
+- O serviço  agora utiliza  para gerenciar suas configurações de ambiente.
 
 **All files of reference**
-- : Massivamente modificado para novas funcionalidades, correções de bugs e o diagnóstico do problema de produção. Será o centro da próxima migração.
-- : UI refeita com lembrar usuário e tradução completa.
-- : Adicionadas funcionalidades de teste e comprovante.
-- : UI/UX significativamente melhorada (seletor de horário, preview padronizado).
-- : Mesmas melhorias da página de edição.
-- : Adicionadas rotas para  e , e lógica de proteção.
-- : Atualizado para lidar com o estado de usuário bloqueado/expirado.
-- : Novo arquivo para a tela de acesso negado.
-- : Novo arquivo para a tela de depuração de logs.
-- : Atualizado para remover branding e melhorar o SEO/compartilhamento.
-- : Arquivo a ser depreciado após a migração para Python.
-
-**Areas that need refactoring**:
-- **Toda a integração com o WhatsApp**: Precisa ser refatorada do microserviço Node.js para uma solução integrada em Python ().
-- **Gerenciamento de Estado do Frontend**: A existência do bug recorrente  sugere a necessidade de uma revisão nas práticas de uso de  e .
-
-**key api endpoints**
-- **Novos**:
-  - 
-  - 
-  -  (e sub-rotas para serviços específicos)
-  -  (endpoint de diagnóstico)
-- **Atualizados**:
-  - : Agora retorna erros específicos para usuários bloqueados/expirados.
-  - : Agora cria usuários como inativos.
-  -  (PUT): Limpa campos de agendamento antigos ao mudar o tipo.
-  - : Renomeia arquivos com timestamp e UUID.
-
-**Critical Info for New Agent**
-- **PRIORIDADE MÁXIMA**: A tarefa mais crítica é migrar o serviço de WhatsApp de Node.js para Python usando . O ambiente de produção **NÃO** tem Node.js, e qualquer tentativa de consertar o serviço Node.js será inútil. Comece a migração imediatamente, conforme acordado com o usuário.
-- **Não tente depurar o serviço Node.js**: O problema não é o código do serviço, mas a ausência de seu runtime (Node.js) em produção. O diagnóstico já está completo.
-- **O usuário é técnico**: O usuário entende os problemas e participa das decisões técnicas (como a aprovação da migração para Python). Comunique-se de forma clara e direta.
-
-**documents and test_reports created in this job**
-- N/A
+- : Arquivo mais crítico e modificado da sessão. Contém a nova lógica de persistência de sessão com MongoDB.
+- : Modificado para adicionar a lógica de auto-instalação de dependências, e os endpoints para salvar/servir imagens do MongoDB.
+- : Novo script responsável por baixar e instalar Node.js.
+- : Nova página de UI para o admin.
+- : Contém a lógica corrigida para iniciar campanhas.
+- : Contém as correções de UI e de tratamento de erro.
 
 **Last 10 User Messages and any pending HUMAN messages**
-- : Se a opção 1 funcionar com meu projeto exatamente como ele tá atualmente. Pode fazer
-- : {whatsapp_service_url:http://localhost:3002,node_installed:false,node_version:Error: [Errno 2] No such file or directory: node,whatsapp_dir_exists:true,whatsapp_index_exists:true,service_responding:false,supervisor_status:unix:///var/run/supervisor.sock no such file,can_start_process:false,error:All connection attempts failed}
-- : Mesma merda. [console log com erro 503]
-- : Mesma merda e a url é nexuzap.com, da produção. [console log com erro 503]
-- : Tem alguma coisa errada. Os logs nem aparecem em produção. Mas exclui isso, vamos resolver o whatsapp. [console log com erro 503]
-- : Não consigo. Mas se vc criar uma tela de logs e colocar no menu lateral só pra admin e fizer funcionar vai dar pra ver...
-- : Os serviços de whatsapp n estao disponiveis... No entanto quando faço aqui no ambiente de teste funciona porra. Obvio que estão disponiveis. Alguma coisa do ambiente de teste n funcionou ou n foi pra produção caralho. Quando dou deploy tem que ir tudo porra e funcionar igual aqui caralho
-- : Erro ao iniciar conexão com whatsapp: [console log com erro 500] Isso acontece só em produção: nexuzap... Agora aqui em teste não.
-- : Erro as imagens que eu subo por midia...não estão aparecendo como preview em campanha... Só aparece se eu subir por campanha. Sendo que as imagens é pra mesma finalidade rsr midias é só pra eu poder gerennciar as imagens. E em midias ele aparece com o nome que eu subi, n com o uuid gerado...oq é um problema, pq se outra pessoa subir uma imagem com o mesmo nome, fudeu
-- : Repara que embaixo de Data fim...tem um /> remove
+- : Toda vez que faço deploy tenho que desconectar e conectar dnvb o whatsapp...existe alguma forma de corrigir isso? Pq mata a conexão
+- : A conexão desta campanha não existe mais. Selecione outra. Quando isso acontecer, o grupo selecionados deve voltar pra 0...atualmente msm isso aparecendo e os grupos recarregando, ele permanece com valor anterior
+- : Toda vez que eu dou deploy, as imagens que eu subi somem, isso n pode acontecer. As imagens permanecem lá mas só os diretorios...isso n pode acontecer nunca, as mensagens só podem sumir se o usuario excluiir
+- : O serviço está rodando com o código novo (agora tem lastKeepAliveSuccess e uptime)... Tente sincronizar grupos após alguns minutos... Teste o envio de mensagens
+- : Tem 2 erros. O mais grave: Aqui no ambiente de teste esta literalmente igual o ambiente de produção... lá não está enviando as mensagens... O critico é: O whatsapp mesmo conectado parece que fecha conexão depois de um tempo...
+- : Reparei Que aqui em teste ele baixa essas versões... Lá em produção ele baixa essas... N sei se tem algo a ver
+- : Serviço encerrou: /app/whatsapp-service/index.js:1 ... Error [ERR_REQUIRE_ESM]: require() of ES Module ... not supported. ... Deu tudo certo. mas na hora que clico em inicviar serviço da este erro...
+- : No dependencies da este erro: Erro ao instalar Node.js: [Errno 2] No such file or directory: 'curl'
+- : Criei a campanha, cliquei em retoromar sendo que ela nunca rodou...e não fez o envio. Mas tá contabilizando o prazo pra proxima rodagem...
+- : DEIXA QUE EU TESTO. Tá dando erro ao carregar grupos, mesmo eu sincronizando e mostrando que tem 52.
 
 **Project Health Check:**
-- **Broken**: A funcionalidade principal do aplicativo (conexão com o WhatsApp) está completamente quebrada no ambiente de produção.
+- **Broken**: A persistência da sessão do WhatsApp está quebrada. Sem isso, a funcionalidade principal da aplicação é inviável em um ambiente de produção que passa por deploys. O envio de mensagens em produção também está quebrado, provavelmente como um sintoma do primeiro problema.
 - **Mocked**: N/A
 
 **3rd Party Integrations**
- - **Baileys (Node.js)**: A biblioteca atual para integração com o WhatsApp. **SERÁ REMOVIDA**.
- - **Neonize (Python)**: A biblioteca planejada para substituir o Baileys e resolver o problema de dependência do Node.js.
+ - **Baileys (Node.js)**: Biblioteca para integração com o WhatsApp.
+ - **MongoDB**: Usado como banco de dados principal (FastAPI) e agora também como armazenamento de sessão para o serviço Node.js.
 
 **Testing status**
   - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: A conexão com o WhatsApp, que funcionava no ambiente de teste, não funciona em produção, revelando uma falha crítica de implantação.
+  - Known regressions: A funcionalidade de persistência de sessão do WhatsApp está em um estado de em progresso, mas não funcional.
 
 **Credentials to test flow:**
 - **Usuário**: 
-- **Senha**: 
-
-**What agent forgot to execute**
-- A implementação da paginação para as páginas de Usuários e Revendedores, que foi solicitada em um momento anterior, ainda está pendente.
-- A decisão sobre como exibir nomes de arquivo na página de Mídias foi deixada em aberto, aguardando feedback do usuário ou uma decisão do agente.</analysis>
+- **Senha**: </analysis>
