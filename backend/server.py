@@ -1244,31 +1244,59 @@ async def create_user(data: UserCreate, admin: dict = Depends(get_admin_user)):
 @api_router.put("/admin/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, data: UserUpdate, admin: dict = Depends(get_admin_user)):
     """Update user details"""
+    # Get current user data first
+    current_user = await db.users.find_one({'id': user_id})
+    if not current_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
     update_data = {}
-    if data.username is not None:
+    changes = []
+    
+    if data.username is not None and data.username != current_user['username']:
         # Check if username is taken
         existing = await db.users.find_one({'username': data.username, 'id': {'$ne': user_id}})
         if existing:
             raise HTTPException(status_code=400, detail="Nome de usuário já existe")
         update_data['username'] = data.username
-    if data.max_connections is not None:
+        changes.append(f"Username alterado para {data.username}")
+    
+    if data.max_connections is not None and data.max_connections != current_user.get('max_connections'):
         update_data['max_connections'] = data.max_connections
-    if data.credits is not None:
+        changes.append(f"Conexões: {current_user.get('max_connections', 1)} → {data.max_connections}")
+    
+    if data.credits is not None and data.credits != current_user.get('credits', 0):
+        old_credits = current_user.get('credits', 0)
         update_data['credits'] = data.credits
-    if data.active is not None:
+        diff = data.credits - old_credits
+        if diff > 0:
+            changes.append(f"+{diff} créditos")
+        else:
+            changes.append(f"{diff} créditos")
+    
+    if data.active is not None and data.active != current_user.get('active', True):
         update_data['active'] = data.active
-    if data.expires_at is not None:
+        if data.active:
+            changes.append("Desbloqueado")
+        else:
+            changes.append("Bloqueado")
+    
+    if data.expires_at is not None and data.expires_at != current_user.get('expires_at'):
         update_data['expires_at'] = data.expires_at
+        changes.append("Data de expiração alterada")
     
     if not update_data:
         raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
     
     result = await db.users.update_one({'id': user_id}, {'$set': update_data})
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
     user = await db.users.find_one({'id': user_id}, {'_id': 0, 'password': 0})
-    await log_activity(admin['id'], admin['username'], 'update', 'user', user_id, user['username'], 'Usuário atualizado')
+    
+    # Log specific action based on what changed
+    if 'active' in update_data:
+        action = 'unblock' if update_data['active'] else 'block'
+        await log_activity(admin['id'], admin['username'], action, 'user', user_id, user['username'], 'Bloqueado' if not update_data['active'] else 'Desbloqueado')
+    else:
+        await log_activity(admin['id'], admin['username'], 'update', 'user', user_id, user['username'], '; '.join(changes) if changes else 'Usuário atualizado')
     
     return user
 
