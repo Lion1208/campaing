@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Wifi, Trash2, RefreshCw, X, Smartphone } from 'lucide-react';
+import { Plus, Wifi, Trash2, RefreshCw, Smartphone, Loader2 } from 'lucide-react';
 
 export default function ConnectionsPage() {
   const { connections, fetchConnections, createConnection, connectWhatsApp, getQRCode, refreshGroups, disconnectWhatsApp, deleteConnection, loading } = useConnectionsStore();
@@ -33,10 +33,11 @@ export default function ConnectionsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState(null);
-  const [qrData, setQrData] = useState({ qr_code: null, qr_image: null, status: 'connecting' });
+  const [qrData, setQrData] = useState({ qr_code: null, qr_image: null, status: 'preparing' });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [syncingConnection, setSyncingConnection] = useState(null);
   const pollingRef = useRef(null);
 
   useEffect(() => {
@@ -94,27 +95,31 @@ export default function ConnectionsPage() {
 
   const handleConnect = async (connection) => {
     setSelectedConnectionId(connection.id);
-    setActionLoading(true);
+    setQrData({ qr_code: null, qr_image: null, status: 'preparing' });
+    setQrDialogOpen(true);
+    
     try {
       await connectWhatsApp(connection.id);
-      setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
-      setQrDialogOpen(true);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao conectar');
-    } finally {
-      setActionLoading(false);
+      // If error, keep dialog open and show preparing state
+      // The polling will handle the retry
+      console.log('Serviço preparando...');
     }
   };
 
   const handleRefreshGroups = async (connection) => {
-    setActionLoading(true);
+    setSyncingConnection(connection.id);
     try {
       const result = await refreshGroups(connection.id);
       toast.success(`${result.count} grupos sincronizados`);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao sincronizar grupos');
+      if (error.response?.status === 503) {
+        toast.info('Preparando serviço... Tente novamente em alguns segundos.');
+      } else {
+        toast.error(error.response?.data?.detail || 'Erro ao sincronizar grupos');
+      }
     } finally {
-      setActionLoading(false);
+      setSyncingConnection(null);
     }
   };
 
@@ -151,7 +156,7 @@ export default function ConnectionsPage() {
     }
     setQrDialogOpen(false);
     setSelectedConnectionId(null);
-    setQrData({ qr_code: null, qr_image: null, status: 'connecting' });
+    setQrData({ qr_code: null, qr_image: null, status: 'preparing' });
   };
 
   const getStatusBadge = (status) => {
@@ -168,6 +173,19 @@ export default function ConnectionsPage() {
         {c.label}
       </Badge>
     );
+  };
+
+  const getQRStatusMessage = () => {
+    switch (qrData.status) {
+      case 'preparing':
+        return { icon: Loader2, text: 'Preparando...', animate: true };
+      case 'connecting':
+        return { icon: Loader2, text: 'Gerando QR Code...', animate: true };
+      case 'waiting_qr':
+        return { icon: Loader2, text: 'Carregando...', animate: true };
+      default:
+        return { icon: Loader2, text: 'Processando...', animate: true };
+    }
   };
 
   const maxConnections = user?.max_connections === -1 ? 'Ilimitadas' : user?.max_connections;
