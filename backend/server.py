@@ -1569,10 +1569,18 @@ async def update_reseller(user_id: str, data: UserUpdate, master: dict = Depends
         raise HTTPException(status_code=404, detail="Revendedor não encontrado")
     
     update_data = {}
-    if data.max_connections is not None:
+    changes = []
+    
+    if data.max_connections is not None and data.max_connections != user.get('max_connections'):
         update_data['max_connections'] = data.max_connections
-    if data.active is not None:
+        changes.append(f"Conexões: {user.get('max_connections', 1)} → {data.max_connections}")
+    
+    if data.active is not None and data.active != user.get('active', True):
         update_data['active'] = data.active
+        if data.active:
+            changes.append("Desbloqueado")
+        else:
+            changes.append("Bloqueado")
     
     if not update_data:
         raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
@@ -1580,7 +1588,13 @@ async def update_reseller(user_id: str, data: UserUpdate, master: dict = Depends
     await db.users.update_one({'id': user_id}, {'$set': update_data})
     
     updated = await db.users.find_one({'id': user_id}, {'_id': 0, 'password': 0})
-    await log_activity(master['id'], master['username'], 'update', 'reseller', user_id, updated['username'], 'Revendedor atualizado')
+    
+    # Log specific action based on what changed
+    if 'active' in update_data:
+        action = 'unblock' if update_data['active'] else 'block'
+        await log_activity(master['id'], master['username'], action, 'reseller', user_id, updated['username'], 'Bloqueado' if not update_data['active'] else 'Desbloqueado')
+    else:
+        await log_activity(master['id'], master['username'], 'update', 'reseller', user_id, updated['username'], '; '.join(changes) if changes else 'Revendedor atualizado')
     
     return updated
 
