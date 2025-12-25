@@ -357,19 +357,75 @@ export default function DashboardPage() {
 
         <Card className="glass-card">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-medium text-foreground">Taxa de Sucesso</span>
-              </div>
-              <span className="text-2xl font-bold text-green-500">{stats?.success_rate || 100}%</span>
-            </div>
-            <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
-                style={{ width: `${stats?.success_rate || 100}%` }}
-              />
-            </div>
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <div className="cursor-pointer">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium text-foreground">Taxa de Sucesso</span>
+                      {stats?.total_failed > 0 && (
+                        <span className="flex items-center gap-1 text-xs text-destructive">
+                          <AlertCircle className="w-3 h-3" />
+                          {stats.total_failed} erro{stats.total_failed > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-green-500">{stats?.success_rate || 100}%</span>
+                      {stats?.recent_errors?.length > 0 && (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
+                      style={{ width: `${stats?.success_rate || 100}%` }}
+                    />
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              
+              {stats?.recent_errors?.length > 0 && (
+                <CollapsibleContent>
+                  <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium mb-2">Últimos erros:</p>
+                    {stats.recent_errors.map((error, idx) => (
+                      <div 
+                        key={error.id || idx} 
+                        className="flex items-start gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/10"
+                      >
+                        <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-foreground truncate">
+                              {error.group_name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                              {new Date(error.sent_at).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-destructive truncate mt-0.5">
+                            {error.error}
+                          </p>
+                          {error.campaign_name && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              Campanha: {error.campaign_name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              )}
+            </Collapsible>
           </CardContent>
         </Card>
 
