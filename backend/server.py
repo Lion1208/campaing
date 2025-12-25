@@ -2809,6 +2809,150 @@ async def duplicate_campaign(campaign_id: str, user: dict = Depends(get_current_
     
     return new_campaign
 
+@api_router.get("/campaigns/{campaign_id}/groups-info")
+async def get_campaign_groups_info(campaign_id: str, user: dict = Depends(get_current_user)):
+    """Obter informações dos grupos de uma campanha"""
+    query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    campaign = await db.campaigns.find_one(query)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    # Buscar detalhes dos grupos
+    groups_info = []
+    for group_id in campaign.get('group_ids', []):
+        group = await db.groups.find_one({'id': group_id}, {'_id': 0})
+        if group:
+            groups_info.append({
+                'id': group['id'],
+                'name': group.get('name', 'Grupo sem nome'),
+                'group_id': group.get('group_id'),
+                'participants_count': group.get('participants_count', 0)
+            })
+    
+    return {
+        'campaign_id': campaign_id,
+        'campaign_title': campaign.get('title'),
+        'total_groups': len(campaign.get('group_ids', [])),
+        'groups': groups_info
+    }
+
+class CopyGroupsRequest(BaseModel):
+    source_campaign_id: str
+
+@api_router.post("/campaigns/{campaign_id}/copy-groups")
+async def copy_groups_from_campaign(
+    campaign_id: str, 
+    data: CopyGroupsRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Copiar grupos de outra campanha para esta campanha"""
+    # Verificar campanha destino
+    dest_query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        dest_query['user_id'] = user['id']
+    
+    dest_campaign = await db.campaigns.find_one(dest_query)
+    if not dest_campaign:
+        raise HTTPException(status_code=404, detail="Campanha de destino não encontrada")
+    
+    # Verificar campanha origem
+    source_query = {'id': data.source_campaign_id}
+    if user['role'] != 'admin':
+        source_query['user_id'] = user['id']
+    
+    source_campaign = await db.campaigns.find_one(source_query)
+    if not source_campaign:
+        raise HTTPException(status_code=404, detail="Campanha de origem não encontrada")
+    
+    # Copiar grupos
+    source_groups = source_campaign.get('group_ids', [])
+    dest_groups = dest_campaign.get('group_ids', [])
+    
+    # Adicionar grupos que não existem ainda (evitar duplicatas)
+    new_groups = list(set(dest_groups + source_groups))
+    
+    await db.campaigns.update_one(
+        {'id': campaign_id},
+        {'$set': {
+            'group_ids': new_groups,
+            'total_count': len(new_groups)
+        }}
+    )
+    
+    added_count = len(new_groups) - len(dest_groups)
+    
+    await log_activity(
+        user['id'], 
+        user['username'], 
+        'copy_groups', 
+        'campaign', 
+        campaign_id, 
+        dest_campaign.get('title'),
+        f'Copiados {added_count} grupos de "{source_campaign.get("title")}"'
+    )
+    
+    return {
+        'message': f'{added_count} grupos adicionados',
+        'previous_count': len(dest_groups),
+        'new_count': len(new_groups),
+        'source_campaign': source_campaign.get('title')
+    }
+
+@api_router.post("/campaigns/{campaign_id}/replace-groups")
+async def replace_groups_from_campaign(
+    campaign_id: str, 
+    data: CopyGroupsRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Substituir grupos desta campanha pelos grupos de outra campanha"""
+    # Verificar campanha destino
+    dest_query = {'id': campaign_id}
+    if user['role'] != 'admin':
+        dest_query['user_id'] = user['id']
+    
+    dest_campaign = await db.campaigns.find_one(dest_query)
+    if not dest_campaign:
+        raise HTTPException(status_code=404, detail="Campanha de destino não encontrada")
+    
+    # Verificar campanha origem
+    source_query = {'id': data.source_campaign_id}
+    if user['role'] != 'admin':
+        source_query['user_id'] = user['id']
+    
+    source_campaign = await db.campaigns.find_one(source_query)
+    if not source_campaign:
+        raise HTTPException(status_code=404, detail="Campanha de origem não encontrada")
+    
+    # Substituir grupos
+    source_groups = source_campaign.get('group_ids', [])
+    
+    await db.campaigns.update_one(
+        {'id': campaign_id},
+        {'$set': {
+            'group_ids': source_groups,
+            'total_count': len(source_groups)
+        }}
+    )
+    
+    await log_activity(
+        user['id'], 
+        user['username'], 
+        'replace_groups', 
+        'campaign', 
+        campaign_id, 
+        dest_campaign.get('title'),
+        f'Grupos substituídos por "{source_campaign.get("title")}" ({len(source_groups)} grupos)'
+    )
+    
+    return {
+        'message': f'Grupos substituídos com sucesso',
+        'new_count': len(source_groups),
+        'source_campaign': source_campaign.get('title')
+    }
+
 @api_router.post("/campaigns/{campaign_id}/resume")
 async def resume_campaign(campaign_id: str, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     """Resume paused campaign - preserves delay"""
