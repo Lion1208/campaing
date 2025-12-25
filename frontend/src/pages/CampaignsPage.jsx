@@ -327,6 +327,41 @@ export default function CampaignsPage() {
     }
   };
 
+  const openCopyGroupsDialog = (campaign, mode) => {
+    setTargetCampaign(campaign);
+    setCopyGroupsMode(mode);
+    setSourceCampaignId('');
+    setCopyGroupsDialogOpen(true);
+  };
+
+  const handleCopyGroups = async () => {
+    if (!targetCampaign || !sourceCampaignId) {
+      toast.error('Selecione a campanha de origem');
+      return;
+    }
+
+    setCopyLoading(true);
+    try {
+      let result;
+      if (copyGroupsMode === 'replace') {
+        result = await replaceGroupsFromCampaign(targetCampaign.id, sourceCampaignId);
+        toast.success(`Grupos substituídos! Agora: ${result.new_count} grupos`);
+      } else {
+        result = await copyGroupsFromCampaign(targetCampaign.id, sourceCampaignId);
+        toast.success(`${result.message} - Total: ${result.new_count} grupos`);
+      }
+      setCopyGroupsDialogOpen(false);
+      fetchPaginatedCampaigns();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao copiar grupos');
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
+  // Filtrar campanhas disponíveis para copiar (todas exceto a atual)
+  const availableCampaignsForCopy = campaigns.filter(c => c.id !== targetCampaign?.id);
+
   const handlePause = async (campaign) => {
     setActionLoading(campaign.id);
     try {
