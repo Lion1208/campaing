@@ -2307,7 +2307,8 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
                 await asyncio.sleep(campaign['delay_seconds'])
                 
             except Exception as e:
-                logger.error(f"Erro ao enviar para grupo {group_id}: {e}")
+                error_msg = str(e) if str(e) else 'Erro desconhecido no envio'
+                logger.error(f"Erro ao enviar para grupo {group_id}: {error_msg}")
                 
                 # Save progress even on error
                 await db.campaigns.update_one(
@@ -2315,16 +2316,26 @@ async def execute_campaign(campaign_id: str, resume_from_index: int = 0):
                     {'$set': {'current_group_index': current_index + 1}}
                 )
                 
-                # Log failed send
+                # Get group name for better error logging
+                group_name = ''
+                if group:
+                    group_name = group.get('name', '')
+                else:
+                    # Try to find group info
+                    found_group = await db.groups.find_one({'id': group_id})
+                    group_name = found_group.get('name', 'Grupo não encontrado') if found_group else 'Grupo não encontrado'
+                
+                # Log failed send with detailed error
                 await db.send_logs.insert_one({
                     'id': str(uuid.uuid4()),
                     'campaign_id': campaign_id,
                     'user_id': campaign.get('user_id'),
                     'group_id': group_id,
+                    'group_name': group_name,
                     'connection_id': connection_id,
                     'sent_at': datetime.now(timezone.utc).isoformat(),
                     'status': 'failed',
-                    'error': str(e)
+                    'error': error_msg
                 })
         
         # Update status based on schedule type
