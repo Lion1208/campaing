@@ -456,6 +456,9 @@ async function createConnection(connectionId) {
             generateHighQualityLinkPreview: false,
             keepAliveIntervalMs: 25000,
             retryRequestDelayMs: 2000,
+            // Adiciona retry automático
+            msgRetryCounterMap: {},
+            maxMsgRetryCount: 5,
         });
 
         const connectionData = {
@@ -467,84 +470,106 @@ async function createConnection(connectionId) {
             groups: [],
             saveCreds,
             retryCount: 0,
+            maxRetries: 10, // Aumentado para mais resiliência
             createdAt: Date.now(),
             lastKeepAliveSuccess: null,
             lastKeepAliveFail: null,
+            lastError: null,
         };
 
         connections.set(connectionId, connectionData);
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-            const conn = connections.get(connectionId);
-            
-            if (!conn) return;
+            try {
+                const { connection, lastDisconnect, qr } = update;
+                const conn = connections.get(connectionId);
+                
+                if (!conn) return;
 
-            if (qr) {
-                conn.qrCode = qr;
-                conn.status = 'waiting_qr';
-                conn.retryCount = 0;
-                try {
-                    conn.qrImage = await QRCode.toDataURL(qr, { 
-                        width: 280, 
-                        margin: 2,
-                        color: { dark: '#000000', light: '#FFFFFF' }
-                    });
-                    console.log(`[${connectionId}] QR Code gerado com sucesso`);
-                } catch (err) {
-                    console.error('Erro ao gerar QR:', err);
+                if (qr) {
+                    conn.qrCode = qr;
+                    conn.status = 'waiting_qr';
+                    conn.retryCount = 0;
+                    try {
+                        conn.qrImage = await QRCode.toDataURL(qr, { 
+                            width: 280, 
+                            margin: 2,
+                            color: { dark: '#000000', light: '#FFFFFF' }
+                        });
+                        console.log(`[${connectionId}] QR Code gerado com sucesso`);
+                    } catch (err) {
+                        console.error('🛡️ [BLINDAGEM] Erro ao gerar QR:', err.message);
+                    }
                 }
-            }
 
-            if (connection === 'close') {
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                console.log(`[${connectionId}] Conexão fechada. Código: ${statusCode}. Reconectar: ${shouldReconnect}`);
-                
-                if (shouldReconnect && conn.status !== 'deleted' && conn.retryCount < 5) {
-                    conn.retryCount++;
-                    conn.status = 'reconnecting';
-                    const delay = Math.min(3000 * conn.retryCount, 15000);
-                    console.log(`[${connectionId}] Tentando reconectar em ${delay}ms (tentativa ${conn.retryCount})`);
+                if (connection === 'close') {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    const errorMsg = lastDisconnect?.error?.message || 'Unknown error';
+                    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                     
-                    setTimeout(async () => {
-                        if (connections.has(connectionId) && connections.get(connectionId).status !== 'deleted') {
-                            try {
-                                await createConnection(connectionId);
-                            } catch (error) {
-                                console.error(`[${connectionId}] Erro na reconexão:`, error.message);
+                    conn.lastError = errorMsg;
+                    console.log(`🛡️ [${connectionId}] Conexão fechada. Código: ${statusCode}. Erro: ${errorMsg}. Reconectar: ${shouldReconnect}`);
+                    
+                    // Sempre tenta reconectar exceto se foi logout explícito
+                    if (shouldReconnect && conn.status !== 'deleted') {
+                        conn.retryCount++;
+                        conn.status = 'reconnecting';
+                        
+                        // Backoff exponencial com limite
+                        const delay = Math.min(3000 * Math.pow(1.5, conn.retryCount - 1), 60000);
+                        console.log(`🛡️ [${connectionId}] Tentando reconectar em ${delay/1000}s (tentativa ${conn.retryCount})`);
+                        
+                        setTimeout(async () => {
+                            const currentConn = connections.get(connectionId);
+                            if (currentConn && currentConn.status !== 'deleted') {
+                                try {
+                                    await createConnection(connectionId);
+                                } catch (error) {
+                                    console.error(`🛡️ [${connectionId}] Erro na reconexão:`, error.message);
+                                    // Agenda próxima tentativa mesmo com erro
+                                    currentConn.status = 'disconnected';
+                                    currentConn.lastError = error.message;
+                                }
                             }
-                        }
-                    }, delay);
-                } else {
-                    conn.status = 'disconnected';
+                        }, delay);
+                    } else {
+                        conn.status = 'disconnected';
+                        conn.qrCode = null;
+                        conn.qrImage = null;
+                    }
+                } else if (connection === 'open') {
+                    conn.status = 'connected';
                     conn.qrCode = null;
                     conn.qrImage = null;
+                    conn.retryCount = 0;
+                    conn.lastKeepAliveSuccess = Date.now();
+                    conn.lastError = null;
+                    conn.phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0];
+                    console.log(`✅ [${connectionId}] WhatsApp conectado: ${conn.phoneNumber}`);
+                    
+                    // Fetch groups after connection
+                    setTimeout(() => safeAsync(() => fetchGroups(connectionId), [], `fetchGroups-${connectionId}`), 2000);
                 }
-            } else if (connection === 'open') {
-                conn.status = 'connected';
-                conn.qrCode = null;
-                conn.qrImage = null;
-                conn.retryCount = 0;
-                conn.lastKeepAliveSuccess = Date.now();
-                conn.phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0];
-                console.log(`[${connectionId}] WhatsApp conectado: ${conn.phoneNumber}`);
-                
-                // Fetch groups after connection
-                setTimeout(() => fetchGroups(connectionId), 2000);
+            } catch (error) {
+                console.error(`🛡️ [BLINDAGEM] Erro no handler connection.update:`, error.message);
             }
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', async () => {
+            try {
+                await saveCreds();
+            } catch (error) {
+                console.error(`🛡️ [BLINDAGEM] Erro ao salvar credenciais:`, error.message);
+            }
+        });
 
         return connectionData;
     } catch (error) {
-        console.error(`[${connectionId}] Erro ao criar conexão:`, error);
+        console.error(`🛡️ [${connectionId}] Erro ao criar conexão:`, error.message);
         const conn = connections.get(connectionId);
         if (conn) {
             conn.status = 'error';
-            conn.error = error.message;
+            conn.lastError = error.message;
         }
         throw error;
     }
