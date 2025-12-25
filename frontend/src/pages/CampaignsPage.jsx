@@ -265,7 +265,7 @@ function AnimatedCampaignPreview({ campaign, imageCache, loadImagePreview }) {
 }
 
 export default function CampaignsPage() {
-  const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
+  const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, copyGroupsFromCampaign, replaceGroupsFromCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState(null);
@@ -274,6 +274,13 @@ export default function CampaignsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [paginatedCampaigns, setPaginatedCampaigns] = useState([]);
   const limit = 12;
+
+  // Estado para diálogo de copiar grupos
+  const [copyGroupsDialogOpen, setCopyGroupsDialogOpen] = useState(false);
+  const [copyGroupsMode, setCopyGroupsMode] = useState('add'); // 'add' ou 'replace'
+  const [targetCampaign, setTargetCampaign] = useState(null);
+  const [sourceCampaignId, setSourceCampaignId] = useState('');
+  const [copyLoading, setCopyLoading] = useState(false);
 
   const fetchPaginatedCampaigns = useCallback(async () => {
     try {
