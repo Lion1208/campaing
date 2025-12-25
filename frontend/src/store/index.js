@@ -222,6 +222,27 @@ export const useCampaignsStore = create((set, get) => ({
       campaigns: state.campaigns.filter((c) => c.id !== campaignId),
     }));
   },
+
+  getCampaignGroupsInfo: async (campaignId) => {
+    const response = await api.get(`/campaigns/${campaignId}/groups-info`);
+    return response.data;
+  },
+
+  copyGroupsFromCampaign: async (targetCampaignId, sourceCampaignId) => {
+    const response = await api.post(`/campaigns/${targetCampaignId}/copy-groups`, {
+      source_campaign_id: sourceCampaignId
+    });
+    await get().fetchCampaigns();
+    return response.data;
+  },
+
+  replaceGroupsFromCampaign: async (targetCampaignId, sourceCampaignId) => {
+    const response = await api.post(`/campaigns/${targetCampaignId}/replace-groups`, {
+      source_campaign_id: sourceCampaignId
+    });
+    await get().fetchCampaigns();
+    return response.data;
+  },
 }));
 
 // Images Store
