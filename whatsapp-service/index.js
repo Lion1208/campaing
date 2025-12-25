@@ -72,24 +72,78 @@ let totalMessagesProcessed = 0;
 let totalErrors = 0;
 
 // Ensure auth directory exists (fallback)
-if (!fs.existsSync(AUTH_DIR)) {
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
+try {
+    if (!fs.existsSync(AUTH_DIR)) {
+        fs.mkdirSync(AUTH_DIR, { recursive: true });
+    }
+} catch (e) {
+    console.error('🛡️ [BLINDAGEM] Erro ao criar diretório auth:', e.message);
 }
 
-// Connect to MongoDB
-async function connectMongo() {
-    if (mongoClient && db) return db;
-    
+// ============= SAFE WRAPPER FOR ALL ASYNC OPERATIONS =============
+async function safeAsync(fn, fallback = null, context = 'operação') {
     try {
-        mongoClient = new MongoClient(MONGO_URL);
-        await mongoClient.connect();
-        db = mongoClient.db(DB_NAME);
-        console.log('MongoDB conectado para sessões WhatsApp');
-        return db;
+        return await fn();
     } catch (error) {
-        console.error('Erro ao conectar MongoDB:', error.message);
-        return null;
+        console.error(`🛡️ [BLINDAGEM] Erro em ${context}:`, error.message);
+        totalErrors++;
+        return fallback;
     }
+}
+
+// Connect to MongoDB with auto-reconnect
+async function connectMongo() {
+    if (mongoClient && db) {
+        try {
+            // Ping to verify connection is alive
+            await db.command({ ping: 1 });
+            return db;
+        } catch (e) {
+            console.log('🛡️ [BLINDAGEM] MongoDB ping falhou, reconectando...');
+            mongoClient = null;
+            db = null;
+        }
+    }
+    
+    const reconnectWithBackoff = async () => {
+        const delay = Math.min(1000 * Math.pow(2, mongoReconnectAttempts), MAX_MONGO_RECONNECT_DELAY);
+        mongoReconnectAttempts++;
+        
+        try {
+            console.log(`🛡️ [BLINDAGEM] Tentando conectar MongoDB (tentativa ${mongoReconnectAttempts})...`);
+            mongoClient = new MongoClient(MONGO_URL, {
+                serverSelectionTimeoutMS: 10000,
+                connectTimeoutMS: 10000,
+                socketTimeoutMS: 30000,
+            });
+            await mongoClient.connect();
+            db = mongoClient.db(DB_NAME);
+            
+            // Setup connection monitoring
+            mongoClient.on('close', () => {
+                console.log('🛡️ [BLINDAGEM] MongoDB conexão fechada, tentando reconectar...');
+                db = null;
+                setTimeout(connectMongo, 3000);
+            });
+            
+            mongoClient.on('error', (err) => {
+                console.error('🛡️ [BLINDAGEM] MongoDB erro:', err.message);
+            });
+            
+            console.log('✅ MongoDB conectado para sessões WhatsApp');
+            mongoReconnectAttempts = 0; // Reset on success
+            return db;
+        } catch (error) {
+            console.error(`🛡️ [BLINDAGEM] Erro ao conectar MongoDB (tentativa ${mongoReconnectAttempts}):`, error.message);
+            
+            // Schedule next reconnect attempt
+            console.log(`🛡️ [BLINDAGEM] Próxima tentativa em ${delay/1000}s...`);
+            setTimeout(connectMongo, delay);
+            return null;
+        }
+    };
+    
+    return await reconnectWithBackoff();
 }
 
 // Custom auth state that stores in MongoDB
