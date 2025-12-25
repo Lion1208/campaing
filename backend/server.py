@@ -1663,22 +1663,41 @@ async def delete_reseller(user_id: str, master: dict = Depends(get_master_user))
 # ============= Connections =============
 
 @api_router.get("/connections", response_model=List[ConnectionResponse])
-async def list_connections(user: dict = Depends(get_current_user)):
+async def list_connections(user: dict = Depends(get_current_user), quick: bool = False):
+    """List connections. Use quick=true for faster loading without status check."""
     query = {} if user['role'] == 'admin' else {'user_id': user['id']}
-    connections = await db.connections.find(query, {'_id': 0}).to_list(1000)
+    connections_list = await db.connections.find(query, {'_id': 0}).to_list(1000)
     
-    # Update status from WhatsApp service
-    for conn in connections:
+    # Skip status update if quick mode requested
+    if quick:
+        return connections_list
+    
+    # Update status from WhatsApp service in parallel with short timeout
+    async def update_connection_status(conn):
         try:
-            status_data = await whatsapp_request("GET", f"/connections/{conn['id']}/status")
-            if status_data.get('status') != 'not_found':
-                conn['status'] = status_data.get('status', conn['status'])
-                if status_data.get('phoneNumber'):
-                    conn['phone_number'] = status_data['phoneNumber']
+            async with httpx.AsyncClient(timeout=3.0) as client:  # Short timeout for faster response
+                response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/{conn['id']}/status")
+                if response.status_code == 200:
+                    status_data = response.json()
+                    if status_data.get('status') != 'not_found':
+                        conn['status'] = status_data.get('status', conn['status'])
+                        if status_data.get('phoneNumber'):
+                            conn['phone_number'] = status_data['phoneNumber']
         except:
-            pass
+            pass  # Keep existing status on error
+        return conn
     
-    return connections
+    # Run all status updates in parallel
+    tasks = [update_connection_status(conn) for conn in connections_list]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    
+    return connections_list
+
+@api_router.get("/connections/quick", response_model=List[ConnectionResponse])
+async def list_connections_quick(user: dict = Depends(get_current_user)):
+    """Quick list of connections without status check - for faster initial page load"""
+    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+    return await db.connections.find(query, {'_id': 0}).to_list(1000)
 
 @api_router.post("/connections", response_model=ConnectionResponse)
 async def create_connection(data: ConnectionCreate, user: dict = Depends(get_current_user)):
