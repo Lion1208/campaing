@@ -752,6 +752,98 @@ export default function CampaignsPage() {
         </div>
       )}
 
+      {/* Copy Groups Dialog */}
+      <Dialog open={copyGroupsDialogOpen} onOpenChange={setCopyGroupsDialogOpen}>
+        <DialogContent className="glass-card border-border mx-4 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              {copyGroupsMode === 'replace' ? (
+                <>
+                  <Replace className="w-5 h-5 text-primary" />
+                  Substituir Grupos
+                </>
+              ) : (
+                <>
+                  <FolderInput className="w-5 h-5 text-primary" />
+                  Adicionar Grupos
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {copyGroupsMode === 'replace' 
+                ? `Substitua todos os grupos de "${targetCampaign?.title}" pelos grupos de outra campanha.`
+                : `Adicione os grupos de outra campanha em "${targetCampaign?.title}".`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Copiar grupos de:
+              </label>
+              <Select value={sourceCampaignId} onValueChange={setSourceCampaignId}>
+                <SelectTrigger className="w-full bg-muted/50 border-border">
+                  <SelectValue placeholder="Selecione uma campanha" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCampaignsForCopy.map((camp) => (
+                    <SelectItem key={camp.id} value={camp.id}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">{camp.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({camp.total_count || camp.group_ids?.length || 0} grupos)
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {targetCampaign && (
+              <div className="p-3 bg-muted/30 rounded-lg text-sm">
+                <p className="text-muted-foreground">
+                  <strong className="text-foreground">{targetCampaign.title}</strong> atualmente tem{' '}
+                  <strong className="text-primary">
+                    {targetCampaign.total_count || targetCampaign.group_ids?.length || 0}
+                  </strong>{' '}
+                  grupos configurados.
+                </p>
+                {copyGroupsMode === 'replace' && (
+                  <p className="text-destructive text-xs mt-1">
+                    ⚠️ Todos os grupos atuais serão removidos e substituídos.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setCopyGroupsDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCopyGroups}
+                disabled={!sourceCampaignId || copyLoading}
+                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {copyLoading ? (
+                  'Copiando...'
+                ) : copyGroupsMode === 'replace' ? (
+                  'Substituir Grupos'
+                ) : (
+                  'Adicionar Grupos'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="glass-card border-border mx-4 max-w-sm">
