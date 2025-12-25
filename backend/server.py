@@ -1113,13 +1113,42 @@ async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_us
     failed_logs = await db.send_logs.count_documents({**user_query, 'status': 'failed'})
     success_rate = int(((total_logs - failed_logs) / total_logs * 100) if total_logs > 0 else 100)
     
+    # Get last 5 errors for expandable view
+    recent_errors = []
+    error_query = {**user_query, 'status': 'failed'}
+    error_logs = await db.send_logs.find(error_query, {'_id': 0}).sort('sent_at', -1).limit(5).to_list(5)
+    
+    for error_log in error_logs:
+        # Get group name if available
+        group_name = error_log.get('group_name', 'Grupo desconhecido')
+        if not group_name and error_log.get('group_id'):
+            group = await db.groups.find_one({'id': error_log['group_id']})
+            group_name = group.get('name', 'Grupo desconhecido') if group else 'Grupo desconhecido'
+        
+        # Get campaign name if available
+        campaign_name = None
+        if error_log.get('campaign_id'):
+            campaign = await db.campaigns.find_one({'id': error_log['campaign_id']})
+            campaign_name = campaign.get('title') if campaign else None
+        
+        recent_errors.append({
+            'id': error_log.get('id'),
+            'sent_at': error_log.get('sent_at'),
+            'group_name': group_name,
+            'campaign_name': campaign_name,
+            'error': error_log.get('error', 'Erro desconhecido'),
+            'connection_id': error_log.get('connection_id')
+        })
+    
     return {
         'resellers_count': resellers_count,
         'sends_today': sends_today,
         'sends_period': sends_period,
         'total_sends': total_sends,
         'success_rate': success_rate,
-        'daily_sends': daily_sends
+        'daily_sends': daily_sends,
+        'total_failed': failed_logs,
+        'recent_errors': recent_errors
     }
 
 # ============= Templates =============
