@@ -10,7 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Wifi, Calendar, Users, Send, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Wifi, Calendar, Users, Send, TrendingUp, Zap, Sparkles, ChevronDown, AlertCircle, XCircle } from 'lucide-react';
 import { api } from '@/store';
 
 // Elegant Particle Animation - Clean and Professional
