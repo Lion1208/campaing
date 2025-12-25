@@ -674,17 +674,34 @@ export default function CampaignsPage() {
                       </Button>
                     )}
 
-                    {/* Duplicate Button */}
-                    <Button
-                      onClick={() => handleDuplicate(campaign)}
-                      disabled={actionLoading === campaign.id}
-                      variant="outline"
-                      size="icon"
-                      className="border-border h-8 w-8"
-                      title="Duplicar"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </Button>
+                    {/* Menu de Ações (Duplicar, Copiar Grupos, etc) */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="border-border h-8 w-8"
+                          disabled={actionLoading === campaign.id}
+                        >
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem onClick={() => handleDuplicate(campaign)}>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicar Campanha
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => openCopyGroupsDialog(campaign, 'add')}>
+                          <FolderInput className="w-4 h-4 mr-2" />
+                          Adicionar Grupos de Outra
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openCopyGroupsDialog(campaign, 'replace')}>
+                          <Replace className="w-4 h-4 mr-2" />
+                          Substituir Grupos
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {/* Delete Button */}
                     <Button
