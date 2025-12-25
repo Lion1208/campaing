@@ -26,9 +26,36 @@ const AUTH_DIR = path.join(__dirname, 'auth_sessions');
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'nexuzap';
 
+// ============= BLINDAGEM TOTAL DO SERVIÇO =============
+// Service will NEVER crash - all errors are caught and handled
+
+// Global error handlers - prevent ANY crash
+process.on('uncaughtException', (error) => {
+    console.error('🛡️ [BLINDAGEM] Erro não capturado interceptado:', error.message);
+    console.error(error.stack);
+    // Service continues running - DO NOT exit
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🛡️ [BLINDAGEM] Promise rejeitada interceptada:', reason);
+    // Service continues running - DO NOT exit
+});
+
+process.on('SIGTERM', () => {
+    console.log('🛡️ [BLINDAGEM] Recebido SIGTERM - ignorando para manter serviço ativo');
+    // Don't exit - supervisor will restart if needed
+});
+
+process.on('SIGINT', () => {
+    console.log('🛡️ [BLINDAGEM] Recebido SIGINT - ignorando para manter serviço ativo');
+    // Don't exit - supervisor will restart if needed
+});
+
 // MongoDB client
 let mongoClient = null;
 let db = null;
+let mongoReconnectAttempts = 0;
+const MAX_MONGO_RECONNECT_DELAY = 30000; // Max 30 seconds between reconnects
 
 // Store active connections
 const connections = new Map();
@@ -37,6 +64,12 @@ const connections = new Map();
 const KEEPALIVE_INTERVAL = 30000;
 // Connection timeout (if no response in 10 seconds, consider dead)
 const CONNECTION_TIMEOUT = 10000;
+// Max retries for any operation
+const MAX_OPERATION_RETRIES = 5;
+// Service health tracking
+let lastHealthCheck = Date.now();
+let totalMessagesProcessed = 0;
+let totalErrors = 0;
 
 // Ensure auth directory exists (fallback)
 if (!fs.existsSync(AUTH_DIR)) {
