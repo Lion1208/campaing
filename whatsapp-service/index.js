@@ -810,7 +810,50 @@ app.delete('/connections/:id', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', connections: connections.size });
+    lastHealthCheck = Date.now();
+    res.json({ 
+        status: 'ok', 
+        connections: connections.size,
+        uptime: process.uptime(),
+        totalMessagesProcessed,
+        totalErrors,
+        memoryUsage: process.memoryUsage(),
+        mongoConnected: !!db,
+        lastHealthCheck: new Date(lastHealthCheck).toISOString()
+    });
+});
+
+// Detailed health endpoint for monitoring
+app.get('/health/detailed', async (req, res) => {
+    const connectionDetails = [];
+    for (const [id, conn] of connections.entries()) {
+        connectionDetails.push({
+            id,
+            status: conn.status,
+            phoneNumber: conn.phoneNumber,
+            groupsCount: conn.groups.length,
+            retryCount: conn.retryCount,
+            lastKeepAliveSuccess: conn.lastKeepAliveSuccess,
+            lastKeepAliveFail: conn.lastKeepAliveFail,
+            uptime: conn.createdAt ? Date.now() - conn.createdAt : 0
+        });
+    }
+    
+    res.json({
+        status: 'ok',
+        service: {
+            uptime: process.uptime(),
+            pid: process.pid,
+            totalMessagesProcessed,
+            totalErrors,
+            memoryUsage: process.memoryUsage()
+        },
+        mongo: {
+            connected: !!db,
+            reconnectAttempts: mongoReconnectAttempts
+        },
+        connections: connectionDetails
+    });
 });
 
 app.get('/connections', (req, res) => {
