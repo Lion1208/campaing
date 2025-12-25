@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import time
 
 class WhatsAppCampaignTester:
-    def __init__(self, base_url="https://wpconnector.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://chatbot-hub-33.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.token = None
         self.admin_user = None

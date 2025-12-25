@@ -1,88 +1,79 @@
 <analysis>**original_problem_statement:**
-O usuário solicitou uma série de melhorias e correções em um sistema SaaS de campanhas de WhatsApp. As principais solicitações abordadas nesta sessão foram:
-- Corrigir um erro crítico (503 Service Unavailable) que impedia a conexão com o WhatsApp em produção devido à ausência de Node.js no ambiente. A solução escolhida pelo usuário foi criar um script de auto-instalação no backend.
-- Corrigir a perda de dados (imagens e sessões do WhatsApp) a cada novo deploy, migrando o armazenamento do sistema de arquivos para o MongoDB.
-- Corrigir um erro na lógica de início de campanhas, garantindo que campanhas de intervalo rodem imediatamente na primeira execução.
-- Corrigir um erro de UI (botão aninhado) e um bug de carregamento de grupos em campanhas com conexões inválidas.
+O usuário iniciou a sessão com um conjunto de problemas herdados do fork anterior, incluindo um erro crítico que impedia a persistência da sessão do WhatsApp no MongoDB. No entanto, o usuário introduziu uma nova lista de bugs e solicitações de recursos de alta prioridade que foram abordados nesta sessão:
 
-**PRODUCT REQUIREMENTS:**
-- Implementar uma página de Dependências no painel de admin para instalar Node.js e outras dependências em tempo de execução.
-- Garantir que as imagens enviadas pelos usuários persistam entre os deploys.
-- Garantir que as sessões do WhatsApp (conexões ativas) persistam entre os deploys, evitando a necessidade de escanear o QR code novamente.
-- Corrigir a lógica para que o botão Iniciar execute uma campanha de intervalo imediatamente se ela nunca tiver rodado.
-- Corrigir bugs de UI e de tratamento de erros na página de edição de campanha.
-- Implementar um mecanismo de keep-alive para evitar que a conexão com o WhatsApp caia silenciosamente.
+1.  **Novos Bugs Relatados pelo Usuário:**
+    *   **Dashboard Quebrado:** As contagens de envios e o gráfico no dashboard não estavam funcionando.
+    *   **Histórico Incompleto:** A página de histórico de atividades registrava apenas ações de revenda, omitindo ações cruciais como bloqueio/desbloqueio de usuários e adição/remoção de créditos.
+    *   **Fuso Horário Incorreto:** As campanhas agendadas estavam sendo enviadas uma hora antes do tempo programado.
+    *   **Erro de Login (CORS):** Um erro de CORS impedia os usuários de fazerem login na aplicação a partir do domínio de produção.
+
+2.  **Novas Solicitações de Funcionalidade:**
+    *   **Auto-start do WhatsApp:** O serviço do WhatsApp deveria iniciar automaticamente se estivesse parado ao se tentar enviar uma campanha, gerar um QR code ou sincronizar grupos.
+    *   **Retomada de Campanha:** Se o backend reiniciasse no meio do envio de uma campanha, ela deveria ser retomada automaticamente de onde parou.
+    *   **Persistência de Dados do Dashboard:** Garantir que as estatísticas do dashboard não sejam perdidas entre os deploys.
+
+3.  **Requisitos do Produto (Herdados e Novos):**
+    *   **[P0 - Não abordado]** Corrigir a persistência da sessão do WhatsApp no MongoDB para evitar a necessidade de reconectar após cada deploy.
+    *   **[CONCLUÍDO]** Corrigir as estatísticas e gráficos do Dashboard.
+    *   **[CONCLUÍDO]** Expandir o log de atividades para incluir mais ações do usuário.
+    *   **[CONCLUÍDO]** Corrigir o problema de fuso horário no agendamento de campanhas.
+    *   **[CONCLUÍDO]** Implementar a retomada de campanhas interrompidas.
+    *   **[CONCLUÍDO]** Corrigir o erro de login relacionado ao CORS.
+    *   **[CONCLUÍDO]** Implementar o início automático do serviço do WhatsApp para ações críticas.
 
 **User's preferred language**: Portuguese (pt-BR)
 
 **what currently exists?**
-A aplicação agora possui um sistema de auto-instalação de dependências (Node.js, npm) que é executado na inicialização do backend FastAPI. Uma nova página de Dependências foi adicionada ao painel de administração, permitindo monitorar e acionar essa instalação. Para resolver a perda de dados entre deploys, o armazenamento de imagens foi migrado com sucesso do sistema de arquivos para o MongoDB (salvas como strings Base64). A lógica de inicialização de campanhas foi corrigida no frontend, e vários bugs de UI, incluindo um aninhamento de botões e o não-reset de grupos selecionados, foram resolvidos. O serviço de WhatsApp em Node.js foi atualizado para usar módulos ES (import/export) e foi implementado um mecanismo de keep-alive para manter a conexão ativa.
+A aplicação agora tem um dashboard funcional com estatísticas persistentes (usando uma nova coleção  no MongoDB), um histórico de atividades mais completo e um agendador de campanhas que respeita o fuso horário . Foi implementada uma lógica robusta para retomar campanhas que são interrompidas por reinicializações do backend, salvando o progresso no banco de dados. O serviço do WhatsApp agora é iniciado automaticamente quando necessário (envio de campanha, geração de QR code, sincronização de grupos), com feedback visual aprimorado no frontend. O erro crítico de CORS que impedia o login foi resolvido ajustando a ordem do middleware no FastAPI.
 
 **Last working item**:
-- **Last item agent was working**: O agente estava implementando a persistência das sessões do WhatsApp no MongoDB para evitar que os usuários precisassem se reconectar a cada deploy. O código do  foi reescrito para substituir o  (baseado em arquivos) por uma lógica customizada que salva e lê as credenciais de autenticação de uma coleção no MongoDB. O agente instalou as dependências  e  no serviço Node.js e tentou reiniciar para verificar a funcionalidade.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N
-- **Which testing method agent to use?** both (É crucial testar o fluxo de ponta a ponta: iniciar o serviço, criar uma conexão, reiniciar o serviço e verificar se a conexão é restaurada automaticamente sem escanear o QR code novamente).
+- **Last item agent was working**: O agente estava finalizando a implementação da inicialização automática do serviço do WhatsApp para as ações de gerar QR code e sincronizar grupos. Isso incluiu modificações no backend para adicionar a lógica de verificação e inicialização, e no frontend () para exibir estados de carregamento mais informativos e amigáveis para o usuário durante o processo.
+- **Status**: USER VERIFICATION PENDING
+- **Agent Testing Done**: N (O usuário instruiu explicitamente o agente a não testar: Não teste, deixa que eu testo.)
+- **Which testing method agent to use?** Frontend testing agent (Para verificar os novos estados de loading na  e confirmar que as chamadas de backend acionam o início do serviço do WhatsApp quando ele está parado).
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1**: Persistência da sessão do WhatsApp no MongoDB não está funcionando como esperado (P0)
-- **Issue 2**: Preview de imagem não funciona para mídias selecionadas da página Mídias (P2)
-- **Issue 3**: Mensagens não estão sendo enviadas em produção, embora o sistema reporte o envio (P1)
+- **Issue 1**: Persistência da sessão do WhatsApp no MongoDB não funciona (P0)
+- **Issue 2**: Mensagens não estão sendo enviadas em produção (P1)
+- **Issue 3**: Preview de imagem não funciona para mídias da página Mídias (P2)
 - **Issue 4**: A página de Logs não exibe logs em produção (P3)
 
 **Issues Detail**:
 - **Issue 1**:
-  - **Description**: O agente está implementando a persistência da sessão do WhatsApp no MongoDB, mas os últimos testes foram inconclusivos. Após reiniciar o serviço, o status mostrou 0 conexões ativas, sugerindo que a sessão não foi recarregada corretamente do banco de dados.
-  - **Attempted fixes**: O código em  foi totalmente reescrito para usar uma store customizada com o driver . As variáveis de ambiente foram configuradas com .
+  - **Description**: Este é o problema mais crítico herdado do fork anterior e **não foi abordado nesta sessão**. A sessão do WhatsApp não é salva no MongoDB, forçando os usuários a escanearem o QR code novamente após cada deploy, o que torna a aplicação inviável em produção.
+  - **Attempted fixes**: (Na sessão anterior) O código em  foi reescrito para usar uma store customizada com o driver . Nenhum progresso foi feito nesta sessão.
   - **Next debug checklist**:
-    1.  Verificar os logs do serviço  imediatamente após a reinicialização para procurar por erros de conexão com o MongoDB ou erros na lógica de leitura/escrita da sessão.
-    2.  Adicionar logs detalhados dentro da store customizada (funções , , ) em  para ver se os dados estão sendo salvos e recuperados corretamente.
-    3.  Confirmar manualmente (usando Current Mongosh Log ID:	6949750fac403779513f118b
-Connecting to:		mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.5.10
-Using MongoDB:		7.0.26
-Using Mongosh:		2.5.10
-
-For mongosh info see: https://www.mongodb.com/docs/mongodb-shell/
-
-
-To help improve our products, anonymous usage data is collected and sent to MongoDB periodically (https://www.mongodb.com/legal/privacy-policy).
-You can opt-out by running the disableTelemetry() command.
-
-------
-   The server generated these startup warnings when booting
-   2025-12-22T16:42:51.398+00:00: Using the XFS filesystem is strongly recommended with the WiredTiger storage engine. See http://dochub.mongodb.org/core/prodnotes-filesystem
-   2025-12-22T16:42:53.863+00:00: Access control is not enabled for the database. Read and write access to data and configuration is unrestricted
-   2025-12-22T16:42:53.863+00:00: You are running this process as the root user, which is not recommended
-   2025-12-22T16:42:53.863+00:00: Soft rlimits for open file descriptors too low
-------
-
-test>  ou um cliente de DB) que a coleção  está sendo criada e populada com os dados da sessão após escanear um QR code.
+    1.  Verificar os logs do serviço  para erros de conexão com o MongoDB.
+    2.  Adicionar logs detalhados na store customizada em  para rastrear as operações de , , e .
+    3.  Confirmar manualmente no MongoDB se a coleção  está sendo populada.
     4.  Verificar se as variáveis de ambiente  e  estão sendo lidas corretamente pelo serviço Node.js.
-  - **Why fix this issue and what will be achieved with the fix?**: É a correção mais crítica. Resolver isso tornará a aplicação utilizável em produção, pois os usuários não precisarão re-conectar o WhatsApp a cada deploy.
-  - **Status**: IN PROGRESS
-  - **Is recurring issue?** N
+  - **Why fix this issue and what will be achieved with the fix?**: É a correção mais crítica para a estabilidade e usabilidade da aplicação em produção.
+  - **Status**: NOT STARTED
+  - **Is recurring issue?** Y
   - **Should Test frontend/backend/both after fix?** both
   - **Blocked on other issue**: Não.
 
 - **Issue 2**:
-  - **Description**: Imagens enviadas pela página Mídias não aparecem no preview ao serem selecionadas na página de criação/edição de campanha. (Issue herdada do fork anterior).
-  - **Status**: NOT STARTED
-  - **Is recurring issue?** N
-  - **Should Test frontend/backend/both after fix?** frontend
-
-- **Issue 3**:
-  - **Description**: O usuário relatou que em produção as mensagens não são enviadas, apesar de o sistema indicar o contrário. Isso está provavelmente ligado à conexão morta que o agente tentou corrigir com o keep-alive. O problema de persistência (Issue 1) precisa ser resolvido primeiro, pois um deploy apaga a conexão, tornando o teste em produção impossível.
+  - **Description**: Usuário relatou que mensagens não são enviadas em produção. Provavelmente um sintoma do , onde a conexão se torna inválida após o deploy.
   - **Status**: BLOCKED
   - **Is recurring issue?** Y
   - **Should Test frontend/backend/both after fix?** both
   - **Blocked on other issue**: Issue 1: Persistência da sessão do WhatsApp.
 
+- **Issue 3**:
+  - **Description**: Imagens da página Mídias não aparecem no preview da página de campanha.
+  - **Status**: NOT STARTED
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** frontend
+  - **Blocked on other issue**: Não.
+
 - **Issue 4**:
-  - **Description**: A página de logs criada para depuração não exibe informações no ambiente de produção. (Issue herdada do fork anterior).
+  - **Description**: A página de logs de depuração não exibe informações no ambiente de produção.
   - **Status**: NOT STARTED
   - **Is recurring issue?** N
   - **Should Test frontend/backend/both after fix?** backend
+  - **Blocked on other issue**: Não.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
@@ -92,102 +83,68 @@ test>  ou um cliente de DB) que a coleção  está sendo criada e populada com o
     - (P3) Investigar e resolver a causa raiz do erro recorrente  no React.
 
 **Completed work in this session**
-- **Persistência de Dados**:
-  - Migração bem-sucedida do armazenamento de **imagens** do sistema de arquivos para o MongoDB, resolvendo a perda de imagens em deploys.
-- **Ambiente e Dependências**:
-  - Criada uma página de Dependências e um script de auto-instalação para  e npm <command>
+- **Correção do Dashboard**: Implementada a coleção  no MongoDB para registrar cada envio, e o endpoint  foi reescrito para usar esses dados, garantindo estatísticas precisas e persistentes.
+- **Correção do Histórico de Atividades**: Adicionados logs para ações de bloqueio, desbloqueio e concessão de trial para usuários e revendedores nos endpoints correspondentes. O frontend foi atualizado para exibir esses novos tipos de log.
+- **Correção de Fuso Horário**: A lógica de agendamento de campanhas () foi corrigida para interpretar corretamente os horários no fuso  usando , resolvendo o bug de envios adiantados.
+- **Implementação de Retomada de Campanha**: Adicionada a lógica para que campanhas com status 'running' sejam retomadas automaticamente após uma reinicialização do backend, salvando o progresso () no MongoDB.
+- **Correção de Erro de CORS**: O erro que impedia o login foi resolvido movendo o  para ser o primeiro middleware a ser adicionado à aplicação FastAPI, garantindo que os headers de CORS sejam aplicados a todas as rotas.
+- **Implementação do Auto-start do WhatsApp**: O serviço do WhatsApp agora é iniciado automaticamente antes do envio de campanhas, geração de QR code e sincronização de grupos. O frontend na  foi aprimorado para mostrar um feedback de carregamento mais detalhado.
 
-Usage:
-
-npm install        install all the dependencies in your project
-npm install <foo>  add the <foo> dependency to your project
-npm test           run this project's tests
-npm run <foo>      run the script named <foo>
-npm <command> -h   quick help on <command>
-npm -l             display usage info for all commands
-npm help <term>    search for help on <term>
-npm help npm       more involved overview
-
-All commands:
-
-    access, adduser, audit, bugs, cache, ci, completion,
-    config, dedupe, deprecate, diff, dist-tag, docs, doctor,
-    edit, exec, explain, explore, find-dupes, fund, get, help,
-    help-search, hook, init, install, install-ci-test,
-    install-test, link, ll, login, logout, ls, org, outdated,
-    owner, pack, ping, pkg, prefix, profile, prune, publish,
-    query, rebuild, repo, restart, root, run-script, sbom,
-    search, set, shrinkwrap, star, stars, start, stop, team,
-    test, token, uninstall, unpublish, unstar, update, version,
-    view, whoami
-
-Specify configs in the ini-formatted file:
-    /root/.npmrc
-or on the command line via: npm <command> --key=value
-
-More configuration info: npm help config
-Configuration fields: npm help 7 config
-
-npm@10.8.2 /usr/lib/node_modules/npm no startup do backend.
-  - O script de instalação foi refatorado para não depender do , usando  do Python.
-- **Serviço WhatsApp**:
-  - O código do serviço foi migrado de CommonJS () para ES Modules () para compatibilidade com a versão mais recente da biblioteca Baileys.
-  - Implementado um sistema de keep-alive para monitorar e tentar manter a conexão do WhatsApp ativa.
-- **Bugs e UX**:
-  - Corrigida a lógica de Iniciar vs Retomar campanhas, garantindo que a primeira execução de uma campanha de intervalo seja imediata.
-  - Corrigido um erro de HTML inválido (botão aninhado) na página de edição de campanha.
-  - Adicionado tratamento de erro na UI para limpar a contagem de grupos selecionados quando uma conexão de campanha é inválida.
+**Earlier issues found/mentioned but not fixed**
+- Todos os quatro All Pending/In progress Issue list mencionados acima são da sessão anterior e não foram abordados nesta sessão, pois o agente foi redirecionado pelo usuário para corrigir bugs mais recentes e urgentes. O mais crítico é a falha na persistência da sessão do WhatsApp.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Persistência em Containers**: A principal lição da sessão. Dados que precisam sobreviver a reinicializações (imagens, sessões de auth) devem ser armazenados em um serviço externo (MongoDB) e não no sistema de arquivos do container.
-- **ES Modules (ESM) vs. CommonJS**: O serviço Node.js precisou ser modernizado para  para usar a versão mais recente da biblioteca .
-- **Gerenciamento de Dependências em Tempo de Execução**: Implementação de um script () que é executado no evento de  do FastAPI para preparar o ambiente para um serviço secundário (Node.js).
+- **Middleware Order in FastAPI**: A ordem de adição de middlewares é crucial. O  deve ser adicionado antes de qualquer router para funcionar corretamente.
+- **Timezone Handling with APScheduler**: É necessário converter horários específicos para o timezone do scheduler () antes de passá-los para um .
+- **Stateful Task Resumption**: Para tarefas de longa duração (como envio de campanhas), é essencial salvar o estado (ex: ) em um banco de dados persistente após cada etapa para permitir a retomada em caso de falha.
+- **Analytics via Logging Collection**: Criar uma coleção dedicada () para eventos específicos (como envios de mensagem) é uma maneira eficaz de gerar estatísticas e dashboards sem sobrecarregar as coleções principais.
+- **Database Indexing**: Adicionar índices em campos frequentemente consultados (, ) em coleções de log melhora significativamente a performance das queries.
 
 **key DB schema**
-- : A estrutura agora inclui um campo  para armazenar o conteúdo da imagem em Base64, além de metadados como , .
-- **(Novo)** : Nova coleção para armazenar os dados de autenticação do WhatsApp. A estrutura é definida pela biblioteca Baileys e consiste em documentos com uma chave () e um valor (), ambos strings.
-
-**changes in tech stack**
-- O serviço  agora depende diretamente do **MongoDB** para armazenamento de sessão, utilizando o driver  para Node.js.
-- O serviço  agora utiliza  para gerenciar suas configurações de ambiente.
+- **(Novo)** : 
+- : Adicionado o campo  para gerenciar a retomada da campanha.
+- : Agora inclui novos valores para o campo , como , , .
 
 **All files of reference**
-- : Arquivo mais crítico e modificado da sessão. Contém a nova lógica de persistência de sessão com MongoDB.
-- : Modificado para adicionar a lógica de auto-instalação de dependências, e os endpoints para salvar/servir imagens do MongoDB.
-- : Novo script responsável por baixar e instalar Node.js.
-- : Nova página de UI para o admin.
-- : Contém a lógica corrigida para iniciar campanhas.
-- : Contém as correções de UI e de tratamento de erro.
+- : Arquivo central para a maioria das correções e novas funcionalidades implementadas.
+- : Contém as melhorias de UX para o início automático do serviço do WhatsApp.
+- : Contém as atualizações para exibir o histórico de atividades expandido.
+- : Arquivo crítico para o principal problema pendente (Issue 1), embora não tenha sido modificado nesta sessão.
 
 **Last 10 User Messages and any pending HUMAN messages**
-- : Toda vez que faço deploy tenho que desconectar e conectar dnvb o whatsapp...existe alguma forma de corrigir isso? Pq mata a conexão
-- : A conexão desta campanha não existe mais. Selecione outra. Quando isso acontecer, o grupo selecionados deve voltar pra 0...atualmente msm isso aparecendo e os grupos recarregando, ele permanece com valor anterior
-- : Toda vez que eu dou deploy, as imagens que eu subi somem, isso n pode acontecer. As imagens permanecem lá mas só os diretorios...isso n pode acontecer nunca, as mensagens só podem sumir se o usuario excluiir
-- : O serviço está rodando com o código novo (agora tem lastKeepAliveSuccess e uptime)... Tente sincronizar grupos após alguns minutos... Teste o envio de mensagens
-- : Tem 2 erros. O mais grave: Aqui no ambiente de teste esta literalmente igual o ambiente de produção... lá não está enviando as mensagens... O critico é: O whatsapp mesmo conectado parece que fecha conexão depois de um tempo...
-- : Reparei Que aqui em teste ele baixa essas versões... Lá em produção ele baixa essas... N sei se tem algo a ver
-- : Serviço encerrou: /app/whatsapp-service/index.js:1 ... Error [ERR_REQUIRE_ESM]: require() of ES Module ... not supported. ... Deu tudo certo. mas na hora que clico em inicviar serviço da este erro...
-- : No dependencies da este erro: Erro ao instalar Node.js: [Errno 2] No such file or directory: 'curl'
-- : Criei a campanha, cliquei em retoromar sendo que ela nunca rodou...e não fez o envio. Mas tá contabilizando o prazo pra proxima rodagem...
-- : DEIXA QUE EU TESTO. Tá dando erro ao carregar grupos, mesmo eu sincronizando e mostrando que tem 52.
+- : Outra coisa, o mesmo que vc fez pra campanha, faz p´ra conexão do qrcode do whatsapp...
+- : Agora ele paropu de fazer login. Da erro, as vezes aparece login realizado, mas volta pra tela de login...
+- : Entendido! A coleção  que criei já é armazenada no MongoDB, então os dados do dashboard **já persistem entre deploys**.
+- : As informações do dashboard do usuario não devem desaparecer em deploy, importante isso também.
+- : Perfeito! Backend reiniciado sem erros. Summary...
+- : Perfeito! Backend reiniciado sem erros.
+- : Importante que, se o backend reiniciar no meio do envio de uma campanha, quando voltar ele deve retormar o processamento de onde parou...por segurança.
+- : Entendido! Vou finalizar com o resumo das correções feitas. Summary...
+- : Entendido! Vou finalizar com o resumo das correções feitas.
+- : Não teste, deixa que eu testo. Nunca faça teste automaticamente, deica que eu testo manualmente
 
 **Project Health Check:**
-- **Broken**: A persistência da sessão do WhatsApp está quebrada. Sem isso, a funcionalidade principal da aplicação é inviável em um ambiente de produção que passa por deploys. O envio de mensagens em produção também está quebrado, provavelmente como um sintoma do primeiro problema.
+- **Broken**: A funcionalidade mais crítica da aplicação, a persistência da sessão do WhatsApp (), continua quebrada. Isso impede o uso confiável em produção, pois exige reconexão manual após cada deploy. O envio de mensagens em produção (Issue 2) provavelmente também está quebrado como consequência direta.
 - **Mocked**: N/A
 
 **3rd Party Integrations**
- - **Baileys (Node.js)**: Biblioteca para integração com o WhatsApp.
- - **MongoDB**: Usado como banco de dados principal (FastAPI) e agora também como armazenamento de sessão para o serviço Node.js.
+- **Baileys (Node.js)**: Biblioteca para integração com o WhatsApp.
+- **MongoDB**: Banco de dados principal e armazenamento de sessão.
+- **APScheduler**: Biblioteca Python para agendamento de tarefas (campanhas).
+- **pytz**: Utilizado para manipulação de fuso horário no backend.
 
 **Testing status**
-  - Testing agent used after significant changes: NO
-  - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: []
-  - Known regressions: A funcionalidade de persistência de sessão do WhatsApp está em um estado de em progresso, mas não funcional.
+- Testing agent used after significant changes: NO
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: []
+- Known regressions: Nenhuma nova regressão foi introduzida, mas o problema crítico de persistência da sessão do WhatsApp do fork anterior permanece sem solução.
 
 **Credentials to test flow:**
 - **Usuário**: 
-- **Senha**: </analysis>
+- **Senha**: 
+
+**What agent forgot to execute**
+O agente foi redirecionado pelo usuário para focar em uma nova lista de bugs urgentes. Como resultado, ele **não trabalhou na principal tarefa pendente do fork anterior**: consertar a persistência da sessão do WhatsApp no MongoDB (). Todos os problemas e tarefas pendentes da sessão anterior foram adiados.</analysis>
