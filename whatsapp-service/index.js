@@ -321,35 +321,109 @@ async function isConnectionAlive(connectionId) {
 // Keep-alive checker for all connections
 async function keepAliveCheck() {
     for (const [connectionId, conn] of connections.entries()) {
-        if (conn.status === 'connected') {
-            const alive = await isConnectionAlive(connectionId);
-            
-            if (!alive) {
-                console.log(`[${connectionId}] Keep-alive falhou, reconectando...`);
-                conn.status = 'reconnecting';
-                conn.lastKeepAliveFail = Date.now();
+        try {
+            if (conn.status === 'connected') {
+                const alive = await safeAsync(
+                    () => isConnectionAlive(connectionId),
+                    false,
+                    `keepAlive-${connectionId}`
+                );
                 
-                // Try to close gracefully
-                try {
-                    conn.socket?.end();
-                } catch (e) {}
-                
-                // Reconnect
-                try {
-                    await createConnection(connectionId);
-                } catch (error) {
-                    console.error(`[${connectionId}] Falha ao reconectar:`, error.message);
-                    conn.status = 'disconnected';
+                if (!alive) {
+                    console.log(`🛡️ [BLINDAGEM] Keep-alive falhou para ${connectionId}, reconectando...`);
+                    conn.status = 'reconnecting';
+                    conn.lastKeepAliveFail = Date.now();
+                    
+                    // Try to close gracefully
+                    try {
+                        conn.socket?.end();
+                    } catch (e) {}
+                    
+                    // Reconnect
+                    await safeAsync(
+                        () => createConnection(connectionId),
+                        null,
+                        `reconnect-${connectionId}`
+                    );
+                } else {
+                    conn.lastKeepAliveSuccess = Date.now();
                 }
-            } else {
-                conn.lastKeepAliveSuccess = Date.now();
+            } else if (conn.status === 'disconnected' || conn.status === 'error') {
+                // Try to auto-reconnect disconnected connections if session exists
+                const hasSession = await safeAsync(
+                    () => sessionExistsInMongo(connectionId),
+                    false,
+                    `checkSession-${connectionId}`
+                );
+                
+                if (hasSession) {
+                    console.log(`🛡️ [BLINDAGEM] Reconectando sessão existente: ${connectionId}`);
+                    await safeAsync(
+                        () => createConnection(connectionId),
+                        null,
+                        `autoReconnect-${connectionId}`
+                    );
+                }
+            }
+        } catch (error) {
+            console.error(`🛡️ [BLINDAGEM] Erro no keepAlive para ${connectionId}:`, error.message);
+        }
+    }
+}
+
+// Watchdog - verifica saúde geral do serviço e tenta recuperar
+async function serviceWatchdog() {
+    try {
+        // Check MongoDB connection
+        if (!db) {
+            console.log('🛡️ [WATCHDOG] MongoDB desconectado, tentando reconectar...');
+            await connectMongo();
+        }
+        
+        // Check if we have any dead connections that should be alive
+        for (const [connectionId, conn] of connections.entries()) {
+            if (conn.status === 'reconnecting' && conn.lastKeepAliveFail) {
+                const timeSinceFailure = Date.now() - conn.lastKeepAliveFail;
+                
+                // If stuck in reconnecting for more than 2 minutes, force restart
+                if (timeSinceFailure > 120000) {
+                    console.log(`🛡️ [WATCHDOG] Conexão ${connectionId} travada em 'reconnecting' há ${timeSinceFailure/1000}s, forçando reinício...`);
+                    
+                    try {
+                        conn.socket?.end();
+                    } catch (e) {}
+                    
+                    connections.delete(connectionId);
+                    
+                    // Try to recreate
+                    await safeAsync(
+                        () => createConnection(connectionId),
+                        null,
+                        `watchdog-recreate-${connectionId}`
+                    );
+                }
             }
         }
+        
+        // Memory check - if using too much memory, cleanup old data
+        const memUsage = process.memoryUsage();
+        if (memUsage.heapUsed > 500 * 1024 * 1024) { // > 500MB
+            console.log('🛡️ [WATCHDOG] Uso de memória alto, executando garbage collection...');
+            if (global.gc) {
+                global.gc();
+            }
+        }
+        
+    } catch (error) {
+        console.error('🛡️ [WATCHDOG] Erro no watchdog:', error.message);
     }
 }
 
 // Start keep-alive checker
 setInterval(keepAliveCheck, KEEPALIVE_INTERVAL);
+
+// Start watchdog (every 60 seconds)
+setInterval(serviceWatchdog, 60000);
 
 async function createConnection(connectionId) {
     // Clean up existing connection if any
