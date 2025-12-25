@@ -529,57 +529,120 @@ async function sendMessageToGroup(connectionId, groupId, message, imageBuffer = 
     }
     
     if (conn.status !== 'connected') {
-        throw new Error(`Conexão não está ativa (status: ${conn.status})`);
-    }
-
-    // Check if connection is really alive before sending
-    const alive = await isConnectionAlive(connectionId);
-    if (!alive) {
-        console.log(`[${connectionId}] Conexão morta detectada antes de enviar, reconectando...`);
-        conn.status = 'reconnecting';
-        
+        // Try to auto-reconnect if not connected
+        console.log(`🛡️ [BLINDAGEM] Tentando reconectar ${connectionId} antes de enviar...`);
         try {
-            conn.socket?.end();
-        } catch (e) {}
-        
-        setTimeout(() => createConnection(connectionId), 1000);
-        throw new Error('Conexão perdida, reconectando automaticamente. Tente novamente em alguns segundos.');
+            await createConnection(connectionId);
+            // Wait a bit for connection to establish
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            const updatedConn = connections.get(connectionId);
+            if (!updatedConn || updatedConn.status !== 'connected') {
+                throw new Error(`Conexão não está ativa após reconexão (status: ${updatedConn?.status})`);
+            }
+        } catch (reconnectError) {
+            throw new Error(`Conexão não está ativa (status: ${conn.status}). Erro na reconexão: ${reconnectError.message}`);
+        }
     }
 
-    try {
-        const jid = groupId.includes('@g.us') ? groupId : `${groupId}@g.us`;
-        
-        console.log(`[${connectionId}] Enviando mensagem para ${jid}...`);
-        
-        let result;
-        if (imageBuffer) {
-            result = await conn.socket.sendMessage(jid, {
-                image: imageBuffer,
-                caption: caption || undefined
-            });
-        } else if (message) {
-            result = await conn.socket.sendMessage(jid, { text: message });
-        } else {
-            throw new Error('Mensagem ou imagem é obrigatória');
+    // Get fresh connection reference after possible reconnect
+    const activeConn = connections.get(connectionId);
+    
+    // Retry logic for message sending
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_OPERATION_RETRIES; attempt++) {
+        try {
+            // Check if connection is really alive before sending
+            if (attempt > 1) {
+                console.log(`🛡️ [BLINDAGEM] Tentativa ${attempt}/${MAX_OPERATION_RETRIES} de envio para ${groupId}...`);
+            }
+            
+            const alive = await isConnectionAlive(connectionId);
+            if (!alive) {
+                console.log(`🛡️ [BLINDAGEM] Conexão morta detectada antes de enviar, tentando reconectar...`);
+                activeConn.status = 'reconnecting';
+                
+                try {
+                    activeConn.socket?.end();
+                } catch (e) {}
+                
+                await createConnection(connectionId);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const recheckConn = connections.get(connectionId);
+                if (!recheckConn || recheckConn.status !== 'connected') {
+                    lastError = new Error('Falha ao reconectar');
+                    continue;
+                }
+            }
+
+            const jid = groupId.includes('@g.us') ? groupId : `${groupId}@g.us`;
+            const currentConn = connections.get(connectionId);
+            
+            console.log(`[${connectionId}] Enviando mensagem para ${jid}... (tentativa ${attempt})`);
+            
+            let result;
+            if (imageBuffer) {
+                result = await currentConn.socket.sendMessage(jid, {
+                    image: imageBuffer,
+                    caption: caption || undefined
+                });
+            } else if (message) {
+                result = await currentConn.socket.sendMessage(jid, { text: message });
+            } else {
+                throw new Error('Mensagem ou imagem é obrigatória');
+            }
+            
+            if (!result || !result.key) {
+                console.error(`[${connectionId}] Resultado inesperado do envio:`, result);
+                throw new Error('Falha ao enviar mensagem - resposta inválida');
+            }
+            
+            console.log(`[${connectionId}] ✓ Mensagem enviada para ${jid} (ID: ${result.key.id})`);
+            totalMessagesProcessed++;
+            return { success: true, messageId: result.key.id };
+            
+        } catch (error) {
+            lastError = error;
+            console.error(`🛡️ [BLINDAGEM] Erro no envio (tentativa ${attempt}/${MAX_OPERATION_RETRIES}):`, error.message);
+            
+            // Handle specific errors that require reconnection
+            if (error.message?.includes('timeout') || 
+                error.message?.includes('closed') || 
+                error.message?.includes('not open') ||
+                error.message?.includes('Connection Closed') ||
+                error.message?.includes('rate-overlimit')) {
+                
+                const currentConn = connections.get(connectionId);
+                if (currentConn) {
+                    currentConn.status = 'reconnecting';
+                    try {
+                        currentConn.socket?.end();
+                    } catch (e) {}
+                }
+                
+                // Wait before retry with exponential backoff
+                const backoffDelay = Math.min(2000 * attempt, 10000);
+                console.log(`🛡️ [BLINDAGEM] Aguardando ${backoffDelay/1000}s antes de tentar novamente...`);
+                await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                
+                // Try to reconnect
+                try {
+                    await createConnection(connectionId);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (reconnectError) {
+                    console.error(`🛡️ [BLINDAGEM] Erro na reconexão:`, reconnectError.message);
+                }
+            } else {
+                // For other errors, just wait a bit and retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
-        
-        if (!result || !result.key) {
-            console.error(`[${connectionId}] Resultado inesperado do envio:`, result);
-            throw new Error('Falha ao enviar mensagem - resposta inválida');
-        }
-        
-        console.log(`[${connectionId}] ✓ Mensagem enviada para ${jid} (ID: ${result.key.id})`);
-        return { success: true, messageId: result.key.id };
-    } catch (error) {
-        console.error(`[${connectionId}] ✗ Erro ao enviar para ${groupId}:`, error.message);
-        
-        if (error.message?.includes('timeout') || error.message?.includes('closed') || error.message?.includes('not open')) {
-            conn.status = 'reconnecting';
-            setTimeout(() => createConnection(connectionId), 1000);
-        }
-        
-        throw error;
     }
+    
+    // All retries exhausted
+    totalErrors++;
+    throw lastError || new Error('Falha após múltiplas tentativas');
 }
 
 // API Routes
