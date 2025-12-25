@@ -995,29 +995,76 @@ app.post('/connections/:id/reconnect', async (req, res) => {
 
 // Auto-reconnect existing sessions on startup
 async function autoReconnectSessions() {
-    console.log('Verificando sessões existentes para reconexão automática...');
+    console.log('🔄 [AUTO-CONNECT] Verificando sessões existentes para reconexão automática...');
     
-    // First check MongoDB for sessions
     const database = await connectMongo();
-    if (database) {
-        try {
-            const sessions = await database.collection('whatsapp_sessions')
-                .distinct('connectionId', { key: 'creds' });
+    if (!database) {
+        console.log('🔄 [AUTO-CONNECT] MongoDB não disponível, tentando novamente em 10s...');
+        setTimeout(autoReconnectSessions, 10000);
+        return;
+    }
+    
+    try {
+        // IMPORTANTE: Buscar conexões do banco principal (que o usuário criou no sistema)
+        const backendConnections = await database.collection('connections')
+            .find({ status: { $in: ['connected', 'disconnected', 'reconnecting'] } })
+            .toArray();
+        
+        console.log(`🔄 [AUTO-CONNECT] Encontradas ${backendConnections.length} conexão(ões) no banco principal.`);
+        
+        // Para cada conexão do backend, verificar se há sessão salva e reconectar
+        for (const conn of backendConnections) {
+            const connectionId = conn.id;
             
-            console.log(`Encontradas ${sessions.length} sessão(ões) no MongoDB para reconectar.`);
-            
-            for (const sessionId of sessions) {
-                console.log(`Reconectando sessão do MongoDB: ${sessionId}`);
-                try {
-                    await createConnection(sessionId);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                } catch (error) {
-                    console.error(`Erro ao reconectar ${sessionId}:`, error.message);
+            // Verificar se já está conectado
+            if (connections.has(connectionId)) {
+                const existing = connections.get(connectionId);
+                if (existing.status === 'connected') {
+                    console.log(`🔄 [AUTO-CONNECT] ${connectionId} já está conectado, pulando...`);
+                    continue;
                 }
             }
-        } catch (error) {
-            console.error('Erro ao buscar sessões do MongoDB:', error.message);
+            
+            // Verificar se há credenciais salvas no MongoDB
+            const hasSession = await database.collection('whatsapp_sessions')
+                .findOne({ connectionId, key: 'creds' });
+            
+            if (hasSession) {
+                console.log(`🔄 [AUTO-CONNECT] Reconectando ${connectionId} (${conn.name || 'sem nome'})...`);
+                try {
+                    await createConnection(connectionId);
+                    // Aguardar um pouco entre reconexões para não sobrecarregar
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                } catch (error) {
+                    console.error(`🔄 [AUTO-CONNECT] Erro ao reconectar ${connectionId}:`, error.message);
+                }
+            } else {
+                console.log(`🔄 [AUTO-CONNECT] ${connectionId} não tem sessão salva, ignorando.`);
+            }
         }
+        
+        // Também verificar sessões órfãs no whatsapp_sessions
+        const orphanSessions = await database.collection('whatsapp_sessions')
+            .distinct('connectionId', { key: 'creds' });
+        
+        for (const sessionId of orphanSessions) {
+            if (!connections.has(sessionId)) {
+                // Verificar se existe no backend
+                const backendConn = await database.collection('connections').findOne({ id: sessionId });
+                if (backendConn) {
+                    console.log(`🔄 [AUTO-CONNECT] Reconectando sessão órfã: ${sessionId}`);
+                    try {
+                        await createConnection(sessionId);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } catch (error) {
+                        console.error(`🔄 [AUTO-CONNECT] Erro ao reconectar sessão órfã ${sessionId}:`, error.message);
+                    }
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('🔄 [AUTO-CONNECT] Erro ao buscar sessões:', error.message);
     }
     
     // Also check filesystem for legacy sessions
@@ -1029,34 +1076,110 @@ async function autoReconnectSessions() {
             });
             
             for (const sessionId of fileSessions) {
-                // Skip if already connected from MongoDB
+                // Skip if already connected
                 if (connections.has(sessionId)) continue;
                 
                 const sessionPath = path.join(AUTH_DIR, sessionId);
                 const credsFile = path.join(sessionPath, 'creds.json');
                 
                 if (fs.existsSync(credsFile)) {
-                    console.log(`Reconectando sessão do filesystem: ${sessionId}`);
+                    console.log(`🔄 [AUTO-CONNECT] Reconectando sessão do filesystem: ${sessionId}`);
                     try {
                         await createConnection(sessionId);
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     } catch (error) {
-                        console.error(`Erro ao reconectar ${sessionId}:`, error.message);
+                        console.error(`🔄 [AUTO-CONNECT] Erro ao reconectar ${sessionId}:`, error.message);
                     }
                 }
             }
         }
     } catch (error) {
-        console.error('Erro ao verificar sessões do filesystem:', error.message);
+        console.error('🔄 [AUTO-CONNECT] Erro ao verificar sessões do filesystem:', error.message);
     }
     
-    console.log('Reconexão automática concluída.');
+    console.log('🔄 [AUTO-CONNECT] Reconexão automática concluída.');
+    
+    // Agendar próxima verificação periódica (a cada 5 minutos)
+    setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
+}
+
+// Verificação periódica de conexões - garante que tudo fique conectado
+async function periodicConnectionCheck() {
+    console.log('🔄 [PERIODIC] Verificando status de todas as conexões...');
+    
+    const database = await connectMongo();
+    if (!database) {
+        setTimeout(periodicConnectionCheck, 60000);
+        return;
+    }
+    
+    try {
+        // Buscar todas as conexões que deveriam estar conectadas
+        const backendConnections = await database.collection('connections')
+            .find({ status: 'connected' })
+            .toArray();
+        
+        for (const conn of backendConnections) {
+            const connectionId = conn.id;
+            const activeConn = connections.get(connectionId);
+            
+            if (!activeConn) {
+                // Conexão deveria estar ativa mas não está no serviço
+                console.log(`🔄 [PERIODIC] Conexão ${connectionId} marcada como conectada mas não está ativa, reconectando...`);
+                
+                const hasSession = await database.collection('whatsapp_sessions')
+                    .findOne({ connectionId, key: 'creds' });
+                
+                if (hasSession) {
+                    try {
+                        await createConnection(connectionId);
+                    } catch (error) {
+                        console.error(`🔄 [PERIODIC] Erro ao reconectar ${connectionId}:`, error.message);
+                    }
+                }
+            } else if (activeConn.status !== 'connected') {
+                // Conexão existe mas não está conectada
+                console.log(`🔄 [PERIODIC] Conexão ${connectionId} status: ${activeConn.status}, tentando reconectar...`);
+                
+                if (activeConn.status !== 'connecting' && activeConn.status !== 'waiting_qr') {
+                    try {
+                        await createConnection(connectionId);
+                    } catch (error) {
+                        console.error(`🔄 [PERIODIC] Erro ao reconectar ${connectionId}:`, error.message);
+                    }
+                }
+            }
+        }
+        
+        // Atualizar status no banco de dados para conexões ativas
+        for (const [connectionId, conn] of connections.entries()) {
+            if (conn.status === 'connected' && conn.phoneNumber) {
+                await database.collection('connections').updateOne(
+                    { id: connectionId },
+                    { 
+                        $set: { 
+                            status: 'connected', 
+                            phone_number: conn.phoneNumber,
+                            last_seen: new Date().toISOString()
+                        } 
+                    }
+                );
+            }
+        }
+        
+    } catch (error) {
+        console.error('🔄 [PERIODIC] Erro na verificação periódica:', error.message);
+    }
+    
+    // Agendar próxima verificação
+    setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
 }
 
 app.listen(PORT, async () => {
-    console.log(`Serviço WhatsApp rodando na porta ${PORT}`);
-    console.log(`Keep-alive configurado para verificar a cada ${KEEPALIVE_INTERVAL/1000}s`);
-    console.log(`Sessões serão persistidas no MongoDB: ${MONGO_URL}`);
+    console.log(`🚀 Serviço WhatsApp rodando na porta ${PORT}`);
+    console.log(`🛡️ Keep-alive configurado para verificar a cada ${KEEPALIVE_INTERVAL/1000}s`);
+    console.log(`📦 Sessões serão persistidas no MongoDB: ${MONGO_URL}`);
+    console.log(`🔄 Auto-reconexão habilitada`);
     
     // Connect to MongoDB first
     await connectMongo();
