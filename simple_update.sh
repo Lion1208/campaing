@@ -77,7 +77,7 @@ log "✅ Serviços parados"
 # ETAPA 4: BAIXAR ARQUIVOS ATUALIZADOS
 ################################################################################
 
-log "[4/5] 📥 Baixando arquivos do GitHub..."
+log "[4/6] 📥 Baixando arquivos do GitHub..."
 
 cd "$APP_DIR"
 
@@ -94,6 +94,19 @@ log "  → Atualizando whatsapp-service/index.js..."
 wget -q -O whatsapp-service/index.js "$GITHUB_RAW/whatsapp-service/index.js" || error "Falha ao baixar index.js"
 
 log "✅ Arquivos atualizados"
+
+################################################################################
+# ETAPA 5: BUILD DO FRONTEND
+################################################################################
+
+log "[5/6] 🔨 Compilando frontend (pode demorar ~1 minuto)..."
+
+cd "$APP_DIR/frontend"
+npm run build > /tmp/nexuzap_build.log 2>&1 || {
+    warn "Erro no build. Ver logs em /tmp/nexuzap_build.log"
+}
+
+log "✅ Frontend compilado"
 
 ################################################################################
 # ETAPA 5: RESTAURAR .ENV E REINICIAR
