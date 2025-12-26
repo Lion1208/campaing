@@ -848,18 +848,38 @@ async def full_setup(admin: dict = Depends(get_admin_user)):
         if not check_whatsapp_deps_installed():
             logs.append("📦 Passo 2: Instalando dependências do WhatsApp...")
             
+            # Tentar instalar git se necessário
+            try:
+                result = subprocess.run(['which', 'git'], capture_output=True, timeout=5)
+                if result.returncode != 0:
+                    logs.append("📦 Instalando git...")
+                    subprocess.run(['apt-get', 'update', '-qq'], timeout=60, capture_output=True)
+                    subprocess.run(['apt-get', 'install', '-y', '-qq', 'git'], timeout=120, capture_output=True)
+            except:
+                pass
+            
             _, _, npm_path = check_npm_installed()
             npm_path = npm_path or '/usr/local/bin/npm'
             
+            # Limpar node_modules antigo
+            try:
+                import shutil
+                node_modules_path = '/app/whatsapp-service/node_modules'
+                if os.path.exists(node_modules_path):
+                    shutil.rmtree(node_modules_path)
+            except:
+                pass
+            
             success, _, stderr = run_command(
-                [npm_path, 'install', '--prefix', '/app/whatsapp-service'],
-                timeout=300
+                [npm_path, 'install', '--no-optional', '--legacy-peer-deps'],
+                timeout=300,
+                cwd='/app/whatsapp-service'
             )
             
             if check_whatsapp_deps_installed():
                 logs.append("✅ Dependências do WhatsApp instaladas")
             else:
-                logs.append(f"⚠️ Possível problema nas dependências: {stderr[:200]}")
+                logs.append(f"⚠️ Possível problema nas dependências: {stderr[:200] if stderr else 'unknown'}")
         else:
             logs.append("✅ Dependências do WhatsApp já instaladas")
         
