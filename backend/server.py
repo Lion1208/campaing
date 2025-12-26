@@ -574,9 +574,9 @@ async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(
     import urllib.request
     import platform
     
-    # Versões fixas exatas
-    NODE_VERSION = "20.19.6"
-    NPM_VERSION = "10.8.2"
+    # Versões fixas exatas - COMPATÍVEIS COM PRODUÇÃO
+    NODE_VERSION = "20.11.0"
+    NPM_VERSION = "10.2.4"
     
     logs = []
     
@@ -757,9 +757,9 @@ async def full_setup(admin: dict = Depends(get_admin_user)):
     import urllib.request
     import platform
     
-    # Versões fixas exatas
-    NODE_VERSION = "20.19.6"
-    NPM_VERSION = "10.8.2"
+    # Versões fixas exatas - COMPATÍVEIS COM PRODUÇÃO
+    NODE_VERSION = "20.11.0"
+    NPM_VERSION = "10.2.4"
     
     logs = []
     
