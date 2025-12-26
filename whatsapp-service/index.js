@@ -776,11 +776,16 @@ app.get('/connections/:id/status', async (req, res) => {
 app.post('/connections/:id/start', async (req, res) => {
     try {
         const connectionId = req.params.id;
+        console.log(`[DEBUG] POST /connections/${connectionId}/start chamado`);
         
         if (connections.has(connectionId)) {
             const existing = connections.get(connectionId);
+            console.log(`[DEBUG] Conexão existente encontrada. Status: ${existing.status}`);
+            
             if (existing.status === 'connected') {
+                console.log(`[DEBUG] Verificando se conexão está viva...`);
                 const alive = await isConnectionAlive(connectionId);
+                console.log(`[DEBUG] Conexão viva: ${alive}`);
                 if (alive) {
                     return res.json({ status: 'already_connected', phoneNumber: existing.phoneNumber });
                 } else {
@@ -788,17 +793,25 @@ app.post('/connections/:id/start', async (req, res) => {
                 }
             }
             if (existing.status === 'connecting' || existing.status === 'waiting_qr') {
+                console.log(`[DEBUG] Conexão já em andamento, retornando status atual`);
                 return res.json({ status: existing.status, message: 'Conexão em andamento' });
             }
             try {
+                console.log(`[DEBUG] Fechando socket existente`);
                 existing.socket?.end();
-            } catch (e) {}
+            } catch (e) {
+                console.log(`[DEBUG] Erro ao fechar socket: ${e.message}`);
+            }
+        } else {
+            console.log(`[DEBUG] Nenhuma conexão existente para ${connectionId}`);
         }
         
+        console.log(`[DEBUG] Criando nova conexão para ${connectionId}...`);
         await createConnection(connectionId);
+        console.log(`[DEBUG] Conexão criada, retornando status 'connecting'`);
         res.json({ status: 'connecting', message: 'Aguarde o QR Code' });
     } catch (error) {
-        console.error('Erro ao iniciar:', error);
+        console.error(`[DEBUG] Erro ao iniciar conexão:`, error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -808,6 +821,7 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
     try {
         const connectionId = req.params.id;
         let { phoneNumber } = req.body;
+        console.log(`[DEBUG] POST /connections/${connectionId}/pairing-code chamado. Phone: ${phoneNumber}`);
         
         if (!phoneNumber) {
             return res.status(400).json({ error: 'Número de telefone é obrigatório' });
