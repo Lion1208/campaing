@@ -66,7 +66,7 @@ log "✅ Configurações salvas"
 # ETAPA 3: PARAR SERVIÇOS
 ################################################################################
 
-log "[3/5] ⏸️  Parando serviços..."
+log "[3/6] ⏸️  Parando serviços..."
 
 supervisorctl stop nexuzap:* 2>/dev/null || warn "Alguns serviços já estavam parados"
 sleep 2
