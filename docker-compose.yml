@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: nexuzap-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: nexuzap_production
+    networks:
+      - nexuzap-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexuzap-backend
+    restart: always
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongodb
+      - whatsapp-service
+    environment:
+      - WHATSAPP_SERVICE_URL=http://whatsapp-service:3002
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=nexuzap_production
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/.env:/app/.env
+    networks:
+      - nexuzap-network
+    command: uvicorn server:app --host 0.0.0.0 --port 8001
+
+  whatsapp-service:
+    build:
+      context: ./whatsapp-service
+      dockerfile: Dockerfile
+    container_name: nexuzap-whatsapp
+    restart: always
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mongodb
+    environment:
+      - PORT=3002
+      - MONGO_URL=mongodb://mongodb:27017
+    volumes:
+      - ./whatsapp-service/auth_sessions:/app/auth_sessions
+    networks:
+      - nexuzap-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexuzap-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_BACKEND_URL=http://backend:8001
+    networks:
+      - nexuzap-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  nexuzap-network:
+    driver: bridge
