@@ -839,6 +839,7 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
         const { state, saveCreds } = await useMongoAuthState(connectionId);
         const { version } = await fetchLatestBaileysVersion();
         
+        // IMPORTANTE: Browser config específico para pairing code funcionar
         const sock = makeWASocket({
             version,
             auth: {
@@ -847,7 +848,7 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
             },
             printQRInTerminal: false,
             logger,
-            browser: ['Nexus Campaign', 'Chrome', '121.0.0'],
+            browser: ['Ubuntu', 'Chrome', '114.0.5735.198'], // Config necessário para pairing
             connectTimeoutMs: 60000,
             markOnlineOnConnect: true,
         });
