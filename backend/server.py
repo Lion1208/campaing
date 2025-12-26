@@ -1827,9 +1827,14 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
         
         await db.connections.update_one({'id': connection_id}, {'$set': {'status': 'connecting'}})
         return result
+    except httpx.ConnectError as e:
+        logger.error(f"[DEBUG] ERRO DE CONEXÃO com WhatsApp service: {e}")
+        raise HTTPException(status_code=500, detail=f"Serviço WhatsApp não está rodando. Vá em Configurações > Dependências e clique em 'Iniciar Serviço'")
     except Exception as e:
-        logger.error(f"[DEBUG] Erro ao conectar WhatsApp: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro ao conectar: {str(e)}")
+        error_type = type(e).__name__
+        error_msg = str(e) or "Erro desconhecido"
+        logger.error(f"[DEBUG] Erro ao conectar WhatsApp [{error_type}]: {error_msg}")
+        raise HTTPException(status_code=500, detail=f"Erro ao conectar [{error_type}]: {error_msg}")
 
 @api_router.get("/connections/{connection_id}/qr")
 async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
