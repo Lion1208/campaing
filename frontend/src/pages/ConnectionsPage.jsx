@@ -33,7 +33,7 @@ export default function ConnectionsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState(null);
-  const [qrData, setQrData] = useState({ qr_code: null, qr_image: null, status: 'preparing' });
+  const [qrData, setQrData] = useState({ qr: null, qrImage: null, status: 'connecting' });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
