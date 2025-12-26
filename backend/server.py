@@ -2080,7 +2080,7 @@ async def request_pairing_code(connection_id: str, data: PairingCodeRequest, use
         raise HTTPException(status_code=500, detail=f"Erro ao gerar código [{error_type}]: {error_msg}")
 
 async def sync_groups(connection_id: str, user_id: str):
-    """Sync groups from WhatsApp"""
+    """Sync groups from WhatsApp - mantém IDs existentes para preservar referências em campanhas"""
     try:
         logger.info(f"[DEBUG SYNC] Iniciando sync de grupos para conexão {connection_id}")
         result = await whatsapp_request("GET", f"/connections/{connection_id}/groups?refresh=true")
@@ -2094,20 +2094,51 @@ async def sync_groups(connection_id: str, user_id: str):
         if status != 'connected':
             logger.warning(f"[DEBUG SYNC] Conexão não está ativa (status={status}). Grupos podem estar vazios.")
         
-        # Delete old groups
-        await db.groups.delete_many({'connection_id': connection_id})
+        # IMPORTANTE: Ao invés de deletar tudo e recriar, fazer UPSERT para manter os IDs
+        # Isso preserva as referências das campanhas
         
-        # Insert new groups
+        # Buscar grupos existentes no banco
+        existing_groups = await db.groups.find({'connection_id': connection_id}).to_list(1000)
+        existing_map = {g['group_id']: g for g in existing_groups}
+        
+        synced_group_ids = []
+        
+        # Atualizar ou inserir cada grupo
         for g in groups:
-            group = {
-                'id': str(uuid.uuid4()),
-                'connection_id': connection_id,
-                'user_id': user_id,
-                'group_id': g['id'],
-                'name': g['name'],
-                'participants_count': g['participants_count']
-            }
-            await db.groups.insert_one(group)
+            whatsapp_group_id = g['id']
+            synced_group_ids.append(whatsapp_group_id)
+            
+            if whatsapp_group_id in existing_map:
+                # Grupo já existe - apenas atualizar nome e contagem
+                existing_doc = existing_map[whatsapp_group_id]
+                await db.groups.update_one(
+                    {'id': existing_doc['id']},
+                    {'$set': {
+                        'name': g['name'],
+                        'participants_count': g['participants_count']
+                    }}
+                )
+                logger.info(f"[DEBUG SYNC] Grupo atualizado: {g['name']} (manteve UUID: {existing_doc['id']})")
+            else:
+                # Grupo novo - inserir com novo UUID
+                new_group = {
+                    'id': str(uuid.uuid4()),
+                    'connection_id': connection_id,
+                    'user_id': user_id,
+                    'group_id': whatsapp_group_id,
+                    'name': g['name'],
+                    'participants_count': g['participants_count']
+                }
+                await db.groups.insert_one(new_group)
+                logger.info(f"[DEBUG SYNC] Grupo novo inserido: {g['name']}")
+        
+        # Deletar grupos que não existem mais no WhatsApp
+        groups_to_delete = [doc_id for wid, doc in existing_map.items() if wid not in synced_group_ids]
+        if groups_to_delete:
+            for doc in existing_groups:
+                if doc['group_id'] not in synced_group_ids:
+                    await db.groups.delete_one({'id': doc['id']})
+                    logger.info(f"[DEBUG SYNC] Grupo removido (não existe mais no WhatsApp): {doc['name']}")
         
         # Atualiza contador de grupos na conexão
         await db.connections.update_one(
