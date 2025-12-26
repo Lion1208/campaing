@@ -481,8 +481,8 @@ async function createConnection(connectionId) {
         const { state, saveCreds } = await useMongoAuthState(connectionId);
         console.log(`[DEBUG] Estado obtido. Creds existente: ${state.creds ? 'sim' : 'não'}`);
         
-        console.log(`[DEBUG] Obtendo versão do Baileys...`);
-        const { version } = await fetchLatestBaileysVersion();
+        console.log(`[DEBUG] Obtendo versão do Baileys (com cache)...`);
+        const { version } = await getBaileysVersion();
         console.log(`[DEBUG] Versão do Baileys: ${version.join('.')}`);
         
         console.log(`[DEBUG] Criando socket WhatsApp...`);
