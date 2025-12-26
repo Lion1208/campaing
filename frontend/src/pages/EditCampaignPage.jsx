@@ -189,6 +189,10 @@ export default function EditCampaignPage() {
   }, [fetchGroupsByConnection]);
 
   useEffect(() => {
+    // Este useEffect só deve rodar quando o usuário MUDA a conexão manualmente
+    // Não quando a conexão é setada pela primeira vez ao carregar a campanha
+    if (!campaign) return; // Ainda está carregando a campanha
+    
     if (selectedConnection) {
       // Verifica se a conexão selecionada existe nas conexões disponíveis
       const connectionExists = connections.some(c => c.id === selectedConnection);
@@ -200,11 +204,15 @@ export default function EditCampaignPage() {
         setSelectedGroups([]);  // Limpar grupos selecionados também
         return;
       }
-      loadGroups(selectedConnection);
+      
+      // Se a conexão mudou (usuário selecionou outra), carregar grupos sem pré-seleção
+      if (selectedConnection !== campaign.connection_id) {
+        loadGroups(selectedConnection);
+      }
     } else {
       setGroups([]);
     }
-  }, [selectedConnection, loadGroups, connections]);
+  }, [selectedConnection, loadGroups, connections, campaign]);
 
   const handleImageUpload = async (e, index) => {
     const file = e.target.files?.[0];
