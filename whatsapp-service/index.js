@@ -825,10 +825,22 @@ app.post('/connections/:id/start', async (req, res) => {
             console.log(`[DEBUG] Nenhuma conexão existente para ${connectionId}`);
         }
         
-        console.log(`[DEBUG] Criando nova conexão para ${connectionId}...`);
-        await createConnection(connectionId);
-        console.log(`[DEBUG] Conexão criada, retornando status 'connecting'`);
-        res.json({ status: 'connecting', message: 'Aguarde o QR Code' });
+        console.log(`[DEBUG] Iniciando criação de conexão para ${connectionId} em background...`);
+        
+        // NÃO esperar a conexão completar - retorna imediatamente e cria em background
+        // Isso evita timeout do backend
+        res.json({ status: 'connecting', message: 'Aguarde o QR Code (criando conexão...)' });
+        
+        // Criar conexão em background (sem await)
+        createConnection(connectionId).catch(error => {
+            console.error(`[DEBUG] Erro ao criar conexão em background:`, error.message);
+            const conn = connections.get(connectionId);
+            if (conn) {
+                conn.status = 'error';
+                conn.lastError = error.message;
+            }
+        });
+        
     } catch (error) {
         console.error(`[DEBUG] Erro ao iniciar conexão:`, error);
         res.status(500).json({ error: error.message });
