@@ -225,23 +225,14 @@ log "✅ Repositório clonado"
 
 log "[6/12] Configurando variáveis de ambiente..."
 
-# Solicitar configurações do usuário
-info "\n📝 Configuração do Sistema:\n"
+# Detectar IP automaticamente (IPv4 preferencialmente)
+DOMAIN=$(curl -4 -s ifconfig.me 2>/dev/null || curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+log "IP detectado automaticamente: $DOMAIN"
 
-read -p "Digite seu domínio (ex: nexuzap.com) ou pressione Enter para usar IP: " DOMAIN
-if [ -z "$DOMAIN" ]; then
-    DOMAIN=$(curl -s ifconfig.me)
-    warn "Usando IP público: $DOMAIN"
-fi
-
-read -p "Digite a porta do backend (padrão: 8001): " BACKEND_PORT
-BACKEND_PORT=${BACKEND_PORT:-8001}
-
-read -p "Digite a porta do frontend (padrão: 3000): " FRONTEND_PORT
-FRONTEND_PORT=${FRONTEND_PORT:-3000}
-
-read -p "Digite a porta do WhatsApp Service (padrão: 3002): " WHATSAPP_PORT
-WHATSAPP_PORT=${WHATSAPP_PORT:-3002}
+# Usar portas padrão
+BACKEND_PORT=8001
+FRONTEND_PORT=3000
+WHATSAPP_PORT=3002
 
 # Backend .env
 cat > "$APP_DIR/backend/.env" <<EOF
