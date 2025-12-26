@@ -1747,7 +1747,7 @@ async def get_connection(connection_id: str, user: dict = Depends(get_current_us
 
 @api_router.post("/connections/{connection_id}/connect")
 async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
-    """Iniciar conexão WhatsApp - gera QR Code real"""
+    """Iniciar conexão WhatsApp - gera QR Code"""
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1756,13 +1756,8 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Ensure WhatsApp service is running first
-    whatsapp_ready = await ensure_whatsapp_running()
-    if not whatsapp_ready:
-        raise HTTPException(status_code=503, detail="Serviço em preparação. Tente novamente em alguns segundos.")
-    
     try:
-        # Start connection on WhatsApp service
+        # Simplesmente inicia a conexão no serviço WhatsApp
         result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
         
         await db.connections.update_one(
@@ -1770,22 +1765,14 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
             {'$set': {'status': 'connecting'}}
         )
         
-        return {'status': 'connecting', 'message': 'Conexão iniciada. Aguarde o QR Code.'}
-    except httpx.ConnectError:
-        logger.error(f"Serviço WhatsApp não está acessível")
-        raise HTTPException(status_code=503, detail="Serviço em preparação. Tente novamente em alguns segundos.")
+        return {'status': 'connecting', 'message': 'Aguarde o QR Code.'}
     except Exception as e:
         logger.error(f"Erro ao conectar WhatsApp: {e}")
-        # Try to reset and start fresh
-        try:
-            await whatsapp_request("DELETE", f"/connections/{connection_id}")
-        except:
-            pass
-        raise HTTPException(status_code=500, detail=f"Erro ao iniciar conexão: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/connections/{connection_id}/qr")
 async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
-    """Obter QR Code da conexão"""
+    """Obter QR Code da conexão - simples e direto"""
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1794,32 +1781,27 @@ async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Ensure WhatsApp service is running
-    whatsapp_ready = await ensure_whatsapp_running()
-    if not whatsapp_ready:
-        return {'qr_code': None, 'qr_image': None, 'status': 'preparing'}
-    
     try:
         result = await whatsapp_request("GET", f"/connections/{connection_id}/qr")
         
-        if result.get('status') == 'connected':
-            # Update connection as connected
+        status = result.get('status', 'connecting')
+        
+        # Se conectou, atualiza no banco
+        if status == 'connected':
             phone = result.get('phoneNumber')
             await db.connections.update_one(
                 {'id': connection_id},
-                {'$set': {'status': 'connected', 'phone_number': phone, 'qr_code': None, 'qr_image': None}}
+                {'$set': {'status': 'connected', 'phone_number': phone}}
             )
-            # Sync groups
-            await sync_groups(connection_id, user['id'])
         
         return {
             'qr_code': result.get('qr'),
             'qr_image': result.get('qrImage'),
-            'status': result.get('status', 'connecting')
+            'status': status
         }
     except Exception as e:
         logger.error(f"Erro ao obter QR: {e}")
-        return {'qr_code': None, 'qr_image': None, 'status': 'preparing'}
+        return {'qr_code': None, 'qr_image': None, 'status': 'error', 'error': str(e)}
 
 async def sync_groups(connection_id: str, user_id: str):
     """Sync groups from WhatsApp"""
