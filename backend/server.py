@@ -1784,6 +1784,33 @@ async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)
     
     return result
 
+class PairingCodeRequest(BaseModel):
+    phone_number: str
+
+@api_router.post("/connections/{connection_id}/pairing-code")
+async def request_pairing_code(connection_id: str, data: PairingCodeRequest, user: dict = Depends(get_current_user)):
+    """Solicitar código de pareamento (alternativa ao QR code)"""
+    query = {'id': connection_id}
+    if user['role'] != 'admin':
+        query['user_id'] = user['id']
+    
+    connection = await db.connections.find_one(query)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    # Direto no serviço
+    result = await whatsapp_request("POST", f"/connections/{connection_id}/pairing-code", {
+        'phoneNumber': data.phone_number
+    })
+    
+    if result.get('success'):
+        await db.connections.update_one(
+            {'id': connection_id},
+            {'$set': {'status': 'waiting_code'}}
+        )
+    
+    return result
+
 async def sync_groups(connection_id: str, user_id: str):
     """Sync groups from WhatsApp"""
     try:
