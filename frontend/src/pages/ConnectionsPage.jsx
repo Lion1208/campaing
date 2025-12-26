@@ -356,13 +356,13 @@ export default function ConnectionsPage() {
               Conectar WhatsApp
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {qrData.qr_image ? 'Escaneie o QR Code com seu WhatsApp' : 'Aguarde enquanto preparamos a conexão'}
+              {qrData.qrImage ? 'Escaneie o QR Code com seu WhatsApp' : 'Gerando QR Code...'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
-            {qrData.qr_image ? (
+            {qrData.qrImage ? (
               <div className="p-3 bg-white rounded-xl shadow-lg animate-fade-in">
-                <img src={qrData.qr_image} alt="QR Code WhatsApp" className="w-56 h-56" />
+                <img src={qrData.qrImage} alt="QR Code WhatsApp" className="w-56 h-56" />
               </div>
             ) : (
               <div className="w-56 h-56 bg-muted/50 rounded-xl flex items-center justify-center border border-border">
@@ -373,10 +373,10 @@ export default function ConnectionsPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      {getQRStatusMessage().text}
+                      Gerando QR Code
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Isso pode levar alguns segundos
+                      Aguarde...
                     </p>
                   </div>
                 </div>
