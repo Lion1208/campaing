@@ -416,37 +416,61 @@ async def restart_whatsapp_service():
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0):
-    """Make request to WhatsApp service with configurable timeout"""
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
-            logger.info(f"[DEBUG] WhatsApp request: {method} {url} (timeout={timeout}s)")
-            if json_data:
-                logger.info(f"[DEBUG] Request data: {json_data}")
+async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0, auto_recover: bool = True):
+    """Make request to WhatsApp service with configurable timeout and auto-recovery"""
+    max_attempts = 2 if auto_recover else 1
+    last_error = None
+    
+    for attempt in range(max_attempts):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
+                logger.info(f"[DEBUG] WhatsApp request: {method} {url} (timeout={timeout}s, attempt={attempt+1})")
+                if json_data:
+                    logger.info(f"[DEBUG] Request data: {json_data}")
+                
+                if method == "GET":
+                    response = await client.get(url)
+                elif method == "POST":
+                    response = await client.post(url, json=json_data)
+                elif method == "DELETE":
+                    response = await client.delete(url)
+                
+                logger.info(f"[DEBUG] WhatsApp response status: {response.status_code}")
+                logger.info(f"[DEBUG] WhatsApp response body: {response.text[:500] if response.text else 'empty'}")
+                return response.json()
+                
+        except httpx.ConnectError as e:
+            logger.error(f"[DEBUG] WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
+            last_error = f"Serviço WhatsApp não acessível"
             
-            if method == "GET":
-                response = await client.get(url)
-            elif method == "POST":
-                response = await client.post(url, json=json_data)
-            elif method == "DELETE":
-                response = await client.delete(url)
+            # Tenta auto-recovery na primeira falha
+            if attempt == 0 and auto_recover:
+                logger.info("[AUTO-RECOVERY] Tentando recuperar WhatsApp service...")
+                recovered = await auto_recover_whatsapp_service()
+                if recovered:
+                    logger.info("[AUTO-RECOVERY] Serviço recuperado, tentando novamente...")
+                    continue
+                    
+        except httpx.ReadTimeout as e:
+            logger.error(f"[DEBUG] WhatsApp service read timeout: {e}")
+            last_error = f"WhatsApp service demorou demais para responder (timeout={timeout}s)"
             
-            logger.info(f"[DEBUG] WhatsApp response status: {response.status_code}")
-            logger.info(f"[DEBUG] WhatsApp response body: {response.text[:500] if response.text else 'empty'}")
-            return response.json()
-    except httpx.ConnectError as e:
-        logger.error(f"[DEBUG] WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
-        raise Exception(f"Serviço WhatsApp não acessível. Verifique se está rodando em {WHATSAPP_SERVICE_URL}")
-    except httpx.ReadTimeout as e:
-        logger.error(f"[DEBUG] WhatsApp service read timeout: {e}")
-        raise Exception(f"WhatsApp service demorou demais para responder (timeout={timeout}s). Tente novamente.")
-    except httpx.TimeoutException as e:
-        logger.error(f"[DEBUG] WhatsApp service timeout: {e}")
-        raise Exception(f"Timeout ao comunicar com WhatsApp service: {e}")
-    except Exception as e:
-        logger.error(f"[DEBUG] WhatsApp request error: {type(e).__name__}: {e}")
-        raise
+        except httpx.TimeoutException as e:
+            logger.error(f"[DEBUG] WhatsApp service timeout: {e}")
+            last_error = f"Timeout ao comunicar com WhatsApp service"
+            
+            # Tenta auto-recovery
+            if attempt == 0 and auto_recover:
+                logger.info("[AUTO-RECOVERY] Timeout detectado, tentando recuperar...")
+                await auto_recover_whatsapp_service()
+                continue
+                
+        except Exception as e:
+            logger.error(f"[DEBUG] WhatsApp request error: {type(e).__name__}: {e}")
+            last_error = str(e)
+    
+    raise Exception(last_error or "Erro desconhecido ao comunicar com WhatsApp service")
 
 # ============= Auth Endpoints =============
 
