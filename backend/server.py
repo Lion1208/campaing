@@ -486,11 +486,11 @@ async def change_password(data: PasswordChange, user: dict = Depends(get_current
 # Global variable to track WhatsApp service process
 whatsapp_process = None
 
-def run_command(cmd: list, timeout: int = 120) -> tuple:
+def run_command(cmd: list, timeout: int = 120, cwd: str = None) -> tuple:
     """Run a command and return (success, output, error)"""
     import subprocess
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
         return result.returncode == 0, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return False, "", "Timeout"
