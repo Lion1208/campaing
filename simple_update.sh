@@ -54,7 +54,7 @@ fi
 # ETAPA 2: BACKUP DE .ENV FILES
 ################################################################################
 
-log "[2/5] 💾 Fazendo backup das configurações..."
+log "[2/6] 💾 Fazendo backup das configurações..."
 
 cp "$APP_DIR/backend/.env" "/tmp/backend.env.bak" 2>/dev/null || warn "Backend .env não encontrado"
 cp "$APP_DIR/frontend/.env" "/tmp/frontend.env.bak" 2>/dev/null || warn "Frontend .env não encontrado"
