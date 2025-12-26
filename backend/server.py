@@ -574,6 +574,10 @@ async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(
     import urllib.request
     import platform
     
+    # Versões fixas exatas
+    NODE_VERSION = "20.19.6"
+    NPM_VERSION = "10.8.2"
+    
     logs = []
     
     # Check if already installed
@@ -591,10 +595,10 @@ async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(
         else:
             node_arch = 'x64'  # fallback
         
-        node_url = f'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-{node_arch}.tar.xz'
+        node_url = f'https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-linux-{node_arch}.tar.xz'
         node_file = '/tmp/node.tar.xz'
         
-        logs.append(f"📦 Baixando Node.js v20.11.0 ({node_arch})...")
+        logs.append(f"📦 Baixando Node.js v{NODE_VERSION} ({node_arch})...")
         logs.append(f"URL: {node_url}")
         
         # Download using Python urllib (no curl needed)
@@ -626,6 +630,12 @@ async def install_node(background_tasks: BackgroundTasks, admin: dict = Depends(
         node_installed, node_version, _ = check_node_installed()
         if node_installed:
             logs.append(f"✅ Node.js instalado: {node_version}")
+            
+            # Verificar versão do NPM
+            npm_installed, npm_version, _ = check_npm_installed()
+            if npm_installed:
+                logs.append(f"✅ NPM instalado: {npm_version}")
+            
             return {'success': True, 'logs': logs}
         else:
             logs.append("❌ Instalação falhou - Node.js não encontrado após instalação")
