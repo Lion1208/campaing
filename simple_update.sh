@@ -39,7 +39,7 @@ mkdir -p "$BACKUP_DIR"
 # ETAPA 1: BACKUP DO MONGODB
 ################################################################################
 
-log "[1/5] 💾 Fazendo backup do MongoDB..."
+log "[1/6] 💾 Fazendo backup do MongoDB..."
 
 if command -v mongodump >/dev/null 2>&1; then
     mongodump --db nexuzap_production --out "$BACKUP_DIR/mongo_$DATE" --quiet 2>/dev/null || {
