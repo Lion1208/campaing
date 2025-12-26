@@ -167,12 +167,20 @@ export default function ConnectionsPage() {
     try {
       const token = localStorage.getItem('nexus-token');
       toast.loading('Sincronizando grupos...');
-      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/connections/${connectionId}/sync-groups`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/connections/${connectionId}/refresh-groups`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.dismiss();
-      toast.success('Grupos sincronizados');
+      
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`${data.count || 0} grupos sincronizados!`);
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Erro ao sincronizar');
+      }
+      
       fetchConnections();
     } catch (error) {
       toast.dismiss();
