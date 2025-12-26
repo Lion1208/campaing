@@ -1,0 +1,73 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🐛 BUG #2 CORRIGIDO - Grupos não aparecem ao editar      ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+📋 PROBLEMA:
+═══════════════════════════════════════════════════════════════
+
+Ao editar uma campanha que tem grupos selecionados:
+  ❌ Os grupos não aparecem marcados/selecionados
+  ❌ Mostra "10 grupos selecionados" mas visualmente nenhum está marcado
+  ❌ Parece que a campanha perdeu os grupos
+
+
+🔍 CAUSA RAIZ:
+═══════════════════════════════════════════════════════════════
+
+Race condition (problema de timing):
+  1. Campanha carrega → seta selectedGroups = [id1, id2, ...]
+  2. Ao mesmo tempo → carrega a lista de grupos da API
+  3. Interface renderiza ANTES dos grupos carregarem
+  4. Quando grupos carregam, React não re-renderiza os checkboxes
+
+
+✅ CORREÇÃO APLICADA:
+═══════════════════════════════════════════════════════════════
+
+Arquivo: /app/frontend/src/pages/EditCampaignPage.jsx
+
+1. Função loadGroups agora aceita grupos pré-selecionados
+2. Ao carregar campanha, passa os group_ids para loadGroups
+3. loadGroups valida se os grupos ainda existem
+4. Seta selectedGroups DEPOIS que os grupos carregam
+5. Remove grupos que não existem mais + notifica usuário
+
+
+📦 COMO FAZER O DEPLOY:
+═══════════════════════════════════════════════════════════════
+
+1️⃣  Baixe o arquivo atualizado (na VPS):
+
+cd /opt/nexuzap
+wget -O frontend/src/pages/EditCampaignPage.jsx https://raw.githubusercontent.com/Lion1208/campaing/main/frontend/src/pages/EditCampaignPage.jsx
+
+
+2️⃣  Recompile o frontend:
+
+cd /opt/nexuzap/frontend
+npm run build
+
+
+3️⃣  Reinicie o frontend:
+
+sudo supervisorctl restart nexuzap-frontend
+
+
+⏱️  Aguarde ~1-2 minutos para o build terminar
+
+
+✅ TESTAR:
+═══════════════════════════════════════════════════════════════
+
+1. Acesse https://nexuzap.com
+2. Vá em "Campanhas"
+3. Clique em "Editar" em uma campanha que tem grupos
+4. Os grupos devem aparecer MARCADOS ✅
+
+
+═══════════════════════════════════════════════════════════════
+
+🎉 Pronto! Bug corrigido!
