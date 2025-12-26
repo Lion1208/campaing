@@ -109,10 +109,10 @@ npm run build > /tmp/nexuzap_build.log 2>&1 || {
 log "✅ Frontend compilado"
 
 ################################################################################
-# ETAPA 5: RESTAURAR .ENV E REINICIAR
+# ETAPA 6: RESTAURAR .ENV E REINICIAR
 ################################################################################
 
-log "[5/5] 🔧 Restaurando configurações e reiniciando..."
+log "[6/6] 🔧 Restaurando configurações e reiniciando..."
 
 # Restaurar .env
 cp /tmp/backend.env.bak "$APP_DIR/backend/.env" 2>/dev/null || true
