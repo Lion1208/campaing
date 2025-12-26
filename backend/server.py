@@ -317,7 +317,9 @@ async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
-            logger.info(f"WhatsApp request: {method} {url}")
+            logger.info(f"[DEBUG] WhatsApp request: {method} {url}")
+            if json_data:
+                logger.info(f"[DEBUG] Request data: {json_data}")
             
             if method == "GET":
                 response = await client.get(url)
@@ -326,8 +328,15 @@ async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
             elif method == "DELETE":
                 response = await client.delete(url)
             
-            logger.info(f"WhatsApp response status: {response.status_code}")
+            logger.info(f"[DEBUG] WhatsApp response status: {response.status_code}")
+            logger.info(f"[DEBUG] WhatsApp response body: {response.text[:500] if response.text else 'empty'}")
             return response.json()
+    except httpx.ConnectError as e:
+        logger.error(f"[DEBUG] WhatsApp service connection error: {e}")
+        raise Exception(f"Serviço WhatsApp não acessível: {e}")
+    except Exception as e:
+        logger.error(f"[DEBUG] WhatsApp request error: {e}")
+        raise
     except httpx.ConnectError as e:
         logger.error(f"WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
         raise
