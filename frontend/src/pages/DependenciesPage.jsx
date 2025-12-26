@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Package, CheckCircle, XCircle, Loader2, Play, RefreshCw, Terminal, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function DependenciesPage() {
   const [status, setStatus] = useState(null);
