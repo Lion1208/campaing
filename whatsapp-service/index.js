@@ -802,6 +802,76 @@ app.post('/connections/:id/start', async (req, res) => {
     }
 });
 
+// Endpoint para gerar código de pareamento (alternativa ao QR code)
+app.post('/connections/:id/pairing-code', async (req, res) => {
+    try {
+        const connectionId = req.params.id;
+        let { phoneNumber } = req.body;
+        
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Número de telefone é obrigatório' });
+        }
+        
+        // Limpar número - remover +, espaços, traços
+        phoneNumber = phoneNumber.replace(/[\s\-\+\(\)]/g, '');
+        
+        // Adicionar código do Brasil se não tiver código de país
+        if (phoneNumber.length === 11 && phoneNumber.startsWith('9')) {
+            phoneNumber = '55' + phoneNumber;
+        } else if (phoneNumber.length === 11) {
+            phoneNumber = '55' + phoneNumber;
+        } else if (phoneNumber.length === 10) {
+            phoneNumber = '55' + phoneNumber;
+        }
+        
+        console.log(`[${connectionId}] Solicitando pairing code para: ${phoneNumber}`);
+        
+        // Verificar se já existe conexão
+        let conn = connections.get(connectionId);
+        
+        // Se não existe ou está em estado inválido, criar nova
+        if (!conn || conn.status === 'disconnected' || conn.status === 'error') {
+            await createConnection(connectionId);
+            conn = connections.get(connectionId);
+        }
+        
+        // Aguardar socket estar pronto
+        let attempts = 0;
+        while ((!conn || !conn.socket) && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            conn = connections.get(connectionId);
+            attempts++;
+        }
+        
+        if (!conn || !conn.socket) {
+            return res.status(500).json({ error: 'Falha ao inicializar conexão' });
+        }
+        
+        // Solicitar código de pareamento
+        try {
+            const code = await conn.socket.requestPairingCode(phoneNumber);
+            console.log(`[${connectionId}] Pairing code gerado: ${code}`);
+            
+            // Salvar código na conexão
+            conn.pairingCode = code;
+            conn.status = 'waiting_code';
+            
+            res.json({ 
+                success: true, 
+                code: code,
+                message: 'Digite este código no WhatsApp do seu celular',
+                instructions: 'Vá em Configurações > Aparelhos conectados > Conectar um aparelho > Conectar com número de telefone'
+            });
+        } catch (error) {
+            console.error(`[${connectionId}] Erro ao gerar pairing code:`, error.message);
+            res.status(500).json({ error: 'Falha ao gerar código. Verifique se o número está correto.' });
+        }
+    } catch (error) {
+        console.error('Erro ao gerar pairing code:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/connections/:id/qr', (req, res) => {
     const conn = connections.get(req.params.id);
     if (!conn) {
@@ -811,7 +881,8 @@ app.get('/connections/:id/qr', (req, res) => {
         qr: conn.qrCode,
         qrImage: conn.qrImage,
         status: conn.status,
-        phoneNumber: conn.phoneNumber
+        phoneNumber: conn.phoneNumber,
+        pairingCode: conn.pairingCode
     });
 });
 
