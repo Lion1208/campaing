@@ -64,7 +64,7 @@ export default function ConnectionsPage() {
       };
 
       poll();
-      pollingRef.current = setInterval(poll, 2500);
+      pollingRef.current = setInterval(poll, 1500); // Polling mais rápido
 
       return () => {
         if (pollingRef.current) {
