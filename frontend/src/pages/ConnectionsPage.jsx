@@ -380,7 +380,7 @@ export default function ConnectionsPage() {
         </div>
       )}
 
-      {/* QR Code Dialog */}
+      {/* QR Code / Pairing Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={closeQRDialog}>
         <DialogContent className="glass-card border-border mx-4 max-w-sm">
           <DialogHeader>
@@ -389,38 +389,106 @@ export default function ConnectionsPage() {
               Conectar WhatsApp
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {qrData.qrImage ? 'Escaneie o QR Code com seu WhatsApp' : 'Gerando QR Code...'}
+              Escolha como deseja conectar
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center py-4">
-            {qrData.qrImage ? (
-              <div className="p-3 bg-white rounded-xl shadow-lg animate-fade-in">
-                <img src={qrData.qrImage} alt="QR Code WhatsApp" className="w-56 h-56" />
-              </div>
-            ) : (
-              <div className="w-56 h-56 bg-muted/50 rounded-xl flex items-center justify-center border border-border">
-                <div className="text-center space-y-3">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-3 border-primary/30 rounded-full mx-auto" />
-                    <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-1/2 -translate-x-1/2" />
+          
+          <Tabs value={connectMode} onValueChange={setConnectMode} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="qr" className="flex items-center gap-2">
+                <QrCode className="w-4 h-4" />
+                QR Code
+              </TabsTrigger>
+              <TabsTrigger value="code" className="flex items-center gap-2">
+                <Hash className="w-4 h-4" />
+                Código
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* QR Code Tab */}
+            <TabsContent value="qr" className="mt-0">
+              <div className="flex flex-col items-center py-2">
+                {qrData.qrImage ? (
+                  <div className="p-3 bg-white rounded-xl shadow-lg animate-fade-in">
+                    <img src={qrData.qrImage} alt="QR Code WhatsApp" className="w-52 h-52" />
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Gerando QR Code
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Aguarde...
-                    </p>
+                ) : (
+                  <div className="w-52 h-52 bg-muted/50 rounded-xl flex items-center justify-center border border-border">
+                    <div className="text-center space-y-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 border-3 border-primary/30 rounded-full mx-auto" />
+                        <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-1/2 -translate-x-1/2" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Gerando QR...</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  WhatsApp → Configurações → Aparelhos conectados
+                </p>
               </div>
-            )}
-            <div className="mt-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                WhatsApp → Configurações → Dispositivos conectados → Conectar
-              </p>
-            </div>
-          </div>
+            </TabsContent>
+            
+            {/* Pairing Code Tab */}
+            <TabsContent value="code" className="mt-0">
+              <div className="space-y-4 py-2">
+                {!pairingCode ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-sm">Número do WhatsApp</Label>
+                      <Input
+                        id="phone"
+                        placeholder="Ex: 11999999999"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="bg-muted/50 border-border"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Digite apenas números, com DDD
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleRequestPairingCode}
+                      disabled={pairingLoading || !phoneNumber.trim()}
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {pairingLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Gerando código...
+                        </>
+                      ) : (
+                        'Gerar Código'
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
+                      <p className="text-xs text-muted-foreground mb-2">Digite este código no WhatsApp:</p>
+                      <p className="text-3xl font-mono font-bold text-primary tracking-widest">
+                        {pairingCode}
+                      </p>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>1. Abra o WhatsApp no celular</p>
+                      <p>2. Vá em Configurações → Aparelhos conectados</p>
+                      <p>3. Toque em "Conectar um aparelho"</p>
+                      <p>4. Escolha "Conectar com número de telefone"</p>
+                      <p>5. Digite o código acima</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setPairingCode(null); setPhoneNumber(''); }}
+                      className="w-full"
+                    >
+                      Gerar novo código
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
