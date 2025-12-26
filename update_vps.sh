@@ -126,39 +126,10 @@ log "✅ Dependências atualizadas"
 # ETAPA 6: ATUALIZAR DOMÍNIO NOS .ENV (SE NECESSÁRIO)
 ################################################################################
 
-log "[6/7] 🌐 Configurando domínio..."
+log "[6/7] 🌐 Verificando configuração de domínio..."
 
-# Perguntar se quer atualizar o domínio
-read -p "Deseja atualizar o domínio? (s/N): " UPDATE_DOMAIN
-if [ "$UPDATE_DOMAIN" = "s" ] || [ "$UPDATE_DOMAIN" = "S" ]; then
-    read -p "Digite o domínio (ex: nexuzap.top) ou pressione Enter para manter atual: " NEW_DOMAIN
-    
-    if [ ! -z "$NEW_DOMAIN" ]; then
-        log "  Atualizando para: $NEW_DOMAIN"
-        
-        # Atualizar backend CORS
-        if [ -f "$APP_DIR/backend/.env" ]; then
-            # Obter IP atual
-            CURRENT_IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "localhost")
-            
-            # Atualizar CORS_ORIGINS
-            sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=http://${NEW_DOMAIN}:3000,https://${NEW_DOMAIN},http://${NEW_DOMAIN},http://${CURRENT_IP}:3000,http://${CURRENT_IP}:8001,http://localhost:3000|g" "$APP_DIR/backend/.env"
-            log "  ✅ Backend CORS atualizado"
-        fi
-        
-        # Atualizar frontend
-        if [ -f "$APP_DIR/frontend/.env" ]; then
-            sed -i "s|REACT_APP_BACKEND_URL=.*|REACT_APP_BACKEND_URL=http://${NEW_DOMAIN}:8001|g" "$APP_DIR/frontend/.env"
-            log "  ✅ Frontend URL atualizada"
-        fi
-        
-        log "✅ Domínio configurado: $NEW_DOMAIN"
-    else
-        log "⏭️  Mantendo configuração atual"
-    fi
-else
-    log "⏭️  Pulando atualização de domínio"
-fi
+# Pular pergunta interativa - manter configuração atual
+log "⏭️  Mantendo configuração de domínio atual"
 
 ################################################################################
 # ETAPA 7: REINICIAR SERVIÇOS
