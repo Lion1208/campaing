@@ -152,9 +152,12 @@ export const useConnectionsStore = create((set, get) => ({
 
   deleteConnection: async (connectionId) => {
     await api.delete(`/connections/${connectionId}`);
+    // Atualiza o estado local imediatamente
     set((state) => ({
       connections: state.connections.filter((c) => c.id !== connectionId),
     }));
+    // Também busca do servidor para garantir sincronização
+    await get().fetchConnections();
   },
 }));
 
