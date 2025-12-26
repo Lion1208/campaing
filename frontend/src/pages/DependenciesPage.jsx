@@ -70,7 +70,7 @@ export default function DependenciesPage() {
     
     try {
       const token = localStorage.getItem("nexus-token");
-      const response = await fetch(`${API_URL}/api/admin/dependencies/install-whatsapp`, {
+      const response = await fetch(`${API_URL}/admin/dependencies/install-whatsapp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -98,7 +98,7 @@ export default function DependenciesPage() {
     
     try {
       const token = localStorage.getItem("nexus-token");
-      const response = await fetch(`${API_URL}/api/admin/dependencies/start-whatsapp`, {
+      const response = await fetch(`${API_URL}/admin/dependencies/start-whatsapp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -125,7 +125,7 @@ export default function DependenciesPage() {
     
     try {
       const token = localStorage.getItem("nexus-token");
-      const response = await fetch(`${API_URL}/api/admin/dependencies/full-setup`, {
+      const response = await fetch(`${API_URL}/admin/dependencies/full-setup`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
