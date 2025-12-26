@@ -127,6 +127,11 @@ export const useConnectionsStore = create((set, get) => ({
     return response.data;
   },
 
+  requestPairingCode: async (connectionId, phoneNumber) => {
+    const response = await api.post(`/connections/${connectionId}/pairing-code`, { phone_number: phoneNumber });
+    return response.data;
+  },
+
   refreshGroups: async (connectionId) => {
     const response = await api.post(`/connections/${connectionId}/refresh-groups`);
     return response.data;
