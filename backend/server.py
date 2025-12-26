@@ -1830,7 +1830,7 @@ async def sync_groups(connection_id: str, user_id: str):
 
 @api_router.post("/connections/{connection_id}/refresh-groups")
 async def refresh_groups(connection_id: str, user: dict = Depends(get_current_user)):
-    """Atualizar lista de grupos"""
+    """Atualizar lista de grupos - simples e direto"""
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -1839,14 +1839,13 @@ async def refresh_groups(connection_id: str, user: dict = Depends(get_current_us
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Ensure WhatsApp service is running
-    whatsapp_ready = await ensure_whatsapp_running()
-    if not whatsapp_ready:
-        raise HTTPException(status_code=503, detail="Serviço em preparação. Tente novamente em alguns segundos.")
-    
-    await sync_groups(connection_id, user['id'])
-    groups = await db.groups.find({'connection_id': connection_id}, {'_id': 0}).to_list(1000)
-    return {'groups': groups, 'count': len(groups)}
+    try:
+        await sync_groups(connection_id, user['id'])
+        groups = await db.groups.find({'connection_id': connection_id}, {'_id': 0}).to_list(1000)
+        return {'groups': groups, 'count': len(groups)}
+    except Exception as e:
+        logger.error(f"Erro ao atualizar grupos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/connections/{connection_id}/disconnect")
 async def disconnect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
