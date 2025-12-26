@@ -14,7 +14,7 @@ export default function DependenciesPage() {
   const fetchStatus = async () => {
     try {
       const token = localStorage.getItem("nexus-token");
-      const response = await fetch(`${API_URL}/api/admin/dependencies/status`, {
+      const response = await fetch(`${API_URL}/admin/dependencies/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
@@ -41,7 +41,7 @@ export default function DependenciesPage() {
     
     try {
       const token = localStorage.getItem("nexus-token");
-      const response = await fetch(`${API_URL}/api/admin/dependencies/install-node`, {
+      const response = await fetch(`${API_URL}/admin/dependencies/install-node`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
