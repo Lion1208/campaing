@@ -111,12 +111,19 @@ export default function ConnectionsPage() {
   };
 
   const handleConnect = async (connection) => {
+    console.log('[DEBUG] handleConnect iniciado para:', connection.id, connection.name);
     setSelectedConnectionId(connection.id);
     setQrData({ qr: null, qrImage: null, status: 'connecting' });
     setQrDialogOpen(true);
     
-    // Direto - sem try/catch, o polling cuida
-    await connectWhatsApp(connection.id);
+    try {
+      console.log('[DEBUG] Chamando connectWhatsApp...');
+      const result = await connectWhatsApp(connection.id);
+      console.log('[DEBUG] Resultado do connectWhatsApp:', result);
+    } catch (error) {
+      console.error('[DEBUG] ERRO no connectWhatsApp:', error);
+      console.error('[DEBUG] Detalhes:', error.response?.data || error.message);
+    }
   };
 
   const handleRefreshGroups = async (connection) => {
