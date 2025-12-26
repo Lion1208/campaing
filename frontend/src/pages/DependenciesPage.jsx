@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Package, CheckCircle, XCircle, Loader2, Play, RefreshCw, Terminal, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Package, CheckCircle, XCircle, Loader2, Play, RefreshCw, Terminal, AlertTriangle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -10,6 +10,12 @@ export default function DependenciesPage() {
   const [installing, setInstalling] = useState(false);
   const [installLogs, setInstallLogs] = useState([]);
   const [startingService, setStartingService] = useState(false);
+  
+  // Terminal state
+  const [terminalOutput, setTerminalOutput] = useState([]);
+  const [currentCommand, setCurrentCommand] = useState('');
+  const [executingCommand, setExecutingCommand] = useState(false);
+  const terminalRef = useRef(null);
 
   const fetchStatus = async () => {
     try {
@@ -175,6 +181,71 @@ export default function DependenciesPage() {
     } finally {
       setInstalling(false);
     }
+  };
+
+  const executeCommand = async () => {
+    if (!currentCommand.trim() || executingCommand) return;
+    
+    const cmd = currentCommand.trim();
+    setCurrentCommand('');
+    
+    // Add command to output
+    setTerminalOutput(prev => [...prev, { type: 'command', text: `$ ${cmd}` }]);
+    setExecutingCommand(true);
+    
+    try {
+      const token = localStorage.getItem("nexus-token");
+      const response = await fetch(`${API_URL}/admin/terminal/execute`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ command: cmd })
+      });
+      
+      const data = await response.json();
+      
+      if (data.output) {
+        setTerminalOutput(prev => [...prev, { type: 'output', text: data.output }]);
+      }
+      
+      if (data.error) {
+        setTerminalOutput(prev => [...prev, { type: 'error', text: data.error }]);
+      }
+      
+      if (!data.success) {
+        setTerminalOutput(prev => [...prev, { 
+          type: 'error', 
+          text: `Comando falhou com código de saída: ${data.exit_code}` 
+        }]);
+      }
+      
+    } catch (error) {
+      setTerminalOutput(prev => [...prev, { 
+        type: 'error', 
+        text: `Erro ao executar comando: ${error.message}` 
+      }]);
+    } finally {
+      setExecutingCommand(false);
+      // Scroll to bottom
+      setTimeout(() => {
+        if (terminalRef.current) {
+          terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      executeCommand();
+    }
+  };
+
+  const clearTerminal = () => {
+    setTerminalOutput([]);
   };
 
   if (loading) {
@@ -406,6 +477,93 @@ export default function DependenciesPage() {
           </div>
         </div>
       )}
+
+      {/* Terminal CMD */}
+      <div className="p-6 rounded-xl bg-card border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Terminal do Servidor</h2>
+          </div>
+          <button
+            onClick={clearTerminal}
+            className="text-sm px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+          >
+            Limpar
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          {/* Terminal Output */}
+          <div 
+            ref={terminalRef}
+            className="bg-black rounded-lg p-4 font-mono text-sm h-96 overflow-y-auto"
+          >
+            {terminalOutput.length === 0 ? (
+              <div className="text-gray-500">
+                <p>Terminal pronto. Digite seus comandos abaixo.</p>
+                <p className="mt-2">Exemplos:</p>
+                <p className="text-green-400 mt-1">$ ls -la</p>
+                <p className="text-green-400">$ pwd</p>
+                <p className="text-green-400">$ cat /app/backend/.env</p>
+                <p className="text-green-400">$ supervisorctl status</p>
+              </div>
+            ) : (
+              terminalOutput.map((line, index) => (
+                <div 
+                  key={index} 
+                  className={
+                    line.type === 'command' 
+                      ? 'text-green-400 font-bold mb-1' 
+                      : line.type === 'error'
+                      ? 'text-red-400 whitespace-pre-wrap mb-2'
+                      : 'text-gray-300 whitespace-pre-wrap mb-2'
+                  }
+                >
+                  {line.text}
+                </div>
+              ))
+            )}
+            {executingCommand && (
+              <div className="text-yellow-400 animate-pulse">Executando...</div>
+            )}
+          </div>
+
+          {/* Command Input */}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-400 font-mono">$</span>
+              <input
+                type="text"
+                value={currentCommand}
+                onChange={(e) => setCurrentCommand(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={executingCommand}
+                placeholder="Digite seu comando aqui..."
+                className="w-full pl-8 pr-4 py-3 rounded-lg bg-black border border-border text-white font-mono focus:outline-none focus:border-primary disabled:opacity-50"
+              />
+            </div>
+            <button
+              onClick={executeCommand}
+              disabled={executingCommand || !currentCommand.trim()}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {executingCommand ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
+          <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+            <p><strong>⚠️ Atenção:</strong> Você tem acesso root completo ao servidor.</p>
+            <p className="mt-1">• Comandos longos podem ter timeout de 30 segundos</p>
+            <p>• Para comandos que demoram, use: <code className="text-green-400">nohup comando &</code></p>
+            <p>• Diretório atual: <code className="text-green-400">/app</code></p>
+          </div>
+        </div>
+      </div>
 
       {/* System Info */}
       {status?.system_info && (

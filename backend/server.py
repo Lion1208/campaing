@@ -854,6 +854,56 @@ async def install_whatsapp_deps(admin: dict = Depends(get_admin_user)):
         logs.append(f"❌ Erro: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.post("/admin/terminal/execute")
+async def execute_terminal_command(
+    command: dict,
+    admin: dict = Depends(get_admin_user)
+):
+    """Execute a terminal command with full permissions"""
+    import subprocess
+    import shlex
+    
+    cmd = command.get('command', '').strip()
+    if not cmd:
+        raise HTTPException(status_code=400, detail="Comando vazio")
+    
+    try:
+        # Execute command with shell=True for full functionality
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd='/app'
+        )
+        
+        # Wait for completion with timeout
+        stdout, stderr = process.communicate(timeout=30)
+        
+        return {
+            'success': process.returncode == 0,
+            'output': stdout,
+            'error': stderr,
+            'exit_code': process.returncode
+        }
+        
+    except subprocess.TimeoutExpired:
+        process.kill()
+        return {
+            'success': False,
+            'output': '',
+            'error': 'Comando excedeu o tempo limite de 30 segundos',
+            'exit_code': -1
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'output': '',
+            'error': str(e),
+            'exit_code': -1
+        }
+
 @api_router.post("/admin/dependencies/start-whatsapp")
 async def start_whatsapp_service(admin: dict = Depends(get_admin_user)):
     """Start WhatsApp service"""
