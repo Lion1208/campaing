@@ -118,8 +118,16 @@ export const useConnectionsStore = create((set, get) => ({
   },
 
   connectWhatsApp: async (connectionId) => {
-    const response = await api.post(`/connections/${connectionId}/connect`);
-    return response.data;
+    console.log('[DEBUG STORE] connectWhatsApp chamado para:', connectionId);
+    console.log('[DEBUG STORE] URL da API:', api.defaults.baseURL);
+    try {
+      const response = await api.post(`/connections/${connectionId}/connect`);
+      console.log('[DEBUG STORE] Resposta do /connect:', response.status, response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[DEBUG STORE] ERRO no /connect:', error.response?.status, error.response?.data);
+      throw error;
+    }
   },
 
   getQRCode: async (connectionId) => {
