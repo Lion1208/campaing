@@ -447,7 +447,7 @@ async function createConnection(connectionId) {
             },
             printQRInTerminal: false,
             logger,
-            browser: ['Nexus Campaign', 'Chrome', '121.0.0'],
+            browser: ['Ubuntu', 'Chrome', '114.0.5735.198'], // Config compatível com QR e Pairing
             connectTimeoutMs: 60000,
             qrTimeout: 60000,
             defaultQueryTimeoutMs: 60000,
