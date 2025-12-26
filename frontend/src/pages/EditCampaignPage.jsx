@@ -176,7 +176,8 @@ export default function EditCampaignPage() {
     loadCampaign();
     fetchConnections();
     fetchImages();
-  }, [id, navigate, fetchConnections, fetchImages, loadImageFromApi, loadGroups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, navigate, fetchConnections, fetchImages, loadImageFromApi]);
 
   // Preview animation
   useEffect(() => {
