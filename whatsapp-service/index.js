@@ -26,6 +26,42 @@ const AUTH_DIR = path.join(__dirname, 'auth_sessions');
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'nexuzap';
 
+// Cache da versão do Baileys para evitar requisições desnecessárias
+let cachedBaileysVersion = null;
+let baileysVersionCacheTime = 0;
+const BAILEYS_VERSION_CACHE_TTL = 3600000; // 1 hora
+
+// Função otimizada para obter versão do Baileys com cache e fallback
+async function getBaileysVersion() {
+    const now = Date.now();
+    
+    // Se tem cache válido, usa
+    if (cachedBaileysVersion && (now - baileysVersionCacheTime) < BAILEYS_VERSION_CACHE_TTL) {
+        console.log(`[DEBUG] Usando versão cacheada do Baileys: ${cachedBaileysVersion.join('.')}`);
+        return { version: cachedBaileysVersion };
+    }
+    
+    try {
+        // Tenta buscar versão mais recente com timeout curto
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 5000)
+        );
+        
+        const fetchPromise = fetchLatestBaileysVersion();
+        const result = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        cachedBaileysVersion = result.version;
+        baileysVersionCacheTime = now;
+        console.log(`[DEBUG] Versão do Baileys atualizada: ${result.version.join('.')}`);
+        return result;
+    } catch (error) {
+        console.warn(`[DEBUG] Falha ao buscar versão do Baileys: ${error.message}. Usando versão padrão.`);
+        // Fallback para versão conhecida que funciona
+        const fallbackVersion = [2, 3000, 1015901307];
+        return { version: cachedBaileysVersion || fallbackVersion };
+    }
+}
+
 // ============= BLINDAGEM TOTAL DO SERVIÇO =============
 // Service will NEVER crash - all errors are caught and handled
 
