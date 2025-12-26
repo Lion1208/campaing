@@ -341,9 +341,13 @@ async function sessionExistsInMongo(connectionId) {
 // Check if connection is truly alive by trying to fetch profile
 async function isConnectionAlive(connectionId) {
     const conn = connections.get(connectionId);
-    if (!conn || !conn.socket) return false;
+    if (!conn || !conn.socket) {
+        console.log(`[${connectionId}] 🔍 isConnectionAlive: socket não existe`);
+        return false;
+    }
     
     try {
+        console.log(`[${connectionId}] 🔍 isConnectionAlive: testando com fetchStatus...`);
         // Try to get own status - this will fail if connection is dead
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Timeout')), CONNECTION_TIMEOUT)
@@ -352,9 +356,10 @@ async function isConnectionAlive(connectionId) {
         const checkPromise = conn.socket.fetchStatus(conn.socket.user?.id);
         
         await Promise.race([checkPromise, timeoutPromise]);
+        console.log(`[${connectionId}] ✅ isConnectionAlive: conexão está viva`);
         return true;
     } catch (error) {
-        console.log(`[${connectionId}] Conexão parece estar morta: ${error.message}`);
+        console.log(`[${connectionId}] ❌ isConnectionAlive falhou: ${error.message}`);
         return false;
     }
 }
