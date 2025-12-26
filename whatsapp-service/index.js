@@ -1059,18 +1059,25 @@ app.get('/connections/:id/qr', (req, res) => {
 
 app.get('/connections/:id/groups', async (req, res) => {
     const connectionId = req.params.id;
+    console.log(`[${connectionId}] 📥 GET /groups - refresh=${req.query.refresh}`);
     const conn = connections.get(connectionId);
     
     if (!conn) {
+        console.log(`[${connectionId}] ❌ Conexão não encontrada no Map`);
         return res.json({ groups: [], status: 'not_found' });
     }
     
+    console.log(`[${connectionId}] Status: ${conn.status}, grupos em memória: ${conn.groups?.length || 0}`);
+    
     if (conn.status !== 'connected') {
+        console.log(`[${connectionId}] ⚠️ Não conectado, retornando grupos em cache`);
         return res.json({ groups: conn.groups || [], status: conn.status });
     }
     
     if (req.query.refresh === 'true' || conn.groups.length === 0) {
-        await fetchGroups(connectionId);
+        console.log(`[${connectionId}] 🔄 Buscando grupos (refresh ou cache vazio)...`);
+        const groups = await fetchGroups(connectionId);
+        console.log(`[${connectionId}] ✅ Retornando ${groups.length} grupos`);
     }
     
     res.json({ groups: conn.groups, status: conn.status });
