@@ -1441,10 +1441,9 @@ async function killProcessOnPort(port) {
 }
 
 // Função para verificar se porta está disponível
-async function isPortAvailable(port) {
+function isPortAvailable(port) {
     return new Promise((resolve) => {
-        const net = await import('net');
-        const server = net.default.createServer();
+        const server = net.createServer();
         
         server.once('error', (err) => {
             if (err.code === 'EADDRINUSE') {
