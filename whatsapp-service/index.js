@@ -1404,15 +1404,118 @@ async function periodicConnectionCheck() {
     setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
 }
 
-app.listen(PORT, async () => {
-    console.log(`🚀 Serviço WhatsApp rodando na porta ${PORT}`);
-    console.log(`🛡️ Keep-alive configurado para verificar a cada ${KEEPALIVE_INTERVAL/1000}s`);
-    console.log(`📦 Sessões serão persistidas no MongoDB: ${MONGO_URL}`);
-    console.log(`🔄 Auto-reconexão habilitada`);
+// ============= AUTO-RECOVERY SYSTEM =============
+// Sistema de auto-recuperação para resolver problemas automaticamente
+
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
+
+// Função para matar processos na porta
+async function killProcessOnPort(port) {
+    console.log(`🔧 [AUTO-RECOVERY] Tentando liberar porta ${port}...`);
     
-    // Connect to MongoDB first
-    await connectMongo();
+    try {
+        // Tenta com fuser (Linux)
+        await execAsync(`fuser -k ${port}/tcp 2>/dev/null || true`);
+        console.log(`🔧 [AUTO-RECOVERY] fuser executado`);
+    } catch (e) {
+        // Ignora erro
+    }
     
-    // Auto-reconnect after a short delay to ensure server is ready
-    setTimeout(autoReconnectSessions, 3000);
-});
+    try {
+        // Tenta matar processos node antigos nesta porta
+        await execAsync(`lsof -ti :${port} | xargs kill -9 2>/dev/null || true`);
+        console.log(`🔧 [AUTO-RECOVERY] lsof+kill executado`);
+    } catch (e) {
+        // Ignora erro
+    }
+    
+    // Aguarda um pouco para a porta ser liberada
+    await new Promise(resolve => setTimeout(resolve, 2000));
+}
+
+// Função para verificar se porta está disponível
+async function isPortAvailable(port) {
+    return new Promise((resolve) => {
+        const net = await import('net');
+        const server = net.default.createServer();
+        
+        server.once('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                resolve(false);
+            } else {
+                resolve(false);
+            }
+        });
+        
+        server.once('listening', () => {
+            server.close();
+            resolve(true);
+        });
+        
+        server.listen(port);
+    });
+}
+
+// Função principal de inicialização com auto-recovery
+async function startServer(port, maxRetries = 5) {
+    let currentPort = port;
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+        try {
+            console.log(`🚀 [AUTO-RECOVERY] Tentativa ${retries + 1}/${maxRetries} de iniciar na porta ${currentPort}...`);
+            
+            // Tenta iniciar o servidor
+            await new Promise((resolve, reject) => {
+                const server = app.listen(currentPort, async () => {
+                    console.log(`🚀 Serviço WhatsApp rodando na porta ${currentPort}`);
+                    console.log(`🛡️ Keep-alive configurado para verificar a cada ${KEEPALIVE_INTERVAL/1000}s`);
+                    console.log(`📦 Sessões serão persistidas no MongoDB: ${MONGO_URL}`);
+                    console.log(`🔄 Auto-reconexão habilitada`);
+                    console.log(`🔧 Auto-recovery ativado`);
+                    
+                    // Connect to MongoDB
+                    await connectMongo();
+                    
+                    // Auto-reconnect sessions
+                    setTimeout(autoReconnectSessions, 3000);
+                    
+                    resolve();
+                });
+                
+                server.once('error', (err) => {
+                    reject(err);
+                });
+            });
+            
+            // Se chegou aqui, servidor iniciou com sucesso
+            return;
+            
+        } catch (error) {
+            console.error(`🔧 [AUTO-RECOVERY] Erro ao iniciar: ${error.message}`);
+            
+            if (error.code === 'EADDRINUSE') {
+                console.log(`🔧 [AUTO-RECOVERY] Porta ${currentPort} em uso. Tentando liberar...`);
+                
+                // Tenta liberar a porta
+                await killProcessOnPort(currentPort);
+                
+                retries++;
+                
+                if (retries >= maxRetries) {
+                    console.error(`🔧 [AUTO-RECOVERY] Falha após ${maxRetries} tentativas. Desistindo.`);
+                    // Não faz exit - deixa o processo vivo para supervisor reiniciar
+                }
+            } else {
+                // Outro tipo de erro
+                retries++;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+    }
+}
+
+// Inicia o servidor com auto-recovery
+startServer(PORT);
