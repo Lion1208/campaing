@@ -84,15 +84,34 @@ log "[4/6] 📥 Baixando atualizações do GitHub..."
 
 cd "$APP_DIR"
 
-# Salvar alterações locais
-git stash push -m "Auto-stash antes de atualizar em $DATE" 2>/dev/null || true
+# Verificar se é um repositório git
+if [ ! -d ".git" ]; then
+    log "📦 Inicializando repositório git..."
+    git init
+    git remote add origin https://github.com/Lion1208/campaing.git
+fi
 
-# Atualizar do GitHub (repositório Lion1208/campaing)
-git pull https://github.com/Lion1208/campaing.git main --force 2>&1 || {
-    warn "Erro no git pull, tentando com fetch+reset..."
-    git fetch https://github.com/Lion1208/campaing.git main
-    git reset --hard FETCH_HEAD
+# Baixar atualizações
+log "📥 Baixando do GitHub (Lion1208/campaing)..."
+git fetch https://github.com/Lion1208/campaing.git main 2>&1 || {
+    error "Falha ao conectar com GitHub"
+    exit 1
 }
+
+# Fazer backup de arquivos locais importantes
+log "💾 Salvando configurações locais..."
+cp backend/.env /tmp/backend.env.bak 2>/dev/null || true
+cp frontend/.env /tmp/frontend.env.bak 2>/dev/null || true
+cp whatsapp-service/.env /tmp/whatsapp.env.bak 2>/dev/null || true
+
+# Atualizar código (sobrescrever)
+git reset --hard FETCH_HEAD
+
+# Restaurar .env files
+log "🔧 Restaurando configurações locais..."
+cp /tmp/backend.env.bak backend/.env 2>/dev/null || true
+cp /tmp/frontend.env.bak frontend/.env 2>/dev/null || true
+cp /tmp/whatsapp.env.bak whatsapp-service/.env 2>/dev/null || true
 
 log "✅ Código atualizado do GitHub"
 
