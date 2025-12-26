@@ -1412,10 +1412,6 @@ async function periodicConnectionCheck() {
 // ============= AUTO-RECOVERY SYSTEM =============
 // Sistema de auto-recuperação para resolver problemas automaticamente
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
-const execAsync = promisify(exec);
-
 // Função para matar processos na porta
 async function killProcessOnPort(port) {
     console.log(`🔧 [AUTO-RECOVERY] Tentando liberar porta ${port}...`);
