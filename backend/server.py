@@ -44,14 +44,22 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 # Create the main app
 app = FastAPI(title="Nexus WhatsApp Campaign Manager")
 
-# CORS Middleware - must be added before routes
+# Get CORS origins from env
+cors_origins_str = os.environ.get('CORS_ORIGINS', '*')
+if cors_origins_str == '*':
+    cors_origins = ['*']
+else:
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(',') if origin.strip()]
+
+# CORS Middleware - must be added FIRST before any routes
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_origins=cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,  # Cache preflight for 24 hours
 )
 
 # Create a router with the /api prefix
