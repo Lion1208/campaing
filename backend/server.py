@@ -2073,7 +2073,7 @@ async def sync_groups(connection_id: str, user_id: str):
 
 @api_router.post("/connections/{connection_id}/refresh-groups")
 async def refresh_groups(connection_id: str, user: dict = Depends(get_current_user)):
-    """Atualizar lista de grupos - direto"""
+    """Atualizar lista de grupos - com diagnóstico completo"""
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -2082,9 +2082,28 @@ async def refresh_groups(connection_id: str, user: dict = Depends(get_current_us
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    await sync_groups(connection_id, user['id'])
+    logger.info(f"[DEBUG] refresh-groups chamado para {connection_id}, status no banco: {connection.get('status')}")
+    
+    # Verifica status da conexão no whatsapp-service
+    try:
+        ws_status = await whatsapp_request("GET", f"/connections/{connection_id}/status", timeout=10.0, auto_recover=False)
+        ws_connection_status = ws_status.get('status', 'unknown')
+        logger.info(f"[DEBUG] Status no whatsapp-service: {ws_connection_status}")
+    except Exception as e:
+        ws_connection_status = 'service_error'
+        logger.error(f"[DEBUG] Erro ao verificar status no whatsapp-service: {e}")
+    
+    # Sincroniza grupos
+    count = await sync_groups(connection_id, user['id'])
     groups = await db.groups.find({'connection_id': connection_id}, {'_id': 0}).to_list(1000)
-    return {'groups': groups, 'count': len(groups)}
+    
+    return {
+        'groups': groups, 
+        'count': len(groups),
+        'connection_status': connection.get('status'),
+        'whatsapp_service_status': ws_connection_status,
+        'message': 'Grupos sincronizados' if count > 0 else 'Nenhum grupo encontrado. Verifique se a conexão está ativa no WhatsApp.'
+    }
 
 @api_router.post("/connections/{connection_id}/disconnect")
 async def disconnect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
