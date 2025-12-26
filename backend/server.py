@@ -1797,9 +1797,6 @@ async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)
     except Exception as e:
         logger.error(f"Erro ao obter QR: {e}")
         return {'qr': None, 'qrImage': None, 'status': 'error', 'error': str(e)}
-        )
-    
-    return result
 
 class PairingCodeRequest(BaseModel):
     phone_number: str
