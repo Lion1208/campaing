@@ -1,0 +1,103 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🐛 BUG CRÍTICO CORRIGIDO - Grupos sumirem após sync      ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+📋 PROBLEMA REAL IDENTIFICADO:
+═══════════════════════════════════════════════════════════════
+
+Fluxo que causava o bug:
+  1. ✅ Cria campanha e marca 10 grupos
+  2. ✅ Salva a campanha (guarda os UUIDs dos grupos)
+  3. ❌ Vai em Conexões → Sincronizar Grupos
+  4. ❌ Sistema DELETA todos os grupos e RECRIA com NOVOS UUIDs
+  5. ❌ Campanha tem os UUIDs ANTIGOS (que não existem mais!)
+  6. ❌ Ao editar campanha, grupos não aparecem marcados
+
+
+🔍 CAUSA RAIZ:
+═══════════════════════════════════════════════════════════════
+
+A função sync_groups fazia:
+  ❌ DELETE de todos os grupos
+  ❌ INSERT de grupos novos com UUIDs novos
+  ❌ Campanhas ficavam com referências "órfãs"
+
+
+✅ CORREÇÃO APLICADA:
+═══════════════════════════════════════════════════════════════
+
+Arquivo: /app/backend/server.py
+
+ANTES (deletava tudo):
+  await db.groups.delete_many({'connection_id': connection_id})
+  for g in groups:
+      group = {'id': str(uuid.uuid4()), ...}  # NOVO UUID
+      await db.groups.insert_one(group)
+
+DEPOIS (faz UPSERT mantendo UUIDs):
+  1. Busca grupos existentes no banco
+  2. Para cada grupo do WhatsApp:
+     - Se já existe → UPDATE (mantém UUID)
+     - Se é novo → INSERT (novo UUID)
+  3. Remove apenas grupos que não existem mais no WhatsApp
+
+
+🎯 RESULTADO:
+═══════════════════════════════════════════════════════════════
+
+✅ Grupos mantêm o mesmo UUID após sincronização
+✅ Campanhas continuam com referências válidas
+✅ Grupos aparecem marcados mesmo depois de sincronizar
+✅ Apenas grupos removidos do WhatsApp são deletados
+
+
+📦 DEPLOY (2 comandos na VPS):
+═══════════════════════════════════════════════════════════════
+
+cd /opt/nexuzap
+wget -O backend/server.py https://raw.githubusercontent.com/Lion1208/campaing/main/backend/server.py
+sudo supervisorctl restart nexuzap-backend
+
+
+⏱️  Aguarde ~5 segundos
+
+
+✅ TESTAR O FLUXO COMPLETO:
+═══════════════════════════════════════════════════════════════
+
+1. Acesse https://nexuzap.com
+2. Edite uma campanha e marque alguns grupos
+3. Salve a campanha
+4. Vá em "Conexões" → "Sincronizar Grupos"
+5. Volte em "Campanhas" → "Editar" a mesma campanha
+6. ✅ OS GRUPOS DEVEM APARECER MARCADOS!
+
+
+📊 LOGS PARA VERIFICAR:
+═══════════════════════════════════════════════════════════════
+
+sudo tail -n 50 /var/log/supervisor/nexuzap-backend.out.log
+
+Você verá mensagens como:
+  [DEBUG SYNC] Grupo atualizado: Nome do Grupo (manteve UUID: xxx)
+  [DEBUG SYNC] Grupo novo inserido: Novo Grupo
+
+
+⚠️  IMPORTANTE:
+═══════════════════════════════════════════════════════════════
+
+Esta correção NÃO afeta campanhas já criadas.
+Grupos que já foram deletados/recriados com UUIDs novos
+continuarão órfãos. Apenas novas sincronizações preservarão
+os UUIDs.
+
+Solução para campanhas existentes:
+  → Edite a campanha e selecione os grupos novamente
+
+
+═══════════════════════════════════════════════════════════════
+
+🎉 Agora a sincronização preserva as referências das campanhas!
