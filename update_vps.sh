@@ -120,10 +120,48 @@ npm install --legacy-peer-deps 2>/dev/null || warn "Algumas dependências Node p
 log "✅ Dependências atualizadas"
 
 ################################################################################
-# ETAPA 6: REINICIAR SERVIÇOS
+# ETAPA 6: ATUALIZAR DOMÍNIO NOS .ENV (SE NECESSÁRIO)
 ################################################################################
 
-log "[6/6] ▶️  Reiniciando serviços..."
+log "[6/7] 🌐 Configurando domínio..."
+
+# Perguntar se quer atualizar o domínio
+read -p "Deseja atualizar o domínio? (s/N): " UPDATE_DOMAIN
+if [ "$UPDATE_DOMAIN" = "s" ] || [ "$UPDATE_DOMAIN" = "S" ]; then
+    read -p "Digite o domínio (ex: nexuzap.top) ou pressione Enter para manter atual: " NEW_DOMAIN
+    
+    if [ ! -z "$NEW_DOMAIN" ]; then
+        log "  Atualizando para: $NEW_DOMAIN"
+        
+        # Atualizar backend CORS
+        if [ -f "$APP_DIR/backend/.env" ]; then
+            # Obter IP atual
+            CURRENT_IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "localhost")
+            
+            # Atualizar CORS_ORIGINS
+            sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=http://${NEW_DOMAIN}:3000,https://${NEW_DOMAIN},http://${NEW_DOMAIN},http://${CURRENT_IP}:3000,http://${CURRENT_IP}:8001,http://localhost:3000|g" "$APP_DIR/backend/.env"
+            log "  ✅ Backend CORS atualizado"
+        fi
+        
+        # Atualizar frontend
+        if [ -f "$APP_DIR/frontend/.env" ]; then
+            sed -i "s|REACT_APP_BACKEND_URL=.*|REACT_APP_BACKEND_URL=http://${NEW_DOMAIN}:8001|g" "$APP_DIR/frontend/.env"
+            log "  ✅ Frontend URL atualizada"
+        fi
+        
+        log "✅ Domínio configurado: $NEW_DOMAIN"
+    else
+        log "⏭️  Mantendo configuração atual"
+    fi
+else
+    log "⏭️  Pulando atualização de domínio"
+fi
+
+################################################################################
+# ETAPA 7: REINICIAR SERVIÇOS
+################################################################################
+
+log "[7/7] ▶️  Reiniciando serviços..."
 
 supervisorctl restart nexuzap:*
 sleep 5
@@ -135,6 +173,17 @@ echo -e "${BLUE}═════════════════════�
 echo -e "${GREEN}📊 Status dos Serviços:${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
 supervisorctl status nexuzap:*
+
+echo ""
+echo -e "${GREEN}🌐 Configuração atual:${NC}"
+if [ -f "$APP_DIR/frontend/.env" ]; then
+    FRONTEND_URL=$(grep REACT_APP_BACKEND_URL "$APP_DIR/frontend/.env" | cut -d'=' -f2)
+    echo "   Frontend → Backend: $FRONTEND_URL"
+fi
+if [ -f "$APP_DIR/backend/.env" ]; then
+    CORS=$(grep CORS_ORIGINS "$APP_DIR/backend/.env" | cut -d'=' -f2 | cut -d',' -f1)
+    echo "   CORS permitido: $CORS..."
+fi
 
 echo ""
 echo -e "${YELLOW}💾 Backups salvos em:${NC}"
