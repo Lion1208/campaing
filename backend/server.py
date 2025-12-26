@@ -757,13 +757,17 @@ async def full_setup(admin: dict = Depends(get_admin_user)):
     import urllib.request
     import platform
     
+    # Versões fixas exatas
+    NODE_VERSION = "20.19.6"
+    NPM_VERSION = "10.8.2"
+    
     logs = []
     
     try:
         # Step 1: Install Node.js if needed
         node_installed, node_version, _ = check_node_installed()
         if not node_installed:
-            logs.append("📦 Passo 1: Instalando Node.js...")
+            logs.append(f"📦 Passo 1: Instalando Node.js v{NODE_VERSION}...")
             
             # Detect architecture
             arch = platform.machine()
@@ -774,10 +778,10 @@ async def full_setup(admin: dict = Depends(get_admin_user)):
             else:
                 node_arch = 'x64'
             
-            node_url = f'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-{node_arch}.tar.xz'
+            node_url = f'https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-linux-{node_arch}.tar.xz'
             node_file = '/tmp/node.tar.xz'
             
-            logs.append(f"Baixando Node.js ({node_arch})...")
+            logs.append(f"Baixando Node.js v{NODE_VERSION} ({node_arch})...")
             
             try:
                 urllib.request.urlretrieve(node_url, node_file)
