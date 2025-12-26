@@ -1882,18 +1882,24 @@ async def request_pairing_code(connection_id: str, data: PairingCodeRequest, use
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Direto no serviço
-    result = await whatsapp_request("POST", f"/connections/{connection_id}/pairing-code", {
-        'phoneNumber': data.phone_number
-    })
-    
-    if result.get('success'):
-        await db.connections.update_one(
-            {'id': connection_id},
-            {'$set': {'status': 'waiting_code'}}
-        )
-    
-    return result
+    try:
+        # Timeout maior (120s) pois criar conexão e gerar código pode demorar
+        result = await whatsapp_request("POST", f"/connections/{connection_id}/pairing-code", {
+            'phoneNumber': data.phone_number
+        }, timeout=120.0)
+        
+        if result.get('success'):
+            await db.connections.update_one(
+                {'id': connection_id},
+                {'$set': {'status': 'waiting_code'}}
+            )
+        
+        return result
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e) or "Erro desconhecido"
+        logger.error(f"[DEBUG] Erro ao gerar pairing code [{error_type}]: {error_msg}")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar código [{error_type}]: {error_msg}")
 
 async def sync_groups(connection_id: str, user_id: str):
     """Sync groups from WhatsApp"""
