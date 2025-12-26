@@ -426,19 +426,30 @@ setInterval(keepAliveCheck, KEEPALIVE_INTERVAL);
 setInterval(serviceWatchdog, 60000);
 
 async function createConnection(connectionId) {
+    console.log(`[DEBUG] createConnection(${connectionId}) iniciado`);
+    
     // Clean up existing connection if any
     const existingConn = connections.get(connectionId);
     if (existingConn?.socket) {
+        console.log(`[DEBUG] Limpando conexão existente para ${connectionId}`);
         try {
             existingConn.socket.end();
-        } catch (e) {}
+        } catch (e) {
+            console.log(`[DEBUG] Erro ao limpar conexão: ${e.message}`);
+        }
     }
 
     try {
+        console.log(`[DEBUG] Obtendo estado de autenticação do MongoDB...`);
         // Use MongoDB auth state
         const { state, saveCreds } = await useMongoAuthState(connectionId);
-        const { version } = await fetchLatestBaileysVersion();
+        console.log(`[DEBUG] Estado obtido. Creds existente: ${state.creds ? 'sim' : 'não'}`);
         
+        console.log(`[DEBUG] Obtendo versão do Baileys...`);
+        const { version } = await fetchLatestBaileysVersion();
+        console.log(`[DEBUG] Versão do Baileys: ${version.join('.')}`);
+        
+        console.log(`[DEBUG] Criando socket WhatsApp...`);
         const sock = makeWASocket({
             version,
             auth: {
@@ -460,6 +471,7 @@ async function createConnection(connectionId) {
             msgRetryCounterMap: {},
             maxMsgRetryCount: 5,
         });
+        console.log(`[DEBUG] Socket criado com sucesso`);
 
         const connectionData = {
             socket: sock,
