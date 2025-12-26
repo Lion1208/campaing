@@ -369,6 +369,22 @@ export default function DependenciesPage() {
                 )}
                 Iniciar Serviço
               </button>
+
+              {/* Restart Service */}
+              {status?.whatsapp_service_running && (
+                <button
+                  onClick={handleRestartWhatsApp}
+                  disabled={startingService}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-500 transition-colors"
+                >
+                  {startingService ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Reiniciar Serviço
+                </button>
+              )}
             </div>
           </div>
         )}
