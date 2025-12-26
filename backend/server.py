@@ -268,6 +268,77 @@ async def get_admin_user(user: dict = Depends(get_current_user)):
 
 # ============= WhatsApp Service Integration =============
 
+# Auto-recovery tracking
+whatsapp_recovery_attempts = 0
+last_recovery_attempt = None
+MAX_RECOVERY_ATTEMPTS = 3
+RECOVERY_COOLDOWN = 60  # segundos entre tentativas
+
+async def auto_recover_whatsapp_service():
+    """Tenta recuperar o serviço WhatsApp automaticamente"""
+    global whatsapp_recovery_attempts, last_recovery_attempt
+    import subprocess
+    
+    now = datetime.now(timezone.utc)
+    
+    # Verifica cooldown
+    if last_recovery_attempt:
+        elapsed = (now - last_recovery_attempt).total_seconds()
+        if elapsed < RECOVERY_COOLDOWN:
+            logger.info(f"[AUTO-RECOVERY] Aguardando cooldown ({RECOVERY_COOLDOWN - elapsed:.0f}s restantes)")
+            return False
+    
+    if whatsapp_recovery_attempts >= MAX_RECOVERY_ATTEMPTS:
+        # Reset após 5 minutos
+        if last_recovery_attempt and (now - last_recovery_attempt).total_seconds() > 300:
+            whatsapp_recovery_attempts = 0
+        else:
+            logger.warning(f"[AUTO-RECOVERY] Máximo de tentativas atingido ({MAX_RECOVERY_ATTEMPTS})")
+            return False
+    
+    whatsapp_recovery_attempts += 1
+    last_recovery_attempt = now
+    
+    logger.info(f"[AUTO-RECOVERY] Tentativa {whatsapp_recovery_attempts}/{MAX_RECOVERY_ATTEMPTS} de recuperar WhatsApp service...")
+    
+    try:
+        # 1. Tenta matar processos na porta 3002
+        logger.info("[AUTO-RECOVERY] Liberando porta 3002...")
+        subprocess.run(['fuser', '-k', '3002/tcp'], capture_output=True, timeout=10)
+        await asyncio.sleep(2)
+        
+        # 2. Reinicia via supervisor
+        logger.info("[AUTO-RECOVERY] Reiniciando via supervisor...")
+        subprocess.run(['supervisorctl', 'restart', 'whatsapp'], capture_output=True, timeout=30)
+        await asyncio.sleep(5)
+        
+        # 3. Verifica se voltou
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{WHATSAPP_SERVICE_URL}/health")
+                if response.status_code == 200:
+                    logger.info("[AUTO-RECOVERY] ✅ WhatsApp service recuperado com sucesso!")
+                    whatsapp_recovery_attempts = 0  # Reset contador de sucesso
+                    return True
+        except:
+            pass
+        
+        logger.warning("[AUTO-RECOVERY] Serviço ainda não respondendo após reinício")
+        return False
+        
+    except Exception as e:
+        logger.error(f"[AUTO-RECOVERY] Erro na recuperação: {e}")
+        return False
+
+async def check_whatsapp_health():
+    """Verifica saúde do WhatsApp service e tenta recuperar se necessário"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/health")
+            return response.status_code == 200
+    except:
+        return False
+
 @api_router.get("/debug/whatsapp-service")
 async def debug_whatsapp_service():
     """Debug endpoint to check WhatsApp service status - No auth required for debugging"""
@@ -283,7 +354,9 @@ async def debug_whatsapp_service():
         'service_responding': False,
         'supervisor_status': None,
         'can_start_process': False,
-        'error': None
+        'error': None,
+        'recovery_attempts': whatsapp_recovery_attempts,
+        'auto_recovery_enabled': True
     }
     
     # Check node version
@@ -303,14 +376,45 @@ async def debug_whatsapp_service():
     # Try to call the service
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/test/status")
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/health")
             result['service_responding'] = response.status_code == 200
-            result['service_response'] = response.text
+            if response.status_code == 200:
+                result['service_health'] = response.json()
     except Exception as e:
         result['service_responding'] = False
         result['error'] = str(e)
+        
+        # Tenta auto-recovery
+        result['attempting_recovery'] = True
+        recovered = await auto_recover_whatsapp_service()
+        result['recovery_successful'] = recovered
     
     return result
+
+@api_router.post("/debug/whatsapp-service/restart")
+async def restart_whatsapp_service():
+    """Força reinício do WhatsApp service"""
+    import subprocess
+    
+    try:
+        # Libera porta
+        subprocess.run(['fuser', '-k', '3002/tcp'], capture_output=True, timeout=10)
+        await asyncio.sleep(2)
+        
+        # Reinicia
+        result = subprocess.run(['supervisorctl', 'restart', 'whatsapp'], capture_output=True, text=True, timeout=30)
+        await asyncio.sleep(5)
+        
+        # Verifica
+        healthy = await check_whatsapp_health()
+        
+        return {
+            'success': healthy,
+            'message': 'Serviço reiniciado' if healthy else 'Reinício executado mas serviço não respondeu',
+            'supervisor_output': result.stdout or result.stderr
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
 
 async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0):
     """Make request to WhatsApp service with configurable timeout"""
