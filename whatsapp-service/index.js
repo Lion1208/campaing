@@ -827,35 +827,100 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
         
         console.log(`[${connectionId}] Solicitando pairing code para: ${phoneNumber}`);
         
-        // Verificar se já existe conexão
-        let conn = connections.get(connectionId);
-        
-        // Se não existe ou está em estado inválido, criar nova
-        if (!conn || conn.status === 'disconnected' || conn.status === 'error') {
-            await createConnection(connectionId);
-            conn = connections.get(connectionId);
+        // Fechar conexão existente se houver
+        const existingConn = connections.get(connectionId);
+        if (existingConn?.socket) {
+            try {
+                existingConn.socket.end();
+            } catch (e) {}
         }
         
-        // Aguardar socket estar pronto
-        let attempts = 0;
-        while ((!conn || !conn.socket) && attempts < 10) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            conn = connections.get(connectionId);
-            attempts++;
-        }
+        // Criar conexão específica para pairing code
+        const { state, saveCreds } = await useMongoAuthState(connectionId);
+        const { version } = await fetchLatestBaileysVersion();
         
-        if (!conn || !conn.socket) {
-            return res.status(500).json({ error: 'Falha ao inicializar conexão' });
-        }
+        const sock = makeWASocket({
+            version,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, logger),
+            },
+            printQRInTerminal: false,
+            logger,
+            browser: ['Nexus Campaign', 'Chrome', '121.0.0'],
+            connectTimeoutMs: 60000,
+            markOnlineOnConnect: true,
+        });
+
+        const connectionData = {
+            socket: sock,
+            qrCode: null,
+            qrImage: null,
+            pairingCode: null,
+            status: 'connecting',
+            phoneNumber: null,
+            groups: [],
+            saveCreds,
+            retryCount: 0,
+            maxRetries: 10,
+            createdAt: Date.now(),
+            lastKeepAliveSuccess: null,
+            lastKeepAliveFail: null,
+            lastError: null,
+        };
+
+        connections.set(connectionId, connectionData);
+
+        // Setup event handlers
+        sock.ev.on('connection.update', async (update) => {
+            try {
+                const { connection, lastDisconnect } = update;
+                const conn = connections.get(connectionId);
+                
+                if (!conn) return;
+
+                if (connection === 'close') {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                    console.log(`🛡️ [${connectionId}] Pairing - Conexão fechada. Código: ${statusCode}`);
+                    
+                    if (shouldReconnect && conn.status === 'waiting_code') {
+                        // Manter estado se estava esperando código
+                    } else {
+                        conn.status = 'disconnected';
+                    }
+                } else if (connection === 'open') {
+                    conn.status = 'connected';
+                    conn.pairingCode = null;
+                    conn.phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0];
+                    console.log(`✅ [${connectionId}] WhatsApp conectado via pairing: ${conn.phoneNumber}`);
+                    
+                    setTimeout(() => safeAsync(() => fetchGroups(connectionId), [], `fetchGroups-${connectionId}`), 2000);
+                }
+            } catch (error) {
+                console.error(`🛡️ [BLINDAGEM] Erro no handler pairing:`, error.message);
+            }
+        });
+
+        sock.ev.on('creds.update', async () => {
+            try {
+                await saveCreds();
+            } catch (error) {
+                console.error(`🛡️ [BLINDAGEM] Erro ao salvar credenciais:`, error.message);
+            }
+        });
+        
+        // Aguardar um pouco para o socket estar pronto
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Solicitar código de pareamento
         try {
-            const code = await conn.socket.requestPairingCode(phoneNumber);
+            const code = await sock.requestPairingCode(phoneNumber);
             console.log(`[${connectionId}] Pairing code gerado: ${code}`);
             
             // Salvar código na conexão
-            conn.pairingCode = code;
-            conn.status = 'waiting_code';
+            connectionData.pairingCode = code;
+            connectionData.status = 'waiting_code';
             
             res.json({ 
                 success: true, 
@@ -865,7 +930,7 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
             });
         } catch (error) {
             console.error(`[${connectionId}] Erro ao gerar pairing code:`, error.message);
-            res.status(500).json({ error: 'Falha ao gerar código. Verifique se o número está correto.' });
+            res.status(500).json({ error: `Falha ao gerar código: ${error.message}` });
         }
     } catch (error) {
         console.error('Erro ao gerar pairing code:', error);
