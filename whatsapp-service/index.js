@@ -491,15 +491,22 @@ async function createConnection(connectionId) {
         };
 
         connections.set(connectionId, connectionData);
+        console.log(`[DEBUG] Conexão ${connectionId} adicionada ao Map. Total de conexões: ${connections.size}`);
 
         sock.ev.on('connection.update', async (update) => {
             try {
                 const { connection, lastDisconnect, qr } = update;
                 const conn = connections.get(connectionId);
                 
-                if (!conn) return;
+                console.log(`[DEBUG] connection.update para ${connectionId}:`, { connection, hasQR: !!qr });
+                
+                if (!conn) {
+                    console.log(`[DEBUG] Conexão ${connectionId} não encontrada no update handler!`);
+                    return;
+                }
 
                 if (qr) {
+                    console.log(`[DEBUG] QR Code recebido para ${connectionId}. Gerando imagem...`);
                     conn.qrCode = qr;
                     conn.status = 'waiting_qr';
                     conn.retryCount = 0;
@@ -509,9 +516,9 @@ async function createConnection(connectionId) {
                             margin: 2,
                             color: { dark: '#000000', light: '#FFFFFF' }
                         });
-                        console.log(`[${connectionId}] QR Code gerado com sucesso`);
+                        console.log(`[DEBUG] [${connectionId}] QR Code gerado com sucesso. Tamanho: ${conn.qrImage?.length || 0} chars`);
                     } catch (err) {
-                        console.error('🛡️ [BLINDAGEM] Erro ao gerar QR:', err.message);
+                        console.error(`[DEBUG] Erro ao gerar QR Code:`, err.message);
                     }
                 }
 
@@ -521,7 +528,7 @@ async function createConnection(connectionId) {
                     const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                     
                     conn.lastError = errorMsg;
-                    console.log(`🛡️ [${connectionId}] Conexão fechada. Código: ${statusCode}. Erro: ${errorMsg}. Reconectar: ${shouldReconnect}`);
+                    console.log(`[DEBUG] [${connectionId}] Conexão fechada. Código: ${statusCode}. Erro: ${errorMsg}. Reconectar: ${shouldReconnect}`);
                     
                     // Sempre tenta reconectar exceto se foi logout explícito
                     if (shouldReconnect && conn.status !== 'deleted') {
