@@ -95,16 +95,11 @@ export default function ConnectionsPage() {
 
   const handleConnect = async (connection) => {
     setSelectedConnectionId(connection.id);
-    setQrData({ qr_code: null, qr_image: null, status: 'preparing' });
+    setQrData({ qr: null, qrImage: null, status: 'connecting' });
     setQrDialogOpen(true);
     
-    try {
-      await connectWhatsApp(connection.id);
-    } catch (error) {
-      // If error, keep dialog open and show preparing state
-      // The polling will handle the retry
-      console.log('Serviço preparando...');
-    }
+    // Direto - sem try/catch, o polling cuida
+    await connectWhatsApp(connection.id);
   };
 
   const handleRefreshGroups = async (connection) => {
@@ -113,11 +108,7 @@ export default function ConnectionsPage() {
       const result = await refreshGroups(connection.id);
       toast.success(`${result.count} grupos sincronizados`);
     } catch (error) {
-      if (error.response?.status === 503) {
-        toast.info('Preparando serviço... Tente novamente em alguns segundos.');
-      } else {
-        toast.error(error.response?.data?.detail || 'Erro ao sincronizar grupos');
-      }
+      toast.error('Erro ao sincronizar');
     } finally {
       setSyncingConnection(null);
     }
