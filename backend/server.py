@@ -1807,38 +1807,54 @@ async def get_connection(connection_id: str, user: dict = Depends(get_current_us
 @api_router.post("/connections/{connection_id}/connect")
 async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
     """Iniciar conexão WhatsApp - direto e rápido"""
+    logger.info(f"[DEBUG] /connect chamado para connection_id={connection_id}")
+    
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
     
     connection = await db.connections.find_one(query)
     if not connection:
+        logger.error(f"[DEBUG] Conexão não encontrada: {connection_id}")
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
+    logger.info(f"[DEBUG] Conexão encontrada: {connection.get('name')}, status atual: {connection.get('status')}")
+    
     try:
+        logger.info(f"[DEBUG] Chamando WhatsApp service /connections/{connection_id}/start")
         result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
+        logger.info(f"[DEBUG] Resultado do start: {result}")
+        
         await db.connections.update_one({'id': connection_id}, {'$set': {'status': 'connecting'}})
         return result
     except Exception as e:
-        logger.error(f"Erro ao conectar WhatsApp: {e}")
+        logger.error(f"[DEBUG] Erro ao conectar WhatsApp: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao conectar: {str(e)}")
 
 @api_router.get("/connections/{connection_id}/qr")
 async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
     """Obter QR Code - direto e rápido"""
+    logger.info(f"[DEBUG] /qr chamado para connection_id={connection_id}")
+    
     query = {'id': connection_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
     
     connection = await db.connections.find_one(query)
     if not connection:
+        logger.error(f"[DEBUG] Conexão não encontrada para QR: {connection_id}")
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
+    logger.info(f"[DEBUG] Buscando QR para conexão: {connection.get('name')}")
+    
     try:
+        logger.info(f"[DEBUG] Chamando WhatsApp service /connections/{connection_id}/qr")
         result = await whatsapp_request("GET", f"/connections/{connection_id}/qr")
+        logger.info(f"[DEBUG] Resultado do QR: status={result.get('status')}, temQR={result.get('qrImage') is not None}")
         
         # Atualiza status se conectou
         if result.get('status') == 'connected':
+            logger.info(f"[DEBUG] Conexão {connection_id} conectada! Phone: {result.get('phoneNumber')}")
             await db.connections.update_one(
                 {'id': connection_id},
                 {'$set': {'status': 'connected', 'phone_number': result.get('phoneNumber')}}
@@ -1846,7 +1862,7 @@ async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)
         
         return result
     except Exception as e:
-        logger.error(f"Erro ao obter QR: {e}")
+        logger.error(f"[DEBUG] Erro ao obter QR: {e}")
         return {'qr': None, 'qrImage': None, 'status': 'error', 'error': str(e)}
 
 class PairingCodeRequest(BaseModel):
