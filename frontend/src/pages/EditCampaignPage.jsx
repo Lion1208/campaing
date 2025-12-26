@@ -76,7 +76,10 @@ export default function EditCampaignPage() {
         setCampaign(data);
         setTitle(data.title);
         setSelectedConnection(data.connection_id);
-        setSelectedGroups(data.group_ids || []);
+        // NÃO setar selectedGroups aqui - será setado quando loadGroups for chamado
+        // Armazenar temporariamente para passar ao loadGroups
+        const groupIdsToSelect = data.group_ids || [];
+        
         setScheduleType(data.schedule_type || 'once');
         setIntervalHours(String(data.interval_hours || 1));
         setSpecificTimes(data.specific_times || ['09:00']);
@@ -122,6 +125,11 @@ export default function EditCampaignPage() {
         if (data.end_date) {
           setEndDate(new Date(data.end_date).toISOString().split('T')[0]);
         }
+        
+        // Carregar grupos COM os IDs pré-selecionados
+        if (data.connection_id) {
+          await loadGroups(data.connection_id, groupIdsToSelect);
+        }
       } catch (error) {
         toast.error('Erro ao carregar campanha');
         navigate('/campaigns');
@@ -133,7 +141,7 @@ export default function EditCampaignPage() {
     loadCampaign();
     fetchConnections();
     fetchImages();
-  }, [id, navigate, fetchConnections, fetchImages, loadImageFromApi]);
+  }, [id, navigate, fetchConnections, fetchImages, loadImageFromApi, loadGroups]);
 
   // Preview animation
   useEffect(() => {
