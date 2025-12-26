@@ -23,11 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Wifi, Trash2, RefreshCw, Smartphone, Loader2 } from 'lucide-react';
+import { Plus, Wifi, Trash2, RefreshCw, Smartphone, Loader2, QrCode, Hash } from 'lucide-react';
 
 export default function ConnectionsPage() {
-  const { connections, fetchConnections, createConnection, connectWhatsApp, getQRCode, refreshGroups, disconnectWhatsApp, deleteConnection, loading } = useConnectionsStore();
+  const { connections, fetchConnections, createConnection, connectWhatsApp, getQRCode, requestPairingCode, refreshGroups, disconnectWhatsApp, deleteConnection, loading } = useConnectionsStore();
   const { user } = useAuthStore();
   const [newConnectionName, setNewConnectionName] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -39,6 +40,12 @@ export default function ConnectionsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [syncingConnection, setSyncingConnection] = useState(null);
   const pollingRef = useRef(null);
+  
+  // Estados para pairing code
+  const [connectMode, setConnectMode] = useState('qr'); // 'qr' ou 'code'
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pairingCode, setPairingCode] = useState(null);
+  const [pairingLoading, setPairingLoading] = useState(false);
 
   useEffect(() => {
     fetchConnections();
