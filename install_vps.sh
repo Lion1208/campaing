@@ -249,6 +249,13 @@ REACT_APP_BACKEND_URL=http://${DOMAIN}:${BACKEND_PORT}
 PORT=${FRONTEND_PORT}
 EOF
 
+# WhatsApp Service .env
+cat > "$APP_DIR/whatsapp-service/.env" <<EOF
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=nexuzap_production
+WHATSAPP_PORT=${WHATSAPP_PORT}
+EOF
+
 log "✅ Variáveis de ambiente configuradas"
 
 ################################################################################
