@@ -87,9 +87,12 @@ cd "$APP_DIR"
 # Salvar alterações locais
 git stash push -m "Auto-stash antes de atualizar em $DATE" 2>/dev/null || true
 
-# Atualizar do GitHub
-git fetch origin main
-git reset --hard origin/main
+# Atualizar do GitHub (repositório Lion1208/campaing)
+git pull https://github.com/Lion1208/campaing.git main --force 2>&1 || {
+    warn "Erro no git pull, tentando com fetch+reset..."
+    git fetch https://github.com/Lion1208/campaing.git main
+    git reset --hard FETCH_HEAD
+}
 
 log "✅ Código atualizado do GitHub"
 
