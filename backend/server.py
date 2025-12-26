@@ -312,12 +312,12 @@ async def debug_whatsapp_service():
     
     return result
 
-async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
-    """Make request to WhatsApp service"""
+async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0):
+    """Make request to WhatsApp service with configurable timeout"""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             url = f"{WHATSAPP_SERVICE_URL}{endpoint}"
-            logger.info(f"[DEBUG] WhatsApp request: {method} {url}")
+            logger.info(f"[DEBUG] WhatsApp request: {method} {url} (timeout={timeout}s)")
             if json_data:
                 logger.info(f"[DEBUG] Request data: {json_data}")
             
@@ -332,19 +332,16 @@ async def whatsapp_request(method: str, endpoint: str, json_data: dict = None):
             logger.info(f"[DEBUG] WhatsApp response body: {response.text[:500] if response.text else 'empty'}")
             return response.json()
     except httpx.ConnectError as e:
-        logger.error(f"[DEBUG] WhatsApp service connection error: {e}")
-        raise Exception(f"Serviço WhatsApp não acessível: {e}")
-    except Exception as e:
-        logger.error(f"[DEBUG] WhatsApp request error: {e}")
-        raise
-    except httpx.ConnectError as e:
-        logger.error(f"WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
-        raise
+        logger.error(f"[DEBUG] WhatsApp service connection error: {e} - URL: {WHATSAPP_SERVICE_URL}")
+        raise Exception(f"Serviço WhatsApp não acessível. Verifique se está rodando em {WHATSAPP_SERVICE_URL}")
+    except httpx.ReadTimeout as e:
+        logger.error(f"[DEBUG] WhatsApp service read timeout: {e}")
+        raise Exception(f"WhatsApp service demorou demais para responder (timeout={timeout}s). Tente novamente.")
     except httpx.TimeoutException as e:
-        logger.error(f"WhatsApp service timeout: {e}")
-        raise
+        logger.error(f"[DEBUG] WhatsApp service timeout: {e}")
+        raise Exception(f"Timeout ao comunicar com WhatsApp service: {e}")
     except Exception as e:
-        logger.error(f"WhatsApp request error: {e}")
+        logger.error(f"[DEBUG] WhatsApp request error: {type(e).__name__}: {e}")
         raise
 
 # ============= Auth Endpoints =============
