@@ -608,8 +608,16 @@ async function createConnection(connectionId) {
                     conn.phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0];
                     console.log(`✅ [${connectionId}] WhatsApp conectado: ${conn.phoneNumber}`);
                     
-                    // Fetch groups after connection
-                    setTimeout(() => safeAsync(() => fetchGroups(connectionId), [], `fetchGroups-${connectionId}`), 2000);
+                    // Fetch groups after connection - GARANTIR que seja executado
+                    setTimeout(async () => {
+                        try {
+                            console.log(`[${connectionId}] 🔄 Buscando grupos após conexão...`);
+                            const groups = await fetchGroups(connectionId);
+                            console.log(`[${connectionId}] ✅ ${groups.length} grupos carregados na memória`);
+                        } catch (error) {
+                            console.error(`[${connectionId}] ❌ Erro ao buscar grupos após conexão:`, error.message);
+                        }
+                    }, 3000);
                 }
             } catch (error) {
                 console.error(`🛡️ [BLINDAGEM] Erro no handler connection.update:`, error.message);
