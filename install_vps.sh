@@ -76,6 +76,14 @@ fi
 log "Iniciando instalação do NexuZap..."
 
 ################################################################################
+# FIX: Ubuntu 22.04 - Remover command-not-found que causa erro apt_pkg
+################################################################################
+
+log "Corrigindo problema do apt_pkg (Ubuntu 22.04)..."
+apt-get remove --purge command-not-found -y 2>/dev/null || true
+rm -f /usr/lib/cnf-update-db 2>/dev/null || true
+
+################################################################################
 # ETAPA 1: ATUALIZAÇÃO DO SISTEMA
 ################################################################################
 
@@ -240,7 +248,7 @@ cat > "$APP_DIR/backend/.env" <<EOF
 WHATSAPP_SERVICE_URL=http://127.0.0.1:${WHATSAPP_PORT}
 MONGO_URL="mongodb://localhost:27017"
 DB_NAME="nexuzap_production"
-CORS_ORIGINS=http://${DOMAIN},https://${DOMAIN},http://localhost:${FRONTEND_PORT}
+CORS_ORIGINS=http://${DOMAIN},https://${DOMAIN},http://localhost:${FRONTEND_PORT},http://localhost:3000
 JWT_SECRET=$(openssl rand -hex 32)
 EOF
 
