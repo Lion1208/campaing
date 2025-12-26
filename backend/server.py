@@ -1803,7 +1803,7 @@ async def get_connection(connection_id: str, user: dict = Depends(get_current_us
 
 @api_router.post("/connections/{connection_id}/connect")
 async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_user)):
-    """Iniciar conexão WhatsApp - direto e rápido"""
+    """Iniciar conexão WhatsApp - com timeout maior para produção"""
     logger.info(f"[DEBUG] /connect chamado para connection_id={connection_id}")
     
     query = {'id': connection_id}
@@ -1819,7 +1819,8 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
     
     try:
         logger.info(f"[DEBUG] Chamando WhatsApp service /connections/{connection_id}/start")
-        result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
+        # Timeout maior (120s) pois criar conexão WhatsApp pode demorar
+        result = await whatsapp_request("POST", f"/connections/{connection_id}/start", timeout=120.0)
         logger.info(f"[DEBUG] Resultado do start: {result}")
         
         await db.connections.update_one({'id': connection_id}, {'$set': {'status': 'connecting'}})
