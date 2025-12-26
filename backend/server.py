@@ -672,6 +672,17 @@ async def install_whatsapp_deps(admin: dict = Depends(get_admin_user)):
         return {'success': True, 'logs': ['Dependências já estão instaladas']}
     
     try:
+        # Tentar instalar git se não existir (necessário para algumas dependências npm)
+        try:
+            result = subprocess.run(['which', 'git'], capture_output=True, timeout=5)
+            if result.returncode != 0:
+                logs.append("📦 Instalando git...")
+                subprocess.run(['apt-get', 'update', '-qq'], timeout=60, capture_output=True)
+                subprocess.run(['apt-get', 'install', '-y', '-qq', 'git'], timeout=120, capture_output=True)
+                logs.append("✅ Git instalado")
+        except:
+            logs.append("⚠️ Não foi possível verificar/instalar git")
+        
         logs.append("📦 Instalando dependências do WhatsApp Service...")
         
         # Get npm path
@@ -679,10 +690,21 @@ async def install_whatsapp_deps(admin: dict = Depends(get_admin_user)):
         if not npm_path:
             npm_path = '/usr/local/bin/npm'
         
-        # Install dependencies
+        # Limpar cache e node_modules antigos
+        try:
+            import shutil
+            node_modules_path = '/app/whatsapp-service/node_modules'
+            if os.path.exists(node_modules_path):
+                shutil.rmtree(node_modules_path)
+                logs.append("🗑️ node_modules antigo removido")
+        except:
+            pass
+        
+        # Install dependencies com --no-optional para evitar dependências problemáticas
         success, stdout, stderr = run_command(
-            [npm_path, 'install', '--prefix', '/app/whatsapp-service'],
-            timeout=300
+            [npm_path, 'install', '--no-optional', '--legacy-peer-deps'],
+            timeout=300,
+            cwd='/app/whatsapp-service'
         )
         
         if success or check_whatsapp_deps_installed():
