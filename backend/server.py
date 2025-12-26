@@ -1764,10 +1764,13 @@ async def connect_whatsapp(connection_id: str, user: dict = Depends(get_current_
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Direto no serviço - sem verificações
-    result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
-    await db.connections.update_one({'id': connection_id}, {'$set': {'status': 'connecting'}})
-    return result
+    try:
+        result = await whatsapp_request("POST", f"/connections/{connection_id}/start")
+        await db.connections.update_one({'id': connection_id}, {'$set': {'status': 'connecting'}})
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao conectar WhatsApp: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao conectar: {str(e)}")
 
 @api_router.get("/connections/{connection_id}/qr")
 async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)):
@@ -1780,14 +1783,20 @@ async def get_qr_code(connection_id: str, user: dict = Depends(get_current_user)
     if not connection:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")
     
-    # Direto no serviço - sem verificações
-    result = await whatsapp_request("GET", f"/connections/{connection_id}/qr")
-    
-    # Atualiza status se conectou
-    if result.get('status') == 'connected':
-        await db.connections.update_one(
-            {'id': connection_id},
-            {'$set': {'status': 'connected', 'phone_number': result.get('phoneNumber')}}
+    try:
+        result = await whatsapp_request("GET", f"/connections/{connection_id}/qr")
+        
+        # Atualiza status se conectou
+        if result.get('status') == 'connected':
+            await db.connections.update_one(
+                {'id': connection_id},
+                {'$set': {'status': 'connected', 'phone_number': result.get('phoneNumber')}}
+            )
+        
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao obter QR: {e}")
+        return {'qr': None, 'qrImage': None, 'status': 'error', 'error': str(e)}
         )
     
     return result
