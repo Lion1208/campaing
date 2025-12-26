@@ -151,13 +151,19 @@ export const useConnectionsStore = create((set, get) => ({
   },
 
   deleteConnection: async (connectionId) => {
-    await api.delete(`/connections/${connectionId}`);
-    // Atualiza o estado local imediatamente
+    // Remove do estado local primeiro para feedback imediato
+    const previousConnections = get().connections;
     set((state) => ({
       connections: state.connections.filter((c) => c.id !== connectionId),
     }));
-    // Também busca do servidor para garantir sincronização
-    await get().fetchConnections();
+    
+    try {
+      await api.delete(`/connections/${connectionId}`);
+    } catch (error) {
+      // Se falhar, restaura o estado anterior
+      set({ connections: previousConnections });
+      throw error;
+    }
   },
 }));
 
