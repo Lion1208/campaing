@@ -1,150 +1,459 @@
 <analysis>**original_problem_statement:**
-O usuário iniciou a sessão com um conjunto de problemas herdados do fork anterior, incluindo um erro crítico que impedia a persistência da sessão do WhatsApp no MongoDB. No entanto, o usuário introduziu uma nova lista de bugs e solicitações de recursos de alta prioridade que foram abordados nesta sessão:
+O usuário iniciou a sessão com um novo conjunto de solicitações de alta prioridade para resolver problemas de estabilidade, desempenho e usabilidade da aplicação. As principais solicitações foram:
 
-1.  **Novos Bugs Relatados pelo Usuário:**
-    *   **Dashboard Quebrado:** As contagens de envios e o gráfico no dashboard não estavam funcionando.
-    *   **Histórico Incompleto:** A página de histórico de atividades registrava apenas ações de revenda, omitindo ações cruciais como bloqueio/desbloqueio de usuários e adição/remoção de créditos.
-    *   **Fuso Horário Incorreto:** As campanhas agendadas estavam sendo enviadas uma hora antes do tempo programado.
-    *   **Erro de Login (CORS):** Um erro de CORS impedia os usuários de fazerem login na aplicação a partir do domínio de produção.
+1.  **Blindagem do Serviço WhatsApp:** Tornar o serviço do WhatsApp extremamente robusto, com reinicialização automática para nunca parar.
+2.  **Otimização da Tela de Conexões:** Melhorar a lentidão da página de conexões.
+3.  **Dashboard Detalhado:** Exibir os últimos 5 erros de envio de campanha no dashboard.
+4.  **Conexão WhatsApp Sempre Ativa:** Garantir que a conexão com o WhatsApp se mantenha sempre ativa, reconectando automaticamente após reinicializações.
+5.  **Copiar Campanhas/Grupos:** Adicionar funcionalidade para duplicar campanhas inteiras ou apenas copiar os grupos para uma nova campanha.
+6.  **Conexão por Código (Pairing Code):** Implementar um método alternativo de conexão ao WhatsApp usando um código de pareamento, além do QR code.
+7.  **Problemas de Produção:** O foco principal da sessão se tornou a depuração de uma série de problemas que ocorriam apenas no ambiente de produção, incluindo:
+    *   Falha na geração de QR code e código de pareamento.
+    *   Erros de CORS ao tentar conectar a partir do domínio de produção ().
+    *   Erro de instalação de dependências (npm) devido à falta do usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
 
-2.  **Novas Solicitações de Funcionalidade:**
-    *   **Auto-start do WhatsApp:** O serviço do WhatsApp deveria iniciar automaticamente se estivesse parado ao se tentar enviar uma campanha, gerar um QR code ou sincronizar grupos.
-    *   **Retomada de Campanha:** Se o backend reiniciasse no meio do envio de uma campanha, ela deveria ser retomada automaticamente de onde parou.
-    *   **Persistência de Dados do Dashboard:** Garantir que as estatísticas do dashboard não sejam perdidas entre os deploys.
+These are common Git commands used in various situations:
 
-3.  **Requisitos do Produto (Herdados e Novos):**
-    *   **[P0 - Não abordado]** Corrigir a persistência da sessão do WhatsApp no MongoDB para evitar a necessidade de reconectar após cada deploy.
-    *   **[CONCLUÍDO]** Corrigir as estatísticas e gráficos do Dashboard.
-    *   **[CONCLUÍDO]** Expandir o log de atividades para incluir mais ações do usuário.
-    *   **[CONCLUÍDO]** Corrigir o problema de fuso horário no agendamento de campanhas.
-    *   **[CONCLUÍDO]** Implementar a retomada de campanhas interrompidas.
-    *   **[CONCLUÍDO]** Corrigir o erro de login relacionado ao CORS.
-    *   **[CONCLUÍDO]** Implementar o início automático do serviço do WhatsApp para ações críticas.
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
 
-**User's preferred language**: Portuguese (pt-BR)
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system. no ambiente de produção.
+    *   Erro crítico de URL, onde as chamadas de API eram feitas para um caminho duplicado (), quebrando várias telas do sistema.
+
+**User's preferred language**: Portuguese (pt-BR). Responda sempre em português.
 
 **what currently exists?**
-A aplicação agora tem um dashboard funcional com estatísticas persistentes (usando uma nova coleção  no MongoDB), um histórico de atividades mais completo e um agendador de campanhas que respeita o fuso horário . Foi implementada uma lógica robusta para retomar campanhas que são interrompidas por reinicializações do backend, salvando o progresso no banco de dados. O serviço do WhatsApp agora é iniciado automaticamente quando necessário (envio de campanha, geração de QR code, sincronização de grupos), com feedback visual aprimorado no frontend. O erro crítico de CORS que impedia o login foi resolvido ajustando a ordem do middleware no FastAPI.
+A aplicação agora possui um serviço de WhatsApp () mais robusto, com um watchdog para monitoramento e reinicialização automática, além de um mecanismo de reconexão persistente que busca manter as sessões ativas. Foi implementada a funcionalidade de conexão via QR Code e também por Código de Pareamento (Pairing Code). A tela de campanhas agora permite copiar uma campanha inteira ou apenas os grupos para uma nova. O dashboard exibe os últimos 5 erros de envio. Para resolver problemas em produção, o sistema foi ajustado para usar versões específicas do Node.js/NPM, e a instalação de dependências agora inclui o usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system. automaticamente. O código foi preenchido com logs de depuração () no frontend e backend para ajudar na identificação de erros em produção, já que o usuário não tem acesso aos logs do servidor. Uma correção crítica foi implementada para remover a duplicação do caminho  nas chamadas de API.
 
 **Last working item**:
-- **Last item agent was working**: O agente estava finalizando a implementação da inicialização automática do serviço do WhatsApp para as ações de gerar QR code e sincronizar grupos. Isso incluiu modificações no backend para adicionar a lógica de verificação e inicialização, e no frontend () para exibir estados de carregamento mais informativos e amigáveis para o usuário durante o processo.
+- **Last item agent was working**: O agente estava corrigindo um erro crítico reportado pelo usuário onde várias telas do sistema estavam fazendo chamadas para um URL com  duplicado (ex: ), resultando em erro 404 e quebrando a aplicação em produção. O agente identificou que o  já continha  e alguns trechos do código do frontend adicionavam  novamente.
 - **Status**: USER VERIFICATION PENDING
-- **Agent Testing Done**: N (O usuário instruiu explicitamente o agente a não testar: Não teste, deixa que eu testo.)
-- **Which testing method agent to use?** Frontend testing agent (Para verificar os novos estados de loading na  e confirmar que as chamadas de backend acionam o início do serviço do WhatsApp quando ele está parado).
+- **Agent Testing Done**: N (Usuário testa manualmente)
+- **Which testing method agent to use?** Frontend testing agent. O agente deve verificar todas as páginas que fazem chamadas à API (, , , , , etc.) para garantir que o problema da URL duplicada  foi resolvido em toda a aplicação, não apenas nos arquivos que foram editados por último.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1**: Persistência da sessão do WhatsApp no MongoDB não funciona (P0)
-- **Issue 2**: Mensagens não estão sendo enviadas em produção (P1)
-- **Issue 3**: Preview de imagem não funciona para mídias da página Mídias (P2)
-- **Issue 4**: A página de Logs não exibe logs em produção (P3)
+- **Issue 1**: **[P0 - BLOCKER]** Erro de URL duplicada () em produção.
+- **Issue 2**: **[P0 - BLOCKER]** Geração de QR code e Código de Pareamento não funciona em produção.
+- **Issue 3**: **[P0]** Persistência da sessão do WhatsApp no MongoDB não funciona.
+- **Issue 4**: **[P1]** Envio de campanhas para após 12 grupos.
+- **Issue 5**: **[P1]** Mensagens não são enviadas em produção (bloqueado pelo Issue 3).
+- **Issue 6**: **[P2]** Preview de imagem não funciona para mídias da página Mídias.
+- **Issue 7**: **[P3]** A página de Logs não exibe logs em produção.
 
 **Issues Detail**:
 - **Issue 1**:
-  - **Description**: Este é o problema mais crítico herdado do fork anterior e **não foi abordado nesta sessão**. A sessão do WhatsApp não é salva no MongoDB, forçando os usuários a escanearem o QR code novamente após cada deploy, o que torna a aplicação inviável em produção.
-  - **Attempted fixes**: (Na sessão anterior) O código em  foi reescrito para usar uma store customizada com o driver . Nenhum progresso foi feito nesta sessão.
-  - **Next debug checklist**:
-    1.  Verificar os logs do serviço  para erros de conexão com o MongoDB.
-    2.  Adicionar logs detalhados na store customizada em  para rastrear as operações de , , e .
-    3.  Confirmar manualmente no MongoDB se a coleção  está sendo populada.
-    4.  Verificar se as variáveis de ambiente  e  estão sendo lidas corretamente pelo serviço Node.js.
-  - **Why fix this issue and what will be achieved with the fix?**: É a correção mais crítica para a estabilidade e usabilidade da aplicação em produção.
-  - **Status**: NOT STARTED
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** both
-  - **Blocked on other issue**: Não.
+    - **Description**: O usuário relatou que Varias telas do sistema esta com /api/api. O agente corrigiu isso em  e , mas o último log do usuário ainda mostrava um erro 404 com  na página de dependências, indicando que a correção pode não ter sido eficaz, não foi implantada corretamente, ou o problema existe em outros lugares.
+    - **Attempted fixes**: O agente removeu a concatenação  da construção da URL da API em  e no .
+    - **Next debug checklist**:
+        1.  Revisar **TODAS** as chamadas de API no frontend (usar  por , , ) para garantir que nenhuma esteja concatenando  indevidamente.
+        2.  Verificar o arquivo  para garantir que  está definido como  (sem o ).
+        3.  Atualizar o  para que o  seja . Isso centraliza a lógica e evita erros.
+    - **Why fix this issue and what will be achieved with the fix?**: É um erro crítico que impede o funcionamento de quase toda a aplicação em produção.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?** Y
+    - **Should Test frontend/backend/both after fix?** frontend
+    - **Blocked on other issue**: Não.
 
 - **Issue 2**:
-  - **Description**: Usuário relatou que mensagens não são enviadas em produção. Provavelmente um sintoma do , onde a conexão se torna inválida após o deploy.
-  - **Status**: BLOCKED
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** both
-  - **Blocked on other issue**: Issue 1: Persistência da sessão do WhatsApp.
+    - **Description**: Os logs do console do navegador do usuário mostram que a chamada para  resulta em erro 500, e a busca pelo QR Code () resulta em . Isso indica fortemente que o  não está rodando ou não está acessível para o backend no ambiente de produção.
+    - **Attempted fixes**: O agente adicionou tratamento de erro mais robusto e logs detalhados em todo o fluxo de conexão (backend e frontend) para diagnosticar o problema através do console do navegador.
+    - **Next debug checklist**:
+        1.  Instruir o usuário a navegar para a página de **Configurações > Dependências** em produção e clicar em **Configuração Completa** para garantir que o serviço WhatsApp seja iniciado.
+        2.  Pedir ao usuário para abrir o console do navegador, ir para a aba Network, e chamar o endpoint de diagnóstico: . O resultado indicará se os serviços estão se comunicando.
+    - **Why fix this issue and what will be achieved with the fix?**: É a funcionalidade principal da aplicação. Sem ela, os usuários não podem conectar suas contas de WhatsApp.
+    - **Status**: BLOCKED (pela verificação do usuário sobre o estado do serviço em produção)
+    - **Is recurring issue?** Y
+    - **Should Test frontend/backend/both after fix?** both
+    - **Blocked on other issue**: Issue 1 (se o erro de URL persistir, as chamadas de diagnóstico também falharão).
 
 - **Issue 3**:
-  - **Description**: Imagens da página Mídias não aparecem no preview da página de campanha.
-  - **Status**: NOT STARTED
-  - **Is recurring issue?** N
-  - **Should Test frontend/backend/both after fix?** frontend
-  - **Blocked on other issue**: Não.
+    - **Description**: Problema crítico herdado que não foi abordado. A sessão do WhatsApp não é salva no MongoDB, forçando os usuários a escanearem o QR code novamente após cada deploy.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?** Y
+    - **Should Test frontend/backend/both after fix?** both
 
 - **Issue 4**:
-  - **Description**: A página de logs de depuração não exibe informações no ambiente de produção.
-  - **Status**: NOT STARTED
-  - **Is recurring issue?** N
-  - **Should Test frontend/backend/both after fix?** backend
-  - **Blocked on other issue**: Não.
+    - **Description**: O usuário relatou no início da sessão que o envio de campanhas para após 12 grupos. Isso não foi investigado.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** backend
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
     - (P2) Implementar paginação nas páginas  e .
     - (P2) Exibir o nome do arquivo na página Mídias.
 - **Future Tasks**:
-    - (P3) Investigar e resolver a causa raiz do erro recorrente  no React.
+    - (P3) Investigar e resolver a causa raiz do erro  no React.
+    - (P4) Refatorar e remover os logs de depuração () adicionados massivamente assim que os problemas de produção forem resolvidos.
 
 **Completed work in this session**
-- **Correção do Dashboard**: Implementada a coleção  no MongoDB para registrar cada envio, e o endpoint  foi reescrito para usar esses dados, garantindo estatísticas precisas e persistentes.
-- **Correção do Histórico de Atividades**: Adicionados logs para ações de bloqueio, desbloqueio e concessão de trial para usuários e revendedores nos endpoints correspondentes. O frontend foi atualizado para exibir esses novos tipos de log.
-- **Correção de Fuso Horário**: A lógica de agendamento de campanhas () foi corrigida para interpretar corretamente os horários no fuso  usando , resolvendo o bug de envios adiantados.
-- **Implementação de Retomada de Campanha**: Adicionada a lógica para que campanhas com status 'running' sejam retomadas automaticamente após uma reinicialização do backend, salvando o progresso () no MongoDB.
-- **Correção de Erro de CORS**: O erro que impedia o login foi resolvido movendo o  para ser o primeiro middleware a ser adicionado à aplicação FastAPI, garantindo que os headers de CORS sejam aplicados a todas as rotas.
-- **Implementação do Auto-start do WhatsApp**: O serviço do WhatsApp agora é iniciado automaticamente antes do envio de campanhas, geração de QR code e sincronização de grupos. O frontend na  foi aprimorado para mostrar um feedback de carregamento mais detalhado.
+- **Blindagem do Serviço WhatsApp**: Implementado watchdog, auto-recovery e reconexão persistente.
+- **Otimização de Performance**: Otimizado o carregamento da página de conexões.
+- **Melhoria no Dashboard**: Adicionado um componente  para exibir detalhes dos últimos 5 erros de envio.
+- **Cópia de Campanhas**: Adicionada funcionalidade para copiar campanhas ou apenas seus grupos.
+- **Conexão por Código de Pareamento**: Implementada como alternativa ao QR Code, com correção do  do Baileys.
+- **Correções para Produção**:
+    - Adicionado script para instalar usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system. durante a instalação de dependências.
+    - Fixada a versão do  para .
+    - Fixadas as versões do Node.js () e NPM () nos scripts de instalação.
+    - Adicionada a URL de produção () às origens permitidas no CORS.
+- **Depuração e Correção de URL**:
+    - Adicionados logs extensivos no frontend e backend para depuração remota via console do navegador.
+    - Corrigido um erro crítico de duplicação de URL () em  e .
 
 **Earlier issues found/mentioned but not fixed**
-- Todos os quatro All Pending/In progress Issue list mencionados acima são da sessão anterior e não foram abordados nesta sessão, pois o agente foi redirecionado pelo usuário para corrigir bugs mais recentes e urgentes. O mais crítico é a falha na persistência da sessão do WhatsApp.
+- **Issue 1**: Envio de campanhas interrompido após 12 grupos. Mencionado pelo usuário no início, mas não abordado.
+- **Issue 2**: Problemas críticos do fork anterior (persistência de sessão, falha no envio de mensagens, etc.) não foram abordados devido à mudança de prioridades do usuário.
+
+**Known issue recurrence from previous fork**
+- **Issue recurrence in previous fork**: Persistência da sessão do WhatsApp no MongoDB não funciona.
+- **Recurrence count**: Elevado.
+- **Status**: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Middleware Order in FastAPI**: A ordem de adição de middlewares é crucial. O  deve ser adicionado antes de qualquer router para funcionar corretamente.
-- **Timezone Handling with APScheduler**: É necessário converter horários específicos para o timezone do scheduler () antes de passá-los para um .
-- **Stateful Task Resumption**: Para tarefas de longa duração (como envio de campanhas), é essencial salvar o estado (ex: ) em um banco de dados persistente após cada etapa para permitir a retomada em caso de falha.
-- **Analytics via Logging Collection**: Criar uma coleção dedicada () para eventos específicos (como envios de mensagem) é uma maneira eficaz de gerar estatísticas e dashboards sem sobrecarregar as coleções principais.
-- **Database Indexing**: Adicionar índices em campos frequentemente consultados (, ) em coleções de log melhora significativamente a performance das queries.
+- **Depuração Remota via Console**: Uso intensivo de  no frontend e propagação de logs do backend para o frontend para diagnosticar problemas em um ambiente de produção onde o acesso ao servidor é restrito.
+- **Gerenciamento de URL de API**: A importância de centralizar a configuração da URL base da API e evitar concatenações manuais que levam a erros de caminho duplicado ().
+- **Robustez de Serviço Node.js**: Combinação de  com lógica interna de watchdog e reconexão para máxima disponibilidade.
+- **Baileys Pairing Code**: Implementação da conexão por código, incluindo a necessidade de uma configuração de  específica para evitar falhas.
+- **Resolução de Dependências em Produção**: Identificação e correção de falhas de  em produção, garantindo que dependências do sistema como o usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system. estejam presentes.
 
 **key DB schema**
-- **(Novo)** : 
-- : Adicionado o campo  para gerenciar a retomada da campanha.
-- : Agora inclui novos valores para o campo , como , , .
+- :  (campo  foi melhorado)
+- : 
+- : 
+
+**changes in tech stack**
+- A versão do Node.js foi fixada para .
+- A versão do NPM foi fixada para .
+- A versão do  foi fixada para .
 
 **All files of reference**
-- : Arquivo central para a maioria das correções e novas funcionalidades implementadas.
-- : Contém as melhorias de UX para o início automático do serviço do WhatsApp.
-- : Contém as atualizações para exibir o histórico de atividades expandido.
-- : Arquivo crítico para o principal problema pendente (Issue 1), embora não tenha sido modificado nesta sessão.
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+**Areas that need refactoring**
+- Os múltiplos  adicionados para depuração devem ser removidos ou condicionados a uma variável de ambiente quando os problemas de produção forem resolvidos.
+- As chamadas de API no frontend devem ser padronizadas para usar a instância  do , evitando o uso direto de  como foi encontrado em .
+
+**key api endpoints**
+- : Solicita um código de pareamento.
+- : Copia grupos para uma nova campanha.
+- : Obtém os últimos erros de campanha.
+- : Endpoint de diagnóstico para verificar a comunicação entre backend e o serviço WhatsApp.
+- : Modificado para instalar usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system. e usar .
+
+**Critical Info for New Agent**
+- **O FOCO É PRODUÇÃO:** A aplicação funciona localmente. Todos os bugs recentes são específicos do ambiente de produção.
+- **USUÁRIO SÓ TEM ACESSO AO CONSOLE DO NAVEGADOR:** Toda a depuração deve ser feita através de logs no console. Não peça ao usuário para verificar logs de servidor.
+- ** BUG:** O erro de URL duplicada é o problema mais imediato. Mesmo após a correção, o usuário relatou que o erro persistia. Verifique todas as páginas do frontend. A melhor abordagem é centralizar a URL base da API em um único local.
+- **SERVIÇO WHATSAPP EM PRODUÇÃO:** O erro 500 no endpoint  indica que o  provavelmente não está rodando em produção. O usuário precisa ser orientado a usar a página de Dependências para iniciá-lo.
+- **NÃO TESTAR:** O usuário explicitamente instruiu o agente a não realizar testes. As implementações devem ser entregues para o usuário testar manualmente.
+
+**documents and test_reports created in this job**
+- Nenhum.
 
 **Last 10 User Messages and any pending HUMAN messages**
-- : Outra coisa, o mesmo que vc fez pra campanha, faz p´ra conexão do qrcode do whatsapp...
-- : Agora ele paropu de fazer login. Da erro, as vezes aparece login realizado, mas volta pra tela de login...
-- : Entendido! A coleção  que criei já é armazenada no MongoDB, então os dados do dashboard **já persistem entre deploys**.
-- : As informações do dashboard do usuario não devem desaparecer em deploy, importante isso também.
-- : Perfeito! Backend reiniciado sem erros. Summary...
-- : Perfeito! Backend reiniciado sem erros.
-- : Importante que, se o backend reiniciar no meio do envio de uma campanha, quando voltar ele deve retormar o processamento de onde parou...por segurança.
-- : Entendido! Vou finalizar com o resumo das correções feitas. Summary...
-- : Entendido! Vou finalizar com o resumo das correções feitas.
-- : Não teste, deixa que eu testo. Nunca faça teste automaticamente, deica que eu testo manualmente
+- : Varias telas do sistema esta com /api/api
+- : Fudeu o login e todo o resto. foi mexer na porra do link da api caralho
+- : Agora faz o deploy e tenta novamente. O erro agora vai mostrar uma mensagem mais clara...
+- : Tá, faz isso. Mas muda também a url da api. Pq o dominio da produção é nexuzap.com
+- : Log do console mostrando erro 500 no  e confirmando o domínio de produção.
+- : Logs do console mostrando a diferença de comportamento entre produção () e teste ().
+- : Eu só tenho acesso ao console do navegador caralho
+- : Em produção não tá gerando qrcode, mas também n da erro. E nem o codigo. Coloca tudo pra ser depurado no console...
+- : Reportando erro de  em produção por falta do usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone     Clone a repository into a new directory
+   init      Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add       Add file contents to the index
+   mv        Move or rename a file, a directory, or a symlink
+   restore   Restore working tree files
+   rm        Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect    Use binary search to find the commit that introduced a bug
+   diff      Show changes between commits, commit and working tree, etc
+   grep      Print lines matching a pattern
+   log       Show commit logs
+   show      Show various types of objects
+   status    Show the working tree status
+
+grow, mark and tweak your common history
+   branch    List, create, or delete branches
+   commit    Record changes to the repository
+   merge     Join two or more development histories together
+   rebase    Reapply commits on top of another base tip
+   reset     Reset current HEAD to the specified state
+   switch    Switch branches
+   tag       Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch     Download objects and refs from another repository
+   pull      Fetch from and integrate with another repository or a local branch
+   push      Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+See 'git help git' for an overview of the system..
+- : Reportando Uma caralhada de erro ao gerar qrcode com logs de CORS e 500.
 
 **Project Health Check:**
-- **Broken**: A funcionalidade mais crítica da aplicação, a persistência da sessão do WhatsApp (), continua quebrada. Isso impede o uso confiável em produção, pois exige reconexão manual após cada deploy. O envio de mensagens em produção (Issue 2) provavelmente também está quebrado como consequência direta.
+- **Broken**:
+    - **Conexão com WhatsApp em Produção**: A principal funcionalidade da aplicação está inoperante em produção devido a uma combinação de erros (provavelmente serviço parado e/ou URL incorreta).
+    - **Navegação em Produção**: Múltiplas páginas estão quebradas devido ao bug da URL , impedindo o uso da aplicação.
+    - **Persistência de Sessão**: O problema fundamental de não salvar a sessão do WhatsApp entre deploys continua sem solução, tornando a aplicação inviável para uso sério em produção.
 - **Mocked**: N/A
 
 **3rd Party Integrations**
-- **Baileys (Node.js)**: Biblioteca para integração com o WhatsApp.
-- **MongoDB**: Banco de dados principal e armazenamento de sessão.
-- **APScheduler**: Biblioteca Python para agendamento de tarefas (campanhas).
-- **pytz**: Utilizado para manipulação de fuso horário no backend.
+- **@whiskeysockets/baileys**: v6.7.2 (Biblioteca para integração com WhatsApp)
+- **MongoDB**: Banco de dados
+- **APScheduler**: Agendador de tarefas Python
+- **pytz**: Manipulação de fuso horário em Python
 
 **Testing status**
-- Testing agent used after significant changes: NO
-- Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: []
-- Known regressions: Nenhuma nova regressão foi introduzida, mas o problema crítico de persistência da sessão do WhatsApp do fork anterior permanece sem solução.
+- **Testing agent used after significant changes**: NO (Usuário solicitou para não testar)
+- **Troubleshoot agent used after agent stuck in loop**: NO
+- **Test files created**: []
+- **Known regressions**: A aplicação em produção está em um estado pior do que no início da sessão devido ao bug de duplicação de URL, que quebrou funcionalidades que antes funcionavam (como o login).
 
 **Credentials to test flow:**
 - **Usuário**: 
 - **Senha**: 
 
 **What agent forgot to execute**
-O agente foi redirecionado pelo usuário para focar em uma nova lista de bugs urgentes. Como resultado, ele **não trabalhou na principal tarefa pendente do fork anterior**: consertar a persistência da sessão do WhatsApp no MongoDB (). Todos os problemas e tarefas pendentes da sessão anterior foram adiados.</analysis>
+- O agente não investigou a fundo o relato do usuário sobre as campanhas pararem após o envio para 12 grupos.
+- O agente não verificou de forma exaustiva todas as páginas do frontend em busca do bug , focando apenas nos arquivos que editou recentemente, o que se mostrou insuficiente.</analysis>
