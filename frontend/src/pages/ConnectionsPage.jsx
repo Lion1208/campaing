@@ -155,6 +155,31 @@ export default function ConnectionsPage() {
     setQrDialogOpen(false);
     setSelectedConnectionId(null);
     setQrData({ qr: null, qrImage: null, status: 'connecting' });
+    setConnectMode('qr');
+    setPhoneNumber('');
+    setPairingCode(null);
+  };
+
+  const handleRequestPairingCode = async () => {
+    if (!phoneNumber.trim()) {
+      toast.error('Digite o número do WhatsApp');
+      return;
+    }
+    
+    setPairingLoading(true);
+    try {
+      const result = await requestPairingCode(selectedConnectionId, phoneNumber);
+      if (result.success) {
+        setPairingCode(result.code);
+        toast.success('Código gerado! Digite no seu WhatsApp');
+      } else {
+        toast.error(result.error || 'Erro ao gerar código');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao gerar código');
+    } finally {
+      setPairingLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -162,6 +187,7 @@ export default function ConnectionsPage() {
       connected: { class: 'status-connected', label: 'Conectado' },
       connecting: { class: 'status-connecting', label: 'Conectando' },
       waiting_qr: { class: 'status-connecting', label: 'Aguardando QR' },
+      waiting_code: { class: 'status-connecting', label: 'Aguardando Código' },
       reconnecting: { class: 'status-connecting', label: 'Reconectando' },
       disconnected: { class: 'status-disconnected', label: 'Desconectado' },
     };
