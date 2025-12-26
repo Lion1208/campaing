@@ -56,22 +56,32 @@ export default function ConnectionsPage() {
     if (qrDialogOpen && selectedConnectionId) {
       const poll = async () => {
         try {
+          console.log('[DEBUG] Buscando QR para:', selectedConnectionId);
           const result = await getQRCode(selectedConnectionId);
+          console.log('[DEBUG] Resultado QR:', {
+            status: result.status,
+            temQR: !!result.qrImage,
+            temQRCode: !!result.qr,
+            error: result.error,
+            tamanhoQR: result.qrImage?.length || 0
+          });
           setQrData(result);
           
           if (result.status === 'connected') {
+            console.log('[DEBUG] Conectado! Parando polling.');
             clearInterval(pollingRef.current);
             setQrDialogOpen(false);
             toast.success('WhatsApp conectado com sucesso!');
             fetchConnections();
           }
         } catch (error) {
-          console.error('Erro ao obter QR:', error);
+          console.error('[DEBUG] Erro ao obter QR:', error);
+          console.error('[DEBUG] Detalhes do erro:', error.response?.data || error.message);
         }
       };
 
       poll();
-      pollingRef.current = setInterval(poll, 1500); // Polling mais rápido
+      pollingRef.current = setInterval(poll, 1500);
 
       return () => {
         if (pollingRef.current) {
