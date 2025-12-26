@@ -918,7 +918,7 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
         
         // Criar conexão específica para pairing code
         const { state, saveCreds } = await useMongoAuthState(connectionId);
-        const { version } = await fetchLatestBaileysVersion();
+        const { version } = await getBaileysVersion();
         
         // IMPORTANTE: Browser config específico para pairing code funcionar
         const sock = makeWASocket({
