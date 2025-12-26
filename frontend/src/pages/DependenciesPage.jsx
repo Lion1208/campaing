@@ -119,6 +119,35 @@ export default function DependenciesPage() {
     }
   };
 
+  const handleRestartWhatsApp = async () => {
+    setStartingService(true);
+    setInstallLogs(["🔄 Reiniciando serviço WhatsApp..."]);
+    
+    try {
+      const token = localStorage.getItem("nexus-token");
+      const response = await fetch(`${API_URL}/debug/whatsapp-service/restart`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success("Serviço WhatsApp reiniciado!");
+        setInstallLogs(prev => [...prev, "✅ Serviço WhatsApp reiniciado com sucesso!"]);
+        fetchStatus();
+      } else {
+        toast.error(data.message || "Erro ao reiniciar serviço");
+        setInstallLogs(prev => [...prev, `⚠️ ${data.message || 'Erro ao reiniciar'}`]);
+      }
+    } catch (error) {
+      toast.error("Erro ao reiniciar serviço");
+      setInstallLogs(prev => [...prev, `❌ Erro: ${error.message}`]);
+    } finally {
+      setStartingService(false);
+    }
+  };
+
   const handleFullSetup = async () => {
     setInstalling(true);
     setInstallLogs(["🚀 Iniciando setup completo..."]);
