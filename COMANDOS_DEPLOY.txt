@@ -1,0 +1,81 @@
+═══════════════════════════════════════════════════════════════
+   🚀 COMANDOS PARA FAZER DEPLOY NA VPS - COPIE E COLE
+═══════════════════════════════════════════════════════════════
+
+📌 IMPORTANTE: Execute estes comandos NA SUA VPS (não no seu PC)
+
+═══════════════════════════════════════════════════════════════
+   PASSO 1: Navegue até o diretório da aplicação
+═══════════════════════════════════════════════════════════════
+
+cd /opt/nexuzap
+
+
+═══════════════════════════════════════════════════════════════
+   PASSO 2: Execute o script de atualização
+═══════════════════════════════════════════════════════════════
+
+sudo ./update_vps.sh
+
+
+═══════════════════════════════════════════════════════════════
+   ✅ PRONTO! Aguarde o script terminar (pode levar 2-3 minutos)
+═══════════════════════════════════════════════════════════════
+
+O script vai:
+  ✓ Fazer backup do MongoDB automaticamente
+  ✓ Puxar as correções do GitHub
+  ✓ Atualizar dependências
+  ✓ Reiniciar todos os serviços
+  ✓ Seus dados estarão 100% seguros!
+
+
+═══════════════════════════════════════════════════════════════
+   PASSO 3: Testar se funcionou
+═══════════════════════════════════════════════════════════════
+
+1. Acesse: https://nexuzap.com
+2. Vá em "Conexões"
+3. Clique em "Sincronizar Grupos"
+4. Os grupos devem aparecer! ✨
+
+
+═══════════════════════════════════════════════════════════════
+   📊 COMANDOS EXTRAS (apenas se precisar de diagnóstico)
+═══════════════════════════════════════════════════════════════
+
+# Ver logs do WhatsApp Service:
+sudo tail -n 100 /var/log/supervisor/nexuzap-whatsapp.out.log
+
+# Ver status dos serviços:
+sudo supervisorctl status
+
+# Reiniciar apenas o WhatsApp Service (se necessário):
+sudo supervisorctl restart nexuzap-whatsapp
+
+
+═══════════════════════════════════════════════════════════════
+   ⚠️  SE ALGO DER ERRADO (improvável)
+═══════════════════════════════════════════════════════════════
+
+# Restaurar backup do MongoDB:
+cd /opt/nexuzap
+sudo ./restore.sh
+
+# Ver lista de backups disponíveis:
+ls -lh /opt/nexuzap/backups/
+
+
+═══════════════════════════════════════════════════════════════
+   💡 O QUE FOI CORRIGIDO?
+═══════════════════════════════════════════════════════════════
+
+Bug: Após reiniciar o servidor, os grupos sumiam ao sincronizar
+
+Correção: Agora o sistema busca e salva os grupos automaticamente
+após cada reconexão do WhatsApp. Logs detalhados foram adicionados
+para facilitar o diagnóstico.
+
+═══════════════════════════════════════════════════════════════
+
+🎉 É só isso! Seus dados estão seguros e a correção será aplicada.
