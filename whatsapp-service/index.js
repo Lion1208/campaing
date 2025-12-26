@@ -647,14 +647,15 @@ async function createConnection(connectionId) {
 async function fetchGroups(connectionId) {
     const conn = connections.get(connectionId);
     if (!conn || conn.status !== 'connected') {
-        console.log(`[${connectionId}] Não é possível buscar grupos - status: ${conn?.status}`);
+        console.log(`[${connectionId}] ⚠️ fetchGroups: Não é possível buscar grupos - status: ${conn?.status || 'inexistente'}`);
         return [];
     }
 
     // First check if connection is really alive
+    console.log(`[${connectionId}] 🔍 Verificando se conexão está realmente viva...`);
     const alive = await isConnectionAlive(connectionId);
     if (!alive) {
-        console.log(`[${connectionId}] Conexão morta detectada ao buscar grupos, reconectando...`);
+        console.log(`[${connectionId}] ❌ Conexão morta detectada ao buscar grupos, reconectando...`);
         conn.status = 'reconnecting';
         
         try {
@@ -664,24 +665,29 @@ async function fetchGroups(connectionId) {
         setTimeout(() => createConnection(connectionId), 1000);
         return [];
     }
+    console.log(`[${connectionId}] ✅ Conexão está viva!`);
 
     try {
-        console.log(`[${connectionId}] Buscando grupos...`);
+        console.log(`[${connectionId}] 📞 Chamando groupFetchAllParticipating...`);
         const groups = await conn.socket.groupFetchAllParticipating();
-        conn.groups = Object.values(groups).map(group => ({
+        const groupArray = Object.values(groups);
+        console.log(`[${connectionId}] 📊 groupFetchAllParticipating retornou ${groupArray.length} grupos`);
+        
+        conn.groups = groupArray.map(group => ({
             id: group.id,
             name: group.subject,
             participants_count: group.participants?.length || 0,
             creation: group.creation,
             owner: group.owner
         }));
-        console.log(`[${connectionId}] ${conn.groups.length} grupos sincronizados`);
+        console.log(`[${connectionId}] ✅ ${conn.groups.length} grupos sincronizados e salvos na memória`);
         return conn.groups;
     } catch (error) {
-        console.error(`[${connectionId}] Erro ao buscar grupos:`, error.message);
+        console.error(`[${connectionId}] ❌ Erro ao buscar grupos:`, error.message);
+        console.error(`[${connectionId}] Stack trace:`, error.stack);
         
         if (error.message?.includes('timeout') || error.message?.includes('closed')) {
-            console.log(`[${connectionId}] Conexão perdida, tentando reconectar...`);
+            console.log(`[${connectionId}] 🔄 Conexão perdida, tentando reconectar...`);
             conn.status = 'reconnecting';
             setTimeout(() => createConnection(connectionId), 1000);
         }
