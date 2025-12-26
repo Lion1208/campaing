@@ -954,9 +954,19 @@ app.post('/connections/:id/pairing-code', async (req, res) => {
 });
 
 app.get('/connections/:id/qr', (req, res) => {
-    const conn = connections.get(req.params.id);
+    const connectionId = req.params.id;
+    console.log(`[DEBUG] GET /connections/${connectionId}/qr chamado`);
+    
+    const conn = connections.get(connectionId);
     if (!conn) {
+        console.log(`[DEBUG] Conexão ${connectionId} não encontrada no Map de conexões`);
+        console.log(`[DEBUG] Conexões ativas: ${Array.from(connections.keys()).join(', ') || 'nenhuma'}`);
         return res.json({ qr: null, qrImage: null, status: 'not_found' });
+    }
+    
+    console.log(`[DEBUG] Conexão encontrada. Status: ${conn.status}, temQR: ${conn.qrImage ? 'sim' : 'não'}, temQRCode: ${conn.qrCode ? 'sim' : 'não'}`);
+    if (conn.lastError) {
+        console.log(`[DEBUG] Último erro: ${conn.lastError}`);
     }
     res.json({ 
         qr: conn.qrCode,
