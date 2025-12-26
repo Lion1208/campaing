@@ -2032,8 +2032,17 @@ async def request_pairing_code(connection_id: str, data: PairingCodeRequest, use
 async def sync_groups(connection_id: str, user_id: str):
     """Sync groups from WhatsApp"""
     try:
+        logger.info(f"[DEBUG SYNC] Iniciando sync de grupos para conexão {connection_id}")
         result = await whatsapp_request("GET", f"/connections/{connection_id}/groups?refresh=true")
+        logger.info(f"[DEBUG SYNC] Resposta do WhatsApp service: {result}")
+        
         groups = result.get('groups', [])
+        status = result.get('status', 'unknown')
+        
+        logger.info(f"[DEBUG SYNC] Status da conexão: {status}, grupos encontrados: {len(groups)}")
+        
+        if status != 'connected':
+            logger.warning(f"[DEBUG SYNC] Conexão não está ativa (status={status}). Grupos podem estar vazios.")
         
         # Delete old groups
         await db.groups.delete_many({'connection_id': connection_id})
@@ -2050,9 +2059,17 @@ async def sync_groups(connection_id: str, user_id: str):
             }
             await db.groups.insert_one(group)
         
-        logger.info(f"Sincronizados {len(groups)} grupos para conexão {connection_id}")
+        # Atualiza contador de grupos na conexão
+        await db.connections.update_one(
+            {'id': connection_id},
+            {'$set': {'groups_count': len(groups)}}
+        )
+        
+        logger.info(f"[DEBUG SYNC] Sincronizados {len(groups)} grupos para conexão {connection_id}")
+        return len(groups)
     except Exception as e:
-        logger.error(f"Erro ao sincronizar grupos: {e}")
+        logger.error(f"[DEBUG SYNC] Erro ao sincronizar grupos: {type(e).__name__}: {e}")
+        return 0
 
 @api_router.post("/connections/{connection_id}/refresh-groups")
 async def refresh_groups(connection_id: str, user: dict = Depends(get_current_user)):
