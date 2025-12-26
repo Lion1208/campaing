@@ -147,7 +147,7 @@ export default function ConnectionsPage() {
     }
     setQrDialogOpen(false);
     setSelectedConnectionId(null);
-    setQrData({ qr_code: null, qr_image: null, status: 'preparing' });
+    setQrData({ qr: null, qrImage: null, status: 'connecting' });
   };
 
   const getStatusBadge = (status) => {
