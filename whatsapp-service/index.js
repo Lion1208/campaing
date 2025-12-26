@@ -8,6 +8,11 @@ import pino from 'pino';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import net from 'net';
+
+const execAsync = promisify(exec);
 
 // Load environment variables
 dotenv.config();
