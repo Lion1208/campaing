@@ -189,40 +189,6 @@ export default function EditCampaignPage() {
     return () => clearInterval(interval);
   }, [messageItems.length]);
 
-  const loadGroups = useCallback(async (connectionId, preSelectedGroups = []) => {
-    setLoadingGroups(true);
-    try {
-      const data = await fetchGroupsByConnection(connectionId);
-      setGroups(data);
-      
-      // Se há grupos pré-selecionados (ao carregar a campanha), validar e filtrar apenas os que existem
-      if (preSelectedGroups.length > 0) {
-        const validGroupIds = data.map(g => g.id);
-        const validSelectedGroups = preSelectedGroups.filter(id => validGroupIds.includes(id));
-        
-        if (validSelectedGroups.length !== preSelectedGroups.length) {
-          console.warn(`${preSelectedGroups.length - validSelectedGroups.length} grupo(s) da campanha não existem mais`);
-          toast.info(`Alguns grupos da campanha não existem mais. Foram removidos da seleção.`);
-        }
-        
-        setSelectedGroups(validSelectedGroups);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar grupos:', error);
-      // Se a conexão não existe mais, limpar a seleção
-      if (error.response?.status === 404) {
-        setSelectedConnection('');
-        setGroups([]);
-        setSelectedGroups([]);  // Limpar grupos selecionados também
-        toast.error('Conexão não encontrada. Selecione outra conexão.');
-      } else {
-        toast.error('Erro ao carregar grupos');
-      }
-    } finally {
-      setLoadingGroups(false);
-    }
-  }, [fetchGroupsByConnection]);
-
   useEffect(() => {
     // Este useEffect só deve rodar quando o usuário MUDA a conexão manualmente
     // Não quando a conexão é setada pela primeira vez ao carregar a campanha
