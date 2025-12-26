@@ -114,6 +114,8 @@ log "✅ Frontend compilado"
 
 log "[6/6] 🔧 Restaurando configurações e reiniciando..."
 
+cd "$APP_DIR"
+
 # Restaurar .env
 cp /tmp/backend.env.bak "$APP_DIR/backend/.env" 2>/dev/null || true
 cp /tmp/frontend.env.bak "$APP_DIR/frontend/.env" 2>/dev/null || true
@@ -132,5 +134,5 @@ echo -e "${BLUE}═════════════════════�
 supervisorctl status nexuzap:*
 
 echo ""
-echo -e "${GREEN}🎉 Pronto! Teste em: https://nexuzap.com${NC}"
+echo -e "${GREEN}🎉 Pronto! Limpe o cache do navegador (Ctrl+Shift+Del) e teste em: https://nexuzap.com${NC}"
 echo ""
