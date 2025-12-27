@@ -200,7 +200,8 @@ export default function ConnectionsPage() {
 
   const getStatusBadge = (connection) => {
     const qrState = qrStates[connection.id];
-    const status = qrState?.status || connection.status;
+    // PRIORIDADE: Se o banco diz que está conectado, confiar no banco
+    const status = connection.status === 'connected' ? 'connected' : (qrState?.status || connection.status);
     
     switch (status) {
       case 'connected':
