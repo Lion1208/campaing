@@ -1431,8 +1431,8 @@ async function periodicConnectionCheck() {
         console.error('🔄 [PERIODIC] Erro na verificação periódica:', error.message);
     }
     
-    // Agendar próxima verificação
-    setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
+    // DESABILITADO: Verificação periódica causava loop de status
+    // setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
 }
 
 // ============= AUTO-RECOVERY SYSTEM =============
