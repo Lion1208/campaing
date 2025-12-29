@@ -1,0 +1,52 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ✅ CORREÇÃO: Remove verificações de status              ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+🔧 O QUE FOI DESABILITADO:
+═══════════════════════════════════════════════════════════════
+
+Backend (/app/backend/server.py):
+  ❌ Removido: Verificação de status ao listar conexões
+  ✅ Agora: Confia apenas no status do banco de dados
+
+WhatsApp Service (/app/whatsapp-service/index.js):
+  ❌ Removido: keepAliveCheck (rodava a cada 30s)
+  ❌ Removido: serviceWatchdog (rodava a cada 60s)
+  ❌ Removido: periodicConnectionCheck (rodava a cada 5min)
+  ✅ Agora: Se conectou, mantém conectado. Sem verificações.
+
+
+📦 COMANDOS PARA APLICAR (na VPS):
+═══════════════════════════════════════════════════════════════
+
+cd /opt/nexuzap
+
+# Baixar backend atualizado
+wget -O backend/server.py https://raw.githubusercontent.com/Lion1208/campaing/main/backend/server.py
+
+# Baixar whatsapp-service atualizado
+wget -O whatsapp-service/index.js https://raw.githubusercontent.com/Lion1208/campaing/main/whatsapp-service/index.js
+
+# Reiniciar serviços
+sudo supervisorctl restart nexuzap-backend
+sudo supervisorctl restart nexuzap-whatsapp
+
+# Verificar status
+sudo supervisorctl status
+
+
+✅ RESULTADO ESPERADO:
+═══════════════════════════════════════════════════════════════
+
+✅ Status não muda mais sozinho
+✅ Se está conectado, permanece conectado
+✅ Campanhas não perdem mais a conexão
+✅ Sem loops de status
+
+
+═══════════════════════════════════════════════════════════════
+
+🎉 Pronto! Sistema vai confiar no status do banco e parar de verificar!
