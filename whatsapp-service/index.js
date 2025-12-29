@@ -1359,8 +1359,8 @@ async function autoReconnectSessions() {
     
     console.log('🔄 [AUTO-CONNECT] Reconexão automática concluída.');
     
-    // Agendar próxima verificação periódica (a cada 5 minutos)
-    setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
+    // DESABILITADO: Verificação periódica causava loop de status
+    // setTimeout(periodicConnectionCheck, 5 * 60 * 1000);
 }
 
 // Verificação periódica de conexões - garante que tudo fique conectado
