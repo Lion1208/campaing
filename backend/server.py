@@ -1920,25 +1920,8 @@ async def list_connections(user: dict = Depends(get_current_user), quick: bool =
     if quick:
         return connections_list
     
-    # Update status from WhatsApp service in parallel with short timeout
-    async def update_connection_status(conn):
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:  # Short timeout for faster response
-                response = await client.get(f"{WHATSAPP_SERVICE_URL}/connections/{conn['id']}/status")
-                if response.status_code == 200:
-                    status_data = response.json()
-                    if status_data.get('status') != 'not_found':
-                        conn['status'] = status_data.get('status', conn['status'])
-                        if status_data.get('phoneNumber'):
-                            conn['phone_number'] = status_data['phoneNumber']
-        except:
-            pass  # Keep existing status on error
-        return conn
-    
-    # Run all status updates in parallel
-    tasks = [update_connection_status(conn) for conn in connections_list]
-    await asyncio.gather(*tasks, return_exceptions=True)
-    
+    # NÃO FAZER VERIFICAÇÃO DE STATUS - apenas retornar do banco
+    # Se está conectado no banco, confiar nisso
     return connections_list
 
 @api_router.get("/connections/quick", response_model=List[ConnectionResponse])
