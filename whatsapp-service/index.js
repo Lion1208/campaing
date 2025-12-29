@@ -465,11 +465,11 @@ async function serviceWatchdog() {
     }
 }
 
-// Start keep-alive checker
-setInterval(keepAliveCheck, KEEPALIVE_INTERVAL);
+// Start keep-alive checker - DESABILITADO (causava loop de status)
+// setInterval(keepAliveCheck, KEEPALIVE_INTERVAL);
 
-// Start watchdog (every 60 seconds)
-setInterval(serviceWatchdog, 60000);
+// Start watchdog (every 60 seconds) - DESABILITADO
+// setInterval(serviceWatchdog, 60000);
 
 async function createConnection(connectionId) {
     console.log(`[DEBUG] createConnection(${connectionId}) iniciado`);
