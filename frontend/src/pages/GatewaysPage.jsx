@@ -16,9 +16,7 @@ export default function GatewaysPage() {
   const [showToken, setShowToken] = useState(false);
   const [formData, setFormData] = useState({
     provider: 'mercadopago',
-    access_token: '',
-    monthly_price: 49.90,
-    custom_prices: {}
+    access_token: ''
   });
 
   useEffect(() => {
@@ -65,9 +63,7 @@ export default function GatewaysPage() {
   const resetForm = () => {
     setFormData({
       provider: 'mercadopago',
-      access_token: '',
-      monthly_price: 49.90,
-      custom_prices: {}
+      access_token: ''
     });
   };
 
@@ -115,19 +111,13 @@ export default function GatewaysPage() {
                         {gateway.access_token_preview}
                       </code>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Preço Padrão:</span>
-                      <span className="font-bold text-primary">R$ {gateway.monthly_price.toFixed(2)}</span>
-                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" onClick={() => {
                     setFormData({
                       provider: gateway.provider,
-                      access_token: '',
-                      monthly_price: gateway.monthly_price,
-                      custom_prices: gateway.custom_prices
+                      access_token: ''
                     });
                     setDialogOpen(true);
                   }}>
@@ -180,27 +170,6 @@ export default function GatewaysPage() {
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Obtenha em: <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" className="text-primary underline">Mercado Pago Developers</a>
-              </p>
-            </div>
-
-            <div>
-              <Label>Preço Mensal Padrão (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.monthly_price}
-                onChange={(e) => setFormData({...formData, monthly_price: parseFloat(e.target.value)})}
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Este será o preço padrão para renovações dos seus usuários
-              </p>
-            </div>
-
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-              <p className="text-sm text-blue-500">
-                💡 <strong>Dica:</strong> Você pode definir preços personalizados para cada revendedor na página de Revendedores.
               </p>
             </div>
 
