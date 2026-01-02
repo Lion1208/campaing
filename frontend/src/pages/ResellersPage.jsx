@@ -364,6 +364,46 @@ export default function ResellersPage() {
                 {isMaster && <span className="ml-1 text-xs opacity-75">(1 crédito)</span>}
               </Button>
             </DialogTrigger>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar por nome de usuário..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-10 pr-10 bg-muted/50"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Button type="submit" variant="secondary">
+          <Search className="w-4 h-4 mr-2" />
+          Buscar
+        </Button>
+      </form>
+
+      {searchTerm && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Resultados para: <strong className="text-foreground">"{searchTerm}"</strong></span>
+          <Button variant="ghost" size="sm" onClick={clearSearch}>
+            Limpar
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent className="glass-card border-border mx-4 max-w-sm">
             <DialogHeader>
               <DialogTitle className="text-foreground">Novo Revendedor</DialogTitle>
