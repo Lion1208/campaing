@@ -274,7 +274,7 @@ export default function CampaignsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [paginatedCampaigns, setPaginatedCampaigns] = useState([]);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
   const limit = 12;
 
   const isAdmin = user?.role === 'admin';
