@@ -116,6 +116,8 @@ export default function ResellersPage() {
   const [creditsToAdd, setCreditsToAdd] = useState(10);
   const [actionLoading, setActionLoading] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState('mine');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const limit = 10;
 
   const isAdmin = user?.role === 'admin';
@@ -124,7 +126,10 @@ export default function ResellersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const endpoint = isAdmin ? `/admin/all-users?page=${page}&limit=${limit}&owner_filter=${ownerFilter}` : `/master/resellers?page=${page}&limit=${limit}`;
+      const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+      const endpoint = isAdmin 
+        ? `/admin/all-users?page=${page}&limit=${limit}&owner_filter=${ownerFilter}${searchParam}` 
+        : `/master/resellers?page=${page}&limit=${limit}${searchParam}`;
       const response = await api.get(endpoint);
       setUsers(response.data.users);
       setTotalPages(response.data.total_pages);
@@ -134,16 +139,26 @@ export default function ResellersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, isAdmin, ownerFilter]);
+  }, [page, isAdmin, ownerFilter, searchTerm]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset page when filter changes
+  // Reset page when filter or search changes
   useEffect(() => {
     setPage(1);
-  }, [ownerFilter]);
+  }, [ownerFilter, searchTerm]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setSearchTerm(searchInput);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+  };
 
   const handleCreate = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) {
