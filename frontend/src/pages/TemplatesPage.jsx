@@ -36,6 +36,7 @@ import { Plus, FileText, Edit2, Trash2, Image, Upload, Filter } from 'lucide-rea
 import { api } from '@/store';
 
 export default function TemplatesPage() {
+  const { user } = useAuthStore();
   const [templates, setTemplates] = useState([]);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +47,13 @@ export default function TemplatesPage() {
   const [formData, setFormData] = useState({ name: '', message: '', image_id: 'none' });
   const [actionLoading, setActionLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState('all');
+
+  const isAdmin = user?.role === 'admin';
 
   const fetchTemplates = async () => {
     try {
-      const response = await api.get('/templates');
+      const response = await api.get(`/templates?owner_filter=${ownerFilter}`);
       setTemplates(response.data);
     } catch (error) {
       toast.error('Erro ao carregar templates');
