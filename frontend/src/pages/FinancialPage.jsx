@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../store';
+import { useAuthStore } from '../store';
 import { Card } from '../components/ui/card';
 import { DollarSign, TrendingUp, Users, CreditCard } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export default function FinancialPage() {
-  const { api, user } = useAuth();
+  const { api, user } = useAuthStore();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
