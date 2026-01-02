@@ -266,6 +266,7 @@ function AnimatedCampaignPreview({ campaign, imageCache, loadImagePreview }) {
 
 export default function CampaignsPage() {
   const { campaigns, fetchCampaigns, startCampaign, duplicateCampaign, copyGroupsFromCampaign, replaceGroupsFromCampaign, pauseCampaign, resumeCampaign, deleteCampaign, loading } = useCampaignsStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState(null);
@@ -273,7 +274,10 @@ export default function CampaignsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [paginatedCampaigns, setPaginatedCampaigns] = useState([]);
+  const [ownerFilter, setOwnerFilter] = useState('all');
   const limit = 12;
+
+  const isAdmin = user?.role === 'admin';
 
   // Estado para diálogo de copiar grupos
   const [copyGroupsDialogOpen, setCopyGroupsDialogOpen] = useState(false);
@@ -284,13 +288,13 @@ export default function CampaignsPage() {
 
   const fetchPaginatedCampaigns = useCallback(async () => {
     try {
-      const response = await api.get(`/campaigns/paginated?page=${page}&limit=${limit}`);
+      const response = await api.get(`/campaigns/paginated?page=${page}&limit=${limit}&owner_filter=${ownerFilter}`);
       setPaginatedCampaigns(response.data.campaigns);
       setTotalPages(response.data.total_pages);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
     }
-  }, [page]);
+  }, [page, ownerFilter]);
 
   useEffect(() => {
     fetchPaginatedCampaigns();
@@ -300,6 +304,11 @@ export default function CampaignsPage() {
     const interval = setInterval(fetchPaginatedCampaigns, 10000);
     return () => clearInterval(interval);
   }, [fetchPaginatedCampaigns, fetchCampaigns]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [ownerFilter]);
 
   const handleStart = async (campaign) => {
     setActionLoading(campaign.id);
