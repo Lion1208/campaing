@@ -98,6 +98,11 @@ wget -q -O frontend/src/pages/GatewaysPage.jsx "$GITHUB_RAW/frontend/src/pages/G
 wget -q -O frontend/src/pages/CreditShopPage.jsx "$GITHUB_RAW/frontend/src/pages/CreditShopPage.jsx" || warn "Falha"
 wget -q -O frontend/src/pages/FinancialPage.jsx "$GITHUB_RAW/frontend/src/pages/FinancialPage.jsx" || warn "Falha"
 wget -q -O frontend/src/pages/InviteLinksPage.jsx "$GITHUB_RAW/frontend/src/pages/InviteLinksPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/ResellersPage.jsx "$GITHUB_RAW/frontend/src/pages/ResellersPage.jsx" || warn "Falha ao baixar ResellersPage.jsx"
+
+log "  → Atualizando frontend/src/components..."
+wget -q -O frontend/src/components/RenewalModal.jsx "$GITHUB_RAW/frontend/src/components/RenewalModal.jsx" || warn "Falha"
+wget -q -O frontend/src/components/ExpirationWarning.jsx "$GITHUB_RAW/frontend/src/components/ExpirationWarning.jsx" || warn "Falha"
 
 log "  → Atualizando frontend/src/App.js..."
 wget -q -O frontend/src/App.js "$GITHUB_RAW/frontend/src/App.js" || warn "Falha ao baixar App.js"
