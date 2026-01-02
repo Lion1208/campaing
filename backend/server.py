@@ -1669,20 +1669,18 @@ async def create_gateway(data: GatewayCreate, user: dict = Depends(get_current_u
     if user['role'] not in ['admin', 'master']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    # Check if gateway already exists
-    existing = await db.gateways.find_one({'user_id': user['id']})
+    # Check if gateway already exists for this provider
+    existing = await db.gateways.find_one({'user_id': user['id'], 'provider': data.provider})
     
     gateway_data = {
         'provider': data.provider,
         'access_token': data.access_token,
-        'monthly_price': data.monthly_price,
-        'custom_prices': data.custom_prices or {},
-        'active': True
+        'active': data.active
     }
     
     if existing:
         # Update existing
-        await db.gateways.update_one({'user_id': user['id']}, {'$set': gateway_data})
+        await db.gateways.update_one({'user_id': user['id'], 'provider': data.provider}, {'$set': gateway_data})
         gateway = {**existing, **gateway_data}
     else:
         # Create new
