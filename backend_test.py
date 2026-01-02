@@ -372,6 +372,214 @@ class WhatsAppCampaignTester:
         
         return success
 
+    def test_admin_filter_campaigns_paginated(self):
+        """Test campaigns/paginated endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Campaigns Paginated - owner_filter=all",
+            "GET",
+            "campaigns/paginated?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Campaigns Paginated - owner_filter=mine",
+            "GET",
+            "campaigns/paginated?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Campaigns Paginated - default filter",
+            "GET",
+            "campaigns/paginated",
+            200
+        )
+        return success
+
+    def test_admin_filter_templates(self):
+        """Test templates endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Templates - owner_filter=all",
+            "GET",
+            "templates?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Templates - owner_filter=mine",
+            "GET",
+            "templates?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Templates - default filter",
+            "GET",
+            "templates",
+            200
+        )
+        return success
+
+    def test_admin_filter_connections(self):
+        """Test connections endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Connections - owner_filter=all",
+            "GET",
+            "connections?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Connections - owner_filter=mine",
+            "GET",
+            "connections?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Connections - default filter",
+            "GET",
+            "connections",
+            200
+        )
+        return success
+
+    def test_admin_filter_plans(self):
+        """Test plans endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Plans - owner_filter=all",
+            "GET",
+            "plans?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Plans - owner_filter=mine",
+            "GET",
+            "plans?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Plans - default filter",
+            "GET",
+            "plans",
+            200
+        )
+        return success
+
+    def test_admin_filter_all_users(self):
+        """Test admin/all-users endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Admin All Users - owner_filter=all",
+            "GET",
+            "admin/all-users?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Admin All Users - owner_filter=mine",
+            "GET",
+            "admin/all-users?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Admin All Users - default filter",
+            "GET",
+            "admin/all-users",
+            200
+        )
+        return success
+
+    def test_admin_filter_invite_links(self):
+        """Test invite-links endpoint with owner_filter parameter"""
+        # Test with owner_filter=all
+        success, response = self.run_test(
+            "Invite Links - owner_filter=all",
+            "GET",
+            "invite-links?owner_filter=all",
+            200
+        )
+        if not success:
+            return False
+
+        # Test with owner_filter=mine
+        success, response = self.run_test(
+            "Invite Links - owner_filter=mine",
+            "GET",
+            "invite-links?owner_filter=mine",
+            200
+        )
+        if not success:
+            return False
+
+        # Test without owner_filter (should default to 'all')
+        success, response = self.run_test(
+            "Invite Links - default filter",
+            "GET",
+            "invite-links",
+            200
+        )
+        return success
+
+    def test_admin_filter_functionality_comprehensive(self):
+        """Comprehensive test of all admin filter functionality"""
+        print("\n🔍 Testing Admin Filter Functionality...")
+        
+        all_tests_passed = True
+        
+        # Test all endpoints with admin filter functionality
+        test_methods = [
+            self.test_admin_filter_campaigns_paginated,
+            self.test_admin_filter_templates,
+            self.test_admin_filter_connections,
+            self.test_admin_filter_plans,
+            self.test_admin_filter_all_users,
+            self.test_admin_filter_invite_links
+        ]
+        
+        for test_method in test_methods:
+            if not test_method():
+                all_tests_passed = False
+        
+        return all_tests_passed
+
     def run_all_tests(self):
         """Run all tests"""
         print(f"🚀 Starting WhatsApp Campaign Manager API Tests")
