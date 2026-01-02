@@ -426,6 +426,56 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/plans"
+          element={
+            <ProtectedRoute adminOnly>
+              <Layout>
+                <PlansPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/gateways"
+          element={
+            <ProtectedRoute masterOrAdmin>
+              <Layout>
+                <GatewaysPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/credit-shop"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CreditShopPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/financial"
+          element={
+            <ProtectedRoute masterOrAdmin>
+              <Layout>
+                <FinancialPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/invite-links"
+          element={
+            <ProtectedRoute masterOrAdmin>
+              <Layout>
+                <InviteLinksPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
