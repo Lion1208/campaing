@@ -273,6 +273,7 @@ export default function TemplatesPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Templates List */}
