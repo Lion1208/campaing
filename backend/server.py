@@ -3904,23 +3904,37 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
     logger.info(f"[UPDATE_CAMPAIGN] After update, specific_times in DB: {updated.get('specific_times')}")
     
     # IMPORTANTE: Se a campanha estava ativa, reagendar os jobs com os novos horários
-    if campaign['status'] == 'active' and data.schedule_type == 'specific_times' and data.specific_times:
-        logger.info(f"[UPDATE_CAMPAIGN] Campaign was active, rescheduling jobs with new times: {data.specific_times}")
-        from apscheduler.triggers.cron import CronTrigger
-        for idx, time_str in enumerate(data.specific_times):
-            hour, minute = map(int, time_str.split(':'))
-            job_id = f"{campaign_id}_time_{idx}"
+    if campaign['status'] == 'active':
+        if data.schedule_type == 'specific_times' and data.specific_times:
+            logger.info(f"[UPDATE_CAMPAIGN] Campaign was active, rescheduling jobs with new times: {data.specific_times}")
+            from apscheduler.triggers.cron import CronTrigger
+            for idx, time_str in enumerate(data.specific_times):
+                hour, minute = map(int, time_str.split(':'))
+                job_id = f"{campaign_id}_time_{idx}"
+                try:
+                    scheduler.add_job(
+                        execute_campaign_batch,
+                        CronTrigger(hour=hour, minute=minute, timezone='America/Sao_Paulo'),
+                        id=job_id,
+                        args=[campaign_id],
+                        replace_existing=True
+                    )
+                    logger.info(f"[UPDATE_CAMPAIGN] Rescheduled job {job_id} for {time_str}")
+                except Exception as e:
+                    logger.error(f"[UPDATE_CAMPAIGN] Failed to reschedule job: {e}")
+        elif data.schedule_type == 'interval' and data.interval_hours:
+            logger.info(f"[UPDATE_CAMPAIGN] Campaign was active, rescheduling interval job: every {data.interval_hours}h")
             try:
                 scheduler.add_job(
                     execute_campaign_batch,
-                    CronTrigger(hour=hour, minute=minute, timezone='America/Sao_Paulo'),
-                    id=job_id,
+                    IntervalTrigger(hours=data.interval_hours),
+                    id=campaign_id,
                     args=[campaign_id],
                     replace_existing=True
                 )
-                logger.info(f"[UPDATE_CAMPAIGN] Rescheduled job {job_id} for {time_str}")
+                logger.info(f"[UPDATE_CAMPAIGN] Rescheduled interval job for campaign {campaign_id}")
             except Exception as e:
-                logger.error(f"[UPDATE_CAMPAIGN] Failed to reschedule job: {e}")
+                logger.error(f"[UPDATE_CAMPAIGN] Failed to reschedule interval job: {e}")
     
     return updated
 
