@@ -462,7 +462,7 @@ function App() {
         <Route
           path="/credit-shop"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute masterOrAdmin>
               <Layout>
                 <CreditShopPage />
               </Layout>
