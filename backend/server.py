@@ -2084,6 +2084,31 @@ async def delete_invite_link(link_id: str, user: dict = Depends(get_current_user
     await db.invite_links.delete_one({'id': link_id})
     return {'message': 'Link deletado'}
 
+@api_router.get("/invite-links/validate/{code}")
+async def validate_invite_link(code: str):
+    """Validate invite link (public endpoint)"""
+    link = await db.invite_links.find_one({'code': code.upper()}, {"_id": 0})
+    if not link:
+        raise HTTPException(status_code=404, detail="Link não encontrado")
+    
+    # Check if expired
+    expires_at = datetime.fromisoformat(link['expires_at'].replace('Z', '+00:00'))
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Link expirado")
+    
+    # Check if max uses reached
+    if link['max_uses'] > 0 and link['uses'] >= link['max_uses']:
+        raise HTTPException(status_code=400, detail="Link esgotado")
+    
+    if not link.get('active', True):
+        raise HTTPException(status_code=400, detail="Link desativado")
+    
+    return {
+        'valid': True,
+        'test_hours': link['test_hours'],
+        'code': link['code']
+    }
+
 @api_router.post("/users/{user_id}/activate-trial")
 async def activate_trial(user_id: str, admin: dict = Depends(get_current_user)):
     """Activate trial for user (admin/master only)"""
