@@ -1713,11 +1713,15 @@ async def get_credit_plans_admin(admin: dict = Depends(get_admin_user)):
 
 @api_router.get("/credit-plans", response_model=List[CreditPlanResponse])
 async def get_credit_plans(user: dict = Depends(get_current_user)):
-    """Get active credit plans (master only)"""
-    if user['role'] != 'master':
+    """Get active credit plans (master/admin)"""
+    if user['role'] not in ['master', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    plans = await db.credit_plans.find({'active': True}, {"_id": 0}).to_list(1000)
+    # Admin vê todos, master vê só os ativos
+    if user['role'] == 'admin':
+        plans = await db.credit_plans.find({}, {"_id": 0}).to_list(1000)
+    else:
+        plans = await db.credit_plans.find({'active': True}, {"_id": 0}).to_list(1000)
     return plans
 
 @api_router.post("/admin/credit-plans", response_model=CreditPlanResponse)
