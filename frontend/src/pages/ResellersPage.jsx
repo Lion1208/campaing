@@ -227,20 +227,14 @@ export default function ResellersPage() {
 
     setActionLoading(true);
     try {
-      const endpoint = isAdmin ? `/admin/users/${selectedUser.id}/trial` : `/master/resellers/${selectedUser.id}/trial`;
-      const response = await api.post(endpoint);
+      // Usar o novo endpoint que pega o tempo do link de convite
+      const response = await api.post(`/users/${selectedUser.id}/activate-trial`);
       
       setTrialDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
       
-      // Show receipt modal
-      if (response.data.receipt) {
-        setCurrentReceipt(response.data.receipt);
-        setReceiptModalOpen(true);
-      } else {
-        toast.success('Teste de 24h liberado!');
-      }
+      toast.success(response.data.message || 'Teste liberado com sucesso!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao liberar teste');
     } finally {
