@@ -20,7 +20,7 @@ export default function ConnectionsPage() {
   const [newConnectionName, setNewConnectionName] = useState('');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
   
   const isAdmin = user?.role === 'admin';
   
