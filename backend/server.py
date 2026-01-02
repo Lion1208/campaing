@@ -1623,9 +1623,11 @@ async def create_plan(data: PlanCreate, admin: dict = Depends(get_admin_user)):
         'price': data.price,
         'description': data.description,
         'active': data.active,
+        'created_by': admin['id'],
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.plans.insert_one(plan)
+    plan['creator_username'] = admin['username']
     return plan
 
 @api_router.put("/admin/plans/{plan_id}", response_model=PlanResponse)
