@@ -127,14 +127,10 @@ const Layout = ({ children }) => {
   // Add master/admin pages
   if (user?.role === 'admin' || user?.role === 'master') {
     navItems.push({ path: '/gateways', label: 'Gateways', icon: CreditCard });
+    navItems.push({ path: '/credit-shop', label: 'Loja de Créditos', icon: ShoppingCart });
     navItems.push({ path: '/financial', label: 'Financeiro', icon: DollarSign });
     navItems.push({ path: '/resellers', label: 'Revendedores', icon: Users });
     navItems.push({ path: '/invite-links', label: 'Links de Convite', icon: Link2 });
-  }
-
-  // Add credit shop for masters only
-  if (user?.role === 'master') {
-    navItems.push({ path: '/credit-shop', label: 'Loja de Créditos', icon: ShoppingCart });
   }
 
   // Add all users page for admin only
