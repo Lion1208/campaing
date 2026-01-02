@@ -665,11 +665,16 @@ export default function CreateCampaignPage() {
                       <Label className="text-xs text-muted-foreground">Adicionar horário personalizado</Label>
                       <Input
                         type="time"
+                        id="custom-time-input"
                         className="bg-muted/50 border-border text-foreground"
-                        onChange={(e) => {
-                          const time = e.target.value;
-                          if (time && !specificTimes.includes(time)) {
-                            setSpecificTimes([...specificTimes, time].sort());
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const time = e.target.value;
+                            if (time && !specificTimes.includes(time)) {
+                              setSpecificTimes([...specificTimes, time].sort());
+                              e.target.value = '';
+                            }
                           }
                         }}
                       />
@@ -679,7 +684,7 @@ export default function CreateCampaignPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const input = document.querySelector('input[type="time"]');
+                        const input = document.getElementById('custom-time-input');
                         if (input && input.value && !specificTimes.includes(input.value)) {
                           setSpecificTimes([...specificTimes, input.value].sort());
                           input.value = '';
