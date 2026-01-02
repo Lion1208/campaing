@@ -2709,22 +2709,50 @@ async def get_master_user(user: dict = Depends(get_current_user)):
 @api_router.get("/master/resellers")
 async def list_master_resellers(page: int = 1, limit: int = 10, search: str = "", master: dict = Depends(get_master_user)):
     """List resellers created by this master"""
-    query = {'created_by': master['id']} if master['role'] == 'master' else {'role': 'reseller'}
+    stats_query = {'created_by': master['id']} if master['role'] == 'master' else {'role': 'reseller'}
     
-    # Add search filter
+    # Calculate stats from ALL users (not paginated, not searched)
+    all_users_for_stats = await db.users.find(stats_query, {'_id': 0, 'expires_at': 1, 'active': 1}).to_list(10000)
+    now = datetime.now(timezone.utc)
+    
+    total_count = len(all_users_for_stats)
+    active_count = 0
+    expired_count = 0
+    
+    for u in all_users_for_stats:
+        expires_at = u.get('expires_at')
+        if expires_at:
+            try:
+                exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if exp_date > now:
+                    active_count += 1
+                else:
+                    expired_count += 1
+            except:
+                pass
+        elif u.get('active'):
+            active_count += 1
+    
+    # Build query for listing (with search)
+    list_query = stats_query.copy()
     if search:
-        query['username'] = {'$regex': search, '$options': 'i'}
+        list_query['username'] = {'$regex': search, '$options': 'i'}
     
     skip = (page - 1) * limit
-    total = await db.users.count_documents(query)
+    total = await db.users.count_documents(list_query)
     # Sort by created_at descending (newest first)
-    users = await db.users.find(query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    users = await db.users.find(list_query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     return {
         'users': users,
         'total': total,
         'page': page,
         'limit': limit,
-        'total_pages': (total + limit - 1) // limit
+        'total_pages': (total + limit - 1) // limit,
+        'stats': {
+            'total': total_count,
+            'active': active_count,
+            'expired': expired_count
+        }
     }
 
 @api_router.post("/master/resellers")
