@@ -3814,6 +3814,10 @@ async def pause_campaign(campaign_id: str, user: dict = Depends(get_current_user
 @api_router.put("/campaigns/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = Depends(get_current_user)):
     """Atualizar campanha existente"""
+    logger.info(f"[UPDATE_CAMPAIGN] Received update request for campaign {campaign_id}")
+    logger.info(f"[UPDATE_CAMPAIGN] schedule_type: {data.schedule_type}")
+    logger.info(f"[UPDATE_CAMPAIGN] specific_times received: {data.specific_times}")
+    
     query = {'id': campaign_id}
     if user['role'] != 'admin':
         query['user_id'] = user['id']
@@ -3821,6 +3825,8 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
     campaign = await db.campaigns.find_one(query)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    
+    logger.info(f"[UPDATE_CAMPAIGN] Current specific_times in DB: {campaign.get('specific_times')}")
     
     # Não permitir edição de campanhas em execução
     if campaign['status'] == 'running':
