@@ -512,14 +512,29 @@ export default function CampaignsPage() {
           <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Campanhas</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie suas campanhas de mensagens</p>
         </div>
-        <Button
-          data-testid="create-campaign-btn"
-          onClick={() => navigate('/campaigns/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Campanha
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas do Sistema</SelectItem>
+                <SelectItem value="mine">Apenas Minhas</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            data-testid="create-campaign-btn"
+            onClick={() => navigate('/campaigns/new')}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Campanha
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
