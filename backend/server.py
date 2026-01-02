@@ -2170,10 +2170,25 @@ async def activate_trial(user_id: str, admin: dict = Depends(get_current_user)):
 # ============= Templates =============
 
 @api_router.get("/templates")
-async def list_templates(user: dict = Depends(get_current_user)):
-    """List message templates"""
-    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+async def list_templates(owner_filter: str = "all", user: dict = Depends(get_current_user)):
+    """List message templates. owner_filter: 'all' or 'mine' (admin only)"""
+    # Build query based on role and filter
+    if user['role'] == 'admin':
+        if owner_filter == 'mine':
+            query = {'user_id': user['id']}
+        else:
+            query = {}  # All templates
+    else:
+        query = {'user_id': user['id']}
+    
     templates = await db.templates.find(query, {'_id': 0}).sort('created_at', -1).to_list(1000)
+    
+    # Add owner username for admin view
+    if user['role'] == 'admin' and owner_filter == 'all':
+        for template in templates:
+            owner = await db.users.find_one({'id': template.get('user_id')}, {"_id": 0, "username": 1})
+            template['owner_username'] = owner['username'] if owner else 'Admin'
+    
     return templates
 
 @api_router.post("/templates")
