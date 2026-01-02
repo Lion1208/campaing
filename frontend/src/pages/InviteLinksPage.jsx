@@ -21,7 +21,7 @@ export default function InviteLinksPage() {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
   const [formData, setFormData] = useState({
     test_hours: 24,
     max_uses: 0,
