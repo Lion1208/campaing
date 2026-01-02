@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuthStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, FileText, Edit2, Trash2, Image, Upload } from 'lucide-react';
+import { Plus, FileText, Edit2, Trash2, Image, Upload, Filter } from 'lucide-react';
 import { api } from '@/store';
 
 export default function TemplatesPage() {
