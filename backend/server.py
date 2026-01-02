@@ -1658,6 +1658,104 @@ async def delete_plan(plan_id: str, admin: dict = Depends(get_admin_user)):
         raise HTTPException(status_code=404, detail="Plano não encontrado")
     return {'message': 'Plano deletado'}
 
+# ============= PLANS FOR RESELLERS (UPLINE PLANS) =============
+
+@api_router.get("/my-plans")
+async def get_my_upline_plans(user: dict = Depends(get_current_user)):
+    """Get plans available for the current user (from their upline/master)"""
+    # Admin não precisa de planos
+    if user['role'] == 'admin':
+        return []
+    
+    # Buscar o upline (quem criou este usuário)
+    upline_id = user.get('created_by')
+    
+    if not upline_id:
+        # Se não tem upline, busca planos do admin
+        admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+        if admin:
+            upline_id = admin['id']
+        else:
+            return []
+    
+    # Buscar planos ativos criados pelo upline
+    plans = await db.plans.find({
+        'created_by': upline_id,
+        'active': True
+    }, {"_id": 0}).to_list(100)
+    
+    # Adicionar info do upline
+    upline = await db.users.find_one({'id': upline_id}, {"_id": 0, "username": 1})
+    for plan in plans:
+        plan['upline_username'] = upline['username'] if upline else 'Sistema'
+    
+    return plans
+
+@api_router.post("/purchase-plan/{plan_id}")
+async def purchase_plan(plan_id: str, user: dict = Depends(get_current_user)):
+    """Purchase a plan (reseller buying from their upline)"""
+    if user['role'] == 'admin':
+        raise HTTPException(status_code=403, detail="Admin não precisa comprar planos")
+    
+    # Buscar o plano
+    plan = await db.plans.find_one({'id': plan_id, 'active': True}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    
+    # Verificar se o plano é do upline do usuário
+    upline_id = user.get('created_by')
+    if not upline_id:
+        admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+        if admin:
+            upline_id = admin['id']
+    
+    if plan.get('created_by') != upline_id:
+        raise HTTPException(status_code=403, detail="Este plano não está disponível para você")
+    
+    # Buscar gateway do upline
+    gateway = await db.gateways.find_one({'user_id': upline_id, 'active': True}, {"_id": 0})
+    if not gateway:
+        raise HTTPException(status_code=400, detail="Gateway de pagamento não configurado pelo seu revendedor")
+    
+    # Criar transação
+    transaction = {
+        'id': str(uuid.uuid4()),
+        'type': 'plan_purchase',
+        'user_id': user['id'],
+        'master_id': upline_id,
+        'plan_id': plan_id,
+        'plan_name': plan['name'],
+        'amount': plan['price'],
+        'duration_months': plan['duration_months'],
+        'max_connections': plan['max_connections'],
+        'status': 'pending',
+        'payment_id': None,
+        'qr_code': None,
+        'qr_code_text': None,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'paid_at': None
+    }
+    
+    # Gerar PIX
+    try:
+        pix_data = await create_mercadopago_pix(
+            access_token=gateway['access_token'],
+            amount=plan['price'],
+            description=f"Plano {plan['name']} - {user['username']}",
+            external_reference=transaction['id']
+        )
+        
+        transaction['payment_id'] = pix_data['payment_id']
+        transaction['qr_code'] = pix_data['qr_code']
+        transaction['qr_code_text'] = pix_data['qr_code_text']
+        
+    except Exception as e:
+        logger.error(f"Erro ao gerar PIX para plano: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar pagamento: {str(e)}")
+    
+    await db.transactions.insert_one(transaction)
+    return transaction
+
 # ============= MONETIZATION - GATEWAYS =============
 
 @api_router.get("/gateways", response_model=List[GatewayResponse])
