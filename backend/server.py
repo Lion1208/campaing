@@ -139,6 +139,8 @@ class PlanResponse(BaseModel):
     description: Optional[str] = None
     active: bool
     created_at: str
+    created_by: Optional[str] = None
+    creator_username: Optional[str] = None
 
 class GatewayCreate(BaseModel):
     provider: str = "mercadopago"
