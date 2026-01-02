@@ -2679,12 +2679,18 @@ async def get_master_user(user: dict = Depends(get_current_user)):
     return user
 
 @api_router.get("/master/resellers")
-async def list_master_resellers(page: int = 1, limit: int = 10, master: dict = Depends(get_master_user)):
+async def list_master_resellers(page: int = 1, limit: int = 10, search: str = "", master: dict = Depends(get_master_user)):
     """List resellers created by this master"""
     query = {'created_by': master['id']} if master['role'] == 'master' else {'role': 'reseller'}
+    
+    # Add search filter
+    if search:
+        query['username'] = {'$regex': search, '$options': 'i'}
+    
     skip = (page - 1) * limit
     total = await db.users.count_documents(query)
-    users = await db.users.find(query, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    # Sort by created_at descending (newest first)
+    users = await db.users.find(query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     return {
         'users': users,
         'total': total,
