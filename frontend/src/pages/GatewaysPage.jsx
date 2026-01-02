@@ -50,7 +50,8 @@ export default function GatewaysPage() {
   const handleToggle = async (provider, enabled) => {
     const current = gateways[provider];
     
-    if (enabled && !current?.access_token) {
+    // Verifica se tem token salvo (access_token_preview indica que existe token no banco)
+    if (enabled && !current?.access_token_preview) {
       toast.error('Configure o token antes de habilitar');
       return;
     }
@@ -58,21 +59,9 @@ export default function GatewaysPage() {
     setSaving(prev => ({ ...prev, [provider]: true }));
     
     try {
-      if (enabled) {
-        await api.post('/gateways', {
-          provider,
-          access_token: current.access_token,
-          active: true
-        });
-        toast.success('Gateway habilitado!');
-      } else {
-        await api.post('/gateways', {
-          provider,
-          access_token: current?.access_token || '',
-          active: false
-        });
-        toast.success('Gateway desabilitado!');
-      }
+      // Para toggle, usamos endpoint específico de ativar/desativar
+      await api.put(`/gateways/${provider}/toggle`, { active: enabled });
+      toast.success(enabled ? 'Gateway habilitado!' : 'Gateway desabilitado!');
       await fetchGateways();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao atualizar gateway');
