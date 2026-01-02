@@ -506,6 +506,54 @@ async def restart_whatsapp_service():
         return {'success': False, 'error': str(e)}
 
 async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0, auto_recover: bool = True):
+
+# ============= MERCADO PAGO FUNCTIONS =============
+
+async def create_mercadopago_pix(access_token: str, amount: float, description: str, external_reference: str):
+    """Create PIX payment via Mercado Pago"""
+    import mercadopago
+    
+    sdk = mercadopago.SDK(access_token)
+    
+    payment_data = {
+        "transaction_amount": amount,
+        "description": description,
+        "payment_method_id": "pix",
+        "external_reference": external_reference,
+        "payer": {
+            "email": "cliente@email.com"
+        }
+    }
+    
+    try:
+        payment_response = sdk.payment().create(payment_data)
+        payment = payment_response["response"]
+        
+        return {
+            'payment_id': str(payment['id']),
+            'qr_code': payment['point_of_interaction']['transaction_data']['qr_code_base64'],
+            'qr_code_text': payment['point_of_interaction']['transaction_data']['qr_code'],
+            'status': payment['status']
+        }
+    except Exception as e:
+        logger.error(f"Erro ao criar PIX: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PIX: {str(e)}")
+
+async def check_mercadopago_payment(access_token: str, payment_id: str):
+    """Check payment status"""
+    import mercadopago
+    
+    sdk = mercadopago.SDK(access_token)
+    
+    try:
+        payment_response = sdk.payment().get(payment_id)
+        payment = payment_response["response"]
+        return payment['status']  # approved, pending, cancelled, etc
+    except Exception as e:
+        logger.error(f"Erro ao verificar pagamento: {e}")
+        return None
+
+async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0, auto_recover: bool = True):
     """Make request to WhatsApp service with configurable timeout and auto-recovery"""
     max_attempts = 2 if auto_recover else 1
     last_error = None
