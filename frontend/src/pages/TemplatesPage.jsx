@@ -74,7 +74,7 @@ export default function TemplatesPage() {
   useEffect(() => {
     fetchTemplates();
     fetchImages();
-  }, []);
+  }, [ownerFilter]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
