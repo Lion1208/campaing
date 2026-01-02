@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../store';
+import { useAuthStore } from '../store';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ShoppingCart, Check, Copy, X } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export default function CreditShopPage() {
-  const { api, user } = useAuth();
+  const { api, user } = useAuthStore();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentDialog, setPaymentDialog] = useState(false);
