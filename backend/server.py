@@ -2067,16 +2067,21 @@ async def mercadopago_webhook(data: dict):
 # ============= MONETIZATION - INVITE LINKS =============
 
 @api_router.get("/invite-links", response_model=List[InviteLinkResponse])
-async def get_invite_links(user: dict = Depends(get_current_user)):
-    """Get user's invite links"""
+async def get_invite_links(owner_filter: str = "all", user: dict = Depends(get_current_user)):
+    """Get user's invite links. owner_filter: 'all' or 'mine' (admin only)"""
     if user['role'] not in ['admin', 'master']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    # Admin vê todos os links, master só os próprios
+    # Admin can filter: all = todos, mine = apenas do admin
     if user['role'] == 'admin':
-        links = await db.invite_links.find({}, {"_id": 0}).to_list(1000)
+        if owner_filter == 'mine':
+            query = {'created_by': user['id']}
+        else:
+            query = {}  # All links
     else:
-        links = await db.invite_links.find({'created_by': user['id']}, {"_id": 0}).to_list(1000)
+        query = {'created_by': user['id']}  # Master sees only their own
+    
+    links = await db.invite_links.find(query, {"_id": 0}).to_list(1000)
     
     # Add creator username
     for link in links:
