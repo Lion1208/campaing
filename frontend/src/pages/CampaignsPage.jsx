@@ -606,6 +606,13 @@ export default function CampaignsPage() {
                   {/* Title */}
                   <h3 className="font-semibold text-foreground truncate mb-1">{campaign.title}</h3>
 
+                  {/* Owner badge for admin viewing all */}
+                  {isAdmin && ownerFilter === 'all' && campaign.owner_username && (
+                    <Badge variant="outline" className="w-fit text-[10px] mb-2 bg-blue-500/10 text-blue-400 border-blue-500/20">
+                      {campaign.owner_username}
+                    </Badge>
+                  )}
+
                   {/* Message Preview */}
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1 min-h-[2.5rem]">
                     {getCurrentMessage(campaign) || <span className="italic">Sem mensagem de texto</span>}
