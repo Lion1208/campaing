@@ -321,6 +321,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register/:inviteCode" element={<RegisterPage />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route
           path="/dashboard"
