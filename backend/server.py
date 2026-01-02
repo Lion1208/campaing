@@ -689,7 +689,8 @@ async def register_user(data: UserLogin):
         'active': False,  # User starts BLOCKED - admin must manually activate
         'expires_at': None,  # No expiration until admin activates
         'created_by': admin['id'] if admin else None,
-        'created_at': datetime.now(timezone.utc).isoformat()
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'had_trial': False
     }
     
     await db.users.insert_one(user)
@@ -697,7 +698,59 @@ async def register_user(data: UserLogin):
     if admin:
         await log_activity(admin['id'], admin['username'], 'user_registered', 'user', user['id'], data.username, 'Novo usuário aguardando aprovação')
     
-    return {'message': 'Conta criada! Aguarde a aprovação do administrador.'}
+    return {'message': 'Conta criada! Aguarde a aprovação do administrador ou entre em contato com seu master.'}
+
+@api_router.post("/auth/register/{invite_code}")
+async def register_via_invite(invite_code: str, data: UserLogin):
+    """Register via invite link"""
+    existing = await db.users.find_one({'username': data.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Usuário já existe")
+    
+    # Find invite link
+    link = await db.invite_links.find_one({'code': invite_code, 'active': True}, {"_id": 0})
+    if not link:
+        raise HTTPException(status_code=404, detail="Link de convite inválido")
+    
+    # Check expiration
+    if datetime.fromisoformat(link['expires_at'].replace('Z', '+00:00')) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Link de convite expirado")
+    
+    # Check max uses
+    if link['max_uses'] > 0 and link['uses'] >= link['max_uses']:
+        raise HTTPException(status_code=400, detail="Link de convite esgotado")
+    
+    # Get creator
+    creator = await db.users.find_one({'id': link['created_by']}, {"_id": 0})
+    if not creator:
+        raise HTTPException(status_code=404, detail="Criador do link não encontrado")
+    
+    user = {
+        'id': str(uuid.uuid4()),
+        'username': data.username,
+        'password': hash_password(data.password),
+        'role': 'reseller',
+        'max_connections': 1,
+        'credits': 0,
+        'active': False,  # Starts blocked - needs manual activation
+        'expires_at': None,  # Will be set when trial is activated
+        'created_by': creator['id'],
+        'invite_link_id': link['id'],
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'had_trial': False
+    }
+    
+    await db.users.insert_one(user)
+    
+    # Increment uses
+    await db.invite_links.update_one(
+        {'id': link['id']},
+        {'$inc': {'uses': 1}}
+    )
+    
+    await log_activity(creator['id'], creator['username'], 'user_registered_invite', 'user', user['id'], data.username, f'Via convite: {invite_code}')
+    
+    return {'message': f'Conta criada! Aguarde a liberação do teste por {creator["username"]}.'}
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
