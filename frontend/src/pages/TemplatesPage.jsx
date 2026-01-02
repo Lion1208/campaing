@@ -47,7 +47,7 @@ export default function TemplatesPage() {
   const [formData, setFormData] = useState({ name: '', message: '', image_id: 'none' });
   const [actionLoading, setActionLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
 
   const isAdmin = user?.role === 'admin';
 
