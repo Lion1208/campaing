@@ -505,8 +505,6 @@ async def restart_whatsapp_service():
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-async def whatsapp_request(method: str, endpoint: str, json_data: dict = None, timeout: float = 30.0, auto_recover: bool = True):
-
 # ============= MERCADO PAGO FUNCTIONS =============
 
 async def create_mercadopago_pix(access_token: str, amount: float, description: str, external_reference: str):
