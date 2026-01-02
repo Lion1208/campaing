@@ -102,6 +102,7 @@ export default function ResellersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ total: 0, active: 0, expired: 0 });
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -134,6 +135,10 @@ export default function ResellersPage() {
       setUsers(response.data.users);
       setTotalPages(response.data.total_pages);
       setTotal(response.data.total);
+      // Stats do backend (total geral, não paginado)
+      if (response.data.stats) {
+        setStats(response.data.stats);
+      }
     } catch (error) {
       toast.error('Erro ao carregar revendedores');
     } finally {
