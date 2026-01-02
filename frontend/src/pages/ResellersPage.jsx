@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Users, Wifi, Coins, Edit2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Calendar, Shield, User, Gift, Copy, Check } from 'lucide-react';
+import { Plus, Users, Wifi, Coins, Edit2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Calendar, Shield, User, Gift, Copy, Check, Filter } from 'lucide-react';
 import { api } from '@/store';
 
 // Receipt Modal Component
