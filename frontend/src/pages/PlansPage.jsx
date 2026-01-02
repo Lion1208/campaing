@@ -22,7 +22,7 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
   const [formData, setFormData] = useState({
     name: '',
     role: 'reseller',
