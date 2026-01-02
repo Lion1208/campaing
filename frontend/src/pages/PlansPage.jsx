@@ -4,8 +4,16 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Plus, Edit2, Trash2, Package } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { Plus, Edit2, Trash2, Package, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PlansPage() {
@@ -14,6 +22,7 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [ownerFilter, setOwnerFilter] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
     role: 'reseller',
@@ -24,13 +33,15 @@ export default function PlansPage() {
     active: true
   });
 
+  const isAdmin = user?.role === 'admin';
+
   useEffect(() => {
     fetchPlans();
-  }, []);
+  }, [ownerFilter]);
 
   const fetchPlans = async () => {
     try {
-      const response = await api.get('/plans');
+      const response = await api.get(`/plans?owner_filter=${ownerFilter}`);
       setPlans(response.data);
     } catch (error) {
       toast.error('Erro ao carregar planos');
