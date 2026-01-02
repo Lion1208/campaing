@@ -2027,11 +2027,16 @@ async def get_invite_links(user: dict = Depends(get_current_user)):
     if user['role'] not in ['admin', 'master']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    links = await db.invite_links.find({'created_by': user['id']}, {"_id": 0}).to_list(1000)
+    # Admin vê todos os links, master só os próprios
+    if user['role'] == 'admin':
+        links = await db.invite_links.find({}, {"_id": 0}).to_list(1000)
+    else:
+        links = await db.invite_links.find({'created_by': user['id']}, {"_id": 0}).to_list(1000)
     
     # Add creator username
     for link in links:
-        link['creator_username'] = user['username']
+        creator = await db.users.find_one({'id': link.get('created_by')}, {"_id": 0, "username": 1})
+        link['creator_username'] = creator['username'] if creator else user['username']
     
     return sorted(links, key=lambda x: x['created_at'], reverse=True)
 
@@ -2064,8 +2069,12 @@ async def create_invite_link(data: InviteLinkCreate, user: dict = Depends(get_cu
 async def delete_invite_link(link_id: str, user: dict = Depends(get_current_user)):
     """Delete invite link"""
     link = await db.invite_links.find_one({'id': link_id})
-    if not link or link['created_by'] != user['id']:
+    if not link:
         raise HTTPException(status_code=404, detail="Link não encontrado")
+    
+    # Admin pode deletar qualquer link, outros só os próprios
+    if user['role'] != 'admin' and link['created_by'] != user['id']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     
     await db.invite_links.delete_one({'id': link_id})
     return {'message': 'Link deletado'}
