@@ -2427,8 +2427,8 @@ async def list_users(admin: dict = Depends(get_admin_user)):
     return users
 
 @api_router.get("/admin/all-users")
-async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "all", admin: dict = Depends(get_admin_user)):
-    """List all users with pagination. owner_filter: 'all' or 'mine' (filters by created_by)"""
+async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "all", search: str = "", admin: dict = Depends(get_admin_user)):
+    """List all users with pagination, search and sorting. owner_filter: 'all' or 'mine' (filters by created_by)"""
     skip = (page - 1) * limit
     
     # Build query based on filter
@@ -2436,8 +2436,13 @@ async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "al
     if owner_filter == 'mine':
         base_query['created_by'] = admin['id']
     
+    # Add search filter
+    if search:
+        base_query['username'] = {'$regex': search, '$options': 'i'}
+    
     total = await db.users.count_documents(base_query)
-    users = await db.users.find(base_query, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    # Sort by created_at descending (newest first)
+    users = await db.users.find(base_query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     
     # Add creator username for admin view when showing all
     if owner_filter == 'all':
