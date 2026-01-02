@@ -75,6 +75,7 @@ export const useAuthStore = create(
           return false;
         }
       },
+      api, // Exportar api no store
     }),
     {
       name: 'nexus-auth',
