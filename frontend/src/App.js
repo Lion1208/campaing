@@ -469,6 +469,16 @@ function App() {
           }
         />
         <Route
+          path="/credit-plans"
+          element={
+            <ProtectedRoute adminOnly>
+              <Layout>
+                <CreditPlansAdminPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/credit-shop"
           element={
             <ProtectedRoute masterOrAdmin>
