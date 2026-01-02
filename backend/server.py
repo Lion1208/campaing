@@ -3902,6 +3902,26 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
     
     updated = await db.campaigns.find_one({'id': campaign_id}, {'_id': 0})
     logger.info(f"[UPDATE_CAMPAIGN] After update, specific_times in DB: {updated.get('specific_times')}")
+    
+    # IMPORTANTE: Se a campanha estava ativa, reagendar os jobs com os novos horários
+    if campaign['status'] == 'active' and data.schedule_type == 'specific_times' and data.specific_times:
+        logger.info(f"[UPDATE_CAMPAIGN] Campaign was active, rescheduling jobs with new times: {data.specific_times}")
+        from apscheduler.triggers.cron import CronTrigger
+        for idx, time_str in enumerate(data.specific_times):
+            hour, minute = map(int, time_str.split(':'))
+            job_id = f"{campaign_id}_time_{idx}"
+            try:
+                scheduler.add_job(
+                    execute_campaign_batch,
+                    CronTrigger(hour=hour, minute=minute, timezone='America/Sao_Paulo'),
+                    id=job_id,
+                    args=[campaign_id],
+                    replace_existing=True
+                )
+                logger.info(f"[UPDATE_CAMPAIGN] Rescheduled job {job_id} for {time_str}")
+            except Exception as e:
+                logger.error(f"[UPDATE_CAMPAIGN] Failed to reschedule job: {e}")
+    
     return updated
 
 @api_router.post("/campaigns/{campaign_id}/start")
