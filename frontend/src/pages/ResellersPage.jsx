@@ -537,6 +537,12 @@ export default function ResellersPage() {
                             {isExpired(u.expires_at) ? 'Expirou' : 'Expira'}: {new Date(u.expires_at).toLocaleDateString('pt-BR')}
                           </span>
                         )}
+                        {/* Creator badge for admin viewing all */}
+                        {isAdmin && ownerFilter === 'all' && u.creator_username && (
+                          <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                            Criado por: {u.creator_username}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
