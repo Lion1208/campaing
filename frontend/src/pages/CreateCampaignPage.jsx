@@ -659,8 +659,41 @@ export default function CreateCampaignPage() {
                   <Label className="text-foreground">Horários de Disparo (Brasília)</Label>
                   <p className="text-xs text-muted-foreground">Selecione os horários em que deseja enviar</p>
                   
-                  {/* Time Grid Selector */}
+                  {/* Manual Time Input */}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Adicionar horário personalizado</Label>
+                      <Input
+                        type="time"
+                        className="bg-muted/50 border-border text-foreground"
+                        onChange={(e) => {
+                          const time = e.target.value;
+                          if (time && !specificTimes.includes(time)) {
+                            setSpecificTimes([...specificTimes, time].sort());
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const input = document.querySelector('input[type="time"]');
+                        if (input && input.value && !specificTimes.includes(input.value)) {
+                          setSpecificTimes([...specificTimes, input.value].sort());
+                          input.value = '';
+                        }
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </div>
+                  
+                  {/* Time Grid Selector (horários inteiros apenas como atalho) */}
                   <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                    <p className="text-xs text-muted-foreground mb-2">Atalhos rápidos (horários inteiros):</p>
                     <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
                       {Array.from({ length: 24 }, (_, i) => {
                         const hour = String(i).padStart(2, '0');
