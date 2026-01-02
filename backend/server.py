@@ -117,6 +117,95 @@ class PasswordChange(BaseModel):
 class ProfileUpdate(BaseModel):
     username: Optional[str] = None
 
+# ============= MONETIZATION MODELS =============
+
+class PlanCreate(BaseModel):
+    name: str
+    role: str  # reseller, master
+    max_connections: int
+    duration_months: int
+    price: float
+    description: Optional[str] = None
+    active: bool = True
+
+class PlanResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str
+    role: str
+    max_connections: int
+    duration_months: int
+    price: float
+    description: Optional[str] = None
+    active: bool
+    created_at: str
+
+class GatewayCreate(BaseModel):
+    provider: str = "mercadopago"
+    access_token: str
+    monthly_price: float
+    custom_prices: Optional[dict] = {}
+
+class GatewayResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    provider: str
+    access_token_preview: str  # Only show first/last chars
+    monthly_price: float
+    custom_prices: dict
+    active: bool
+    created_at: str
+
+class CreditPlanCreate(BaseModel):
+    name: str
+    credits: int
+    price: float
+    active: bool = True
+
+class CreditPlanResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str
+    credits: int
+    price: float
+    active: bool
+    created_at: str
+
+class TransactionResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    type: str  # renewal, credit_purchase
+    user_id: str
+    username: Optional[str] = None
+    master_id: Optional[str] = None
+    master_username: Optional[str] = None
+    amount: float
+    status: str  # pending, approved, cancelled
+    payment_id: Optional[str] = None
+    qr_code: Optional[str] = None
+    qr_code_text: Optional[str] = None
+    created_at: str
+    paid_at: Optional[str] = None
+
+class InviteLinkCreate(BaseModel):
+    test_hours: int
+    max_uses: int = 0  # 0 = unlimited
+    expires_in_hours: int = 24
+
+class InviteLinkResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    code: str
+    created_by: str
+    creator_username: Optional[str] = None
+    test_hours: int
+    max_uses: int
+    uses: int
+    expires_at: str
+    active: bool
+    created_at: str
+
 class TemplateCreate(BaseModel):
     name: str
     message: str
