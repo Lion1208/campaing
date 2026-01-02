@@ -610,6 +610,9 @@ class WhatsAppCampaignTester:
         # Admin functionality
         self.test_admin_users_crud()
         self.test_admin_stats()
+        
+        # Admin filter functionality (NEW)
+        self.test_admin_filter_functionality_comprehensive()
 
         # Print summary
         print("=" * 60)
