@@ -100,10 +100,25 @@ export default function InviteLinksPage() {
           <h1 className="text-3xl font-bold text-foreground">Links de Convite</h1>
           <p className="text-muted-foreground">Crie links para novos usuários se cadastrarem</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Link
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos do Sistema</SelectItem>
+                <SelectItem value="mine">Apenas Meus</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Link
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -132,6 +147,12 @@ export default function InviteLinksPage() {
                       <span className="px-2 py-1 bg-green-500/20 text-green-500 text-xs rounded">
                         Ativo
                       </span>
+                    )}
+                    {/* Creator badge for admin viewing all */}
+                    {isAdmin && ownerFilter === 'all' && link.creator_username && (
+                      <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        {link.creator_username}
+                      </Badge>
                     )}
                   </div>
                   
