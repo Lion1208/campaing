@@ -1488,6 +1488,178 @@ async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_us
         'recent_errors': recent_errors
     }
 
+# ============= MONETIZATION - PLANS =============
+
+@api_router.get("/plans", response_model=List[PlanResponse])
+async def get_plans(user: dict = Depends(get_current_user)):
+    """Get all plans"""
+    plans = await db.plans.find({}, {"_id": 0}).to_list(1000)
+    return plans
+
+@api_router.post("/admin/plans", response_model=PlanResponse)
+async def create_plan(data: PlanCreate, admin: dict = Depends(get_admin_user)):
+    """Create a new plan (admin only)"""
+    plan = {
+        'id': str(uuid.uuid4()),
+        'name': data.name,
+        'role': data.role,
+        'max_connections': data.max_connections,
+        'duration_months': data.duration_months,
+        'price': data.price,
+        'description': data.description,
+        'active': data.active,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.plans.insert_one(plan)
+    return plan
+
+@api_router.put("/admin/plans/{plan_id}", response_model=PlanResponse)
+async def update_plan(plan_id: str, data: PlanCreate, admin: dict = Depends(get_admin_user)):
+    """Update plan (admin only)"""
+    plan = await db.plans.find_one({'id': plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    
+    update_data = {
+        'name': data.name,
+        'role': data.role,
+        'max_connections': data.max_connections,
+        'duration_months': data.duration_months,
+        'price': data.price,
+        'description': data.description,
+        'active': data.active
+    }
+    await db.plans.update_one({'id': plan_id}, {'$set': update_data})
+    plan.update(update_data)
+    return plan
+
+@api_router.delete("/admin/plans/{plan_id}")
+async def delete_plan(plan_id: str, admin: dict = Depends(get_admin_user)):
+    """Delete plan (admin only)"""
+    result = await db.plans.delete_one({'id': plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    return {'message': 'Plano deletado'}
+
+# ============= MONETIZATION - GATEWAYS =============
+
+@api_router.get("/gateways", response_model=List[GatewayResponse])
+async def get_gateways(user: dict = Depends(get_current_user)):
+    """Get user's gateways"""
+    if user['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    gateways = await db.gateways.find({'user_id': user['id']}, {"_id": 0}).to_list(100)
+    for gw in gateways:
+        # Mask token
+        token = gw.get('access_token', '')
+        gw['access_token_preview'] = f"{token[:10]}...{token[-10:]}" if len(token) > 20 else "****"
+        del gw['access_token']
+    return gateways
+
+@api_router.post("/gateways", response_model=GatewayResponse)
+async def create_gateway(data: GatewayCreate, user: dict = Depends(get_current_user)):
+    """Create or update gateway (admin/master only)"""
+    if user['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    # Check if gateway already exists
+    existing = await db.gateways.find_one({'user_id': user['id']})
+    
+    gateway_data = {
+        'provider': data.provider,
+        'access_token': data.access_token,
+        'monthly_price': data.monthly_price,
+        'custom_prices': data.custom_prices or {},
+        'active': True
+    }
+    
+    if existing:
+        # Update existing
+        await db.gateways.update_one({'user_id': user['id']}, {'$set': gateway_data})
+        gateway = {**existing, **gateway_data}
+    else:
+        # Create new
+        gateway = {
+            'id': str(uuid.uuid4()),
+            'user_id': user['id'],
+            **gateway_data,
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        await db.gateways.insert_one(gateway)
+    
+    # Mask token for response
+    token = gateway['access_token']
+    gateway['access_token_preview'] = f"{token[:10]}...{token[-10:]}" if len(token) > 20 else "****"
+    del gateway['access_token']
+    return gateway
+
+@api_router.delete("/gateways/{gateway_id}")
+async def delete_gateway(gateway_id: str, user: dict = Depends(get_current_user)):
+    """Delete gateway"""
+    gateway = await db.gateways.find_one({'id': gateway_id})
+    if not gateway or gateway['user_id'] != user['id']:
+        raise HTTPException(status_code=404, detail="Gateway não encontrado")
+    
+    await db.gateways.delete_one({'id': gateway_id})
+    return {'message': 'Gateway deletado'}
+
+# ============= MONETIZATION - CREDIT PLANS =============
+
+@api_router.get("/admin/credit-plans", response_model=List[CreditPlanResponse])
+async def get_credit_plans_admin(admin: dict = Depends(get_admin_user)):
+    """Get all credit plans (admin only)"""
+    plans = await db.credit_plans.find({}, {"_id": 0}).to_list(1000)
+    return plans
+
+@api_router.get("/credit-plans", response_model=List[CreditPlanResponse])
+async def get_credit_plans(user: dict = Depends(get_current_user)):
+    """Get active credit plans (master only)"""
+    if user['role'] != 'master':
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    plans = await db.credit_plans.find({'active': True}, {"_id": 0}).to_list(1000)
+    return plans
+
+@api_router.post("/admin/credit-plans", response_model=CreditPlanResponse)
+async def create_credit_plan(data: CreditPlanCreate, admin: dict = Depends(get_admin_user)):
+    """Create credit plan (admin only)"""
+    plan = {
+        'id': str(uuid.uuid4()),
+        'name': data.name,
+        'credits': data.credits,
+        'price': data.price,
+        'active': data.active,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.credit_plans.insert_one(plan)
+    return plan
+
+@api_router.put("/admin/credit-plans/{plan_id}", response_model=CreditPlanResponse)
+async def update_credit_plan(plan_id: str, data: CreditPlanCreate, admin: dict = Depends(get_admin_user)):
+    """Update credit plan (admin only)"""
+    plan = await db.credit_plans.find_one({'id': plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    
+    update_data = {
+        'name': data.name,
+        'credits': data.credits,
+        'price': data.price,
+        'active': data.active
+    }
+    await db.credit_plans.update_one({'id': plan_id}, {'$set': update_data})
+    plan.update(update_data)
+    return plan
+
+@api_router.delete("/admin/credit-plans/{plan_id}")
+async def delete_credit_plan(plan_id: str, admin: dict = Depends(get_admin_user)):
+    """Delete credit plan (admin only)"""
+    result = await db.credit_plans.delete_one({'id': plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    return {'message': 'Plano deletado'}
+
 # ============= Templates =============
 
 @api_router.get("/templates")
