@@ -124,6 +124,11 @@ const Layout = ({ children }) => {
     { path: '/history', label: 'Histórico', icon: History },
   ];
 
+  // Planos para resellers (usuários em trial/teste)
+  if (user?.role === 'reseller') {
+    navItems.push({ path: '/my-plans', label: 'Planos', icon: Package });
+  }
+
   // Add admin-only pages
   if (user?.role === 'admin') {
     navItems.push({ path: '/plans', label: 'Planos', icon: Package });
