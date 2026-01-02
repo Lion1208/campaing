@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore, useUIStore } from "@/store";
 import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, Image, Package, CreditCard, ShoppingCart, DollarSign, Link2 } from "lucide-react";
+import RenewalModal from "@/components/RenewalModal";
+import ExpirationWarning from "@/components/ExpirationWarning";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
