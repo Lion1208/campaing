@@ -465,6 +465,16 @@ function App() {
           }
         />
         <Route
+          path="/my-plans"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <MyPlansPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/gateways"
           element={
             <ProtectedRoute masterOrAdmin>
