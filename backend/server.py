@@ -1648,12 +1648,21 @@ async def get_gateways(user: dict = Depends(get_current_user)):
     if user['role'] not in ['admin', 'master']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    gateways = await db.gateways.find({'user_id': user['id']}, {"_id": 0}).to_list(100)
+    # Admin vê todos os gateways, master só o próprio
+    if user['role'] == 'admin':
+        gateways = await db.gateways.find({}, {"_id": 0}).to_list(100)
+    else:
+        gateways = await db.gateways.find({'user_id': user['id']}, {"_id": 0}).to_list(100)
+    
     for gw in gateways:
         # Mask token
         token = gw.get('access_token', '')
         gw['access_token_preview'] = f"{token[:10]}...{token[-10:]}" if len(token) > 20 else "****"
         del gw['access_token']
+        # Add owner username for admin view
+        if user['role'] == 'admin':
+            owner = await db.users.find_one({'id': gw.get('user_id')}, {"_id": 0, "username": 1})
+            gw['owner_username'] = owner['username'] if owner else 'N/A'
     return gateways
 
 @api_router.post("/gateways", response_model=GatewayResponse)
