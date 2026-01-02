@@ -26,6 +26,7 @@ import DependenciesPage from "@/pages/DependenciesPage";
 import PlansPage from "@/pages/PlansPage";
 import GatewaysPage from "@/pages/GatewaysPage";
 import CreditShopPage from "@/pages/CreditShopPage";
+import CreditPlansAdminPage from "@/pages/CreditPlansAdminPage";
 import FinancialPage from "@/pages/FinancialPage";
 import InviteLinksPage from "@/pages/InviteLinksPage";
 
