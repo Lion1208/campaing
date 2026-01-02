@@ -1,0 +1,100 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🚀 COMANDOS PARA ATUALIZAR TUDO - COPIE E COLE           ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+📝 PASSO 1: Baixe o script atualizado
+═══════════════════════════════════════════════════════════════
+
+cd /opt/nexuzap
+wget -O simple_update.sh https://raw.githubusercontent.com/Lion1208/campaing/main/simple_update.sh
+chmod +x simple_update.sh
+
+
+🚀 PASSO 2: Execute o script (faz tudo automaticamente)
+═══════════════════════════════════════════════════════════════
+
+sudo ./simple_update.sh
+
+
+✅ O QUE O SCRIPT FAZ AUTOMATICAMENTE:
+═══════════════════════════════════════════════════════════════
+
+1. ✅ Backup do MongoDB
+2. ✅ Backup dos arquivos .env
+3. ✅ Para os serviços
+4. ✅ Baixa TODOS os arquivos atualizados do GitHub:
+   - Backend (server.py, requirements.txt)
+   - Frontend (todas as novas páginas + App.js)
+   - WhatsApp Service (index.js)
+5. ✅ Instala dependências do backend (mercadopago + outras)
+6. ✅ Faz build do frontend
+7. ✅ Restaura configurações (.env)
+8. ✅ Reinicia todos os serviços
+
+
+⏱️  TEMPO ESTIMADO: 2-3 minutos
+
+
+🎉 NOVAS FUNCIONALIDADES DISPONÍVEIS:
+═══════════════════════════════════════════════════════════════
+
+Admin:
+  • /plans - Gerenciar planos de renovação
+  • /gateways - Configurar Mercado Pago
+  • /financial - Histórico financeiro completo
+  • /invite-links - Criar links de convite
+  • /users - Gerenciar todos os usuários
+
+Master:
+  • /gateways - Configurar seu próprio Mercado Pago
+  • /credit-shop - Comprar créditos
+  • /financial - Ver suas transações
+  • /invite-links - Criar links para seus clientes
+  • /resellers - Gerenciar revendedores (com botão Liberar Teste)
+
+
+🔍 APÓS ATUALIZAR:
+═══════════════════════════════════════════════════════════════
+
+1. Limpe o cache do navegador (Ctrl+Shift+Delete, marcar tudo)
+2. Acesse: https://nexuzap.com
+3. Faça login
+4. Veja os novos itens no menu lateral
+
+
+📊 VERIFICAR SE DEU CERTO:
+═══════════════════════════════════════════════════════════════
+
+# Ver status dos serviços
+sudo supervisorctl status
+
+# Ver logs do backend (se houver erro)
+sudo tail -n 50 /var/log/nexuzap_backend.log
+
+# Ver logs do frontend (se houver erro)
+sudo tail -n 50 /var/log/nexuzap_frontend.log
+
+
+💡 SE ALGO DER ERRADO:
+═══════════════════════════════════════════════════════════════
+
+# Restaurar backup do MongoDB
+cd /opt/nexuzap
+ls /backup/nexuzap/mongo_*
+# Escolha o backup mais recente e:
+mongorestore --db test_database /backup/nexuzap/mongo_XXXXXXXX_XXXXXX/test_database
+
+# Reiniciar serviços manualmente
+sudo supervisorctl restart nexuzap:*
+
+
+═══════════════════════════════════════════════════════════════
+
+🎯 É SÓ ISSO! 2 COMANDOS E PRONTO! 🎯
+
+cd /opt/nexuzap && wget -O simple_update.sh https://raw.githubusercontent.com/Lion1208/campaing/main/simple_update.sh && chmod +x simple_update.sh && sudo ./simple_update.sh
+
+═══════════════════════════════════════════════════════════════
