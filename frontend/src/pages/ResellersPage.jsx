@@ -428,6 +428,7 @@ export default function ResellersPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
