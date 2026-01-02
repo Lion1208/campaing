@@ -90,17 +90,17 @@ export const useConnectionsStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  fetchConnections: async (quick = false) => {
+  fetchConnections: async (quick = false, ownerFilter = 'all') => {
     set({ loading: true, error: null });
     try {
       // First load quickly without status check
-      const quickResponse = await api.get('/connections/quick');
+      const quickResponse = await api.get(`/connections/quick?owner_filter=${ownerFilter}`);
       set({ connections: quickResponse.data, loading: false });
       
       // Then update with actual status in background (unless quick mode)
       if (!quick) {
         try {
-          const fullResponse = await api.get('/connections');
+          const fullResponse = await api.get(`/connections?owner_filter=${ownerFilter}`);
           set({ connections: fullResponse.data });
         } catch (e) {
           // Silently fail - we already have the quick data
