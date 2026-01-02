@@ -3895,10 +3895,13 @@ async def update_campaign(campaign_id: str, data: CampaignCreate, user: dict = D
     except:
         pass
     
+    logger.info(f"[UPDATE_CAMPAIGN] Final update_data specific_times: {update_data.get('specific_times')}")
+    
     await db.campaigns.update_one({'id': campaign_id}, {'$set': update_data})
     await log_activity(user['id'], user['username'], 'update', 'campaign', campaign_id, data.title, 'Campanha atualizada')
     
     updated = await db.campaigns.find_one({'id': campaign_id}, {'_id': 0})
+    logger.info(f"[UPDATE_CAMPAIGN] After update, specific_times in DB: {updated.get('specific_times')}")
     return updated
 
 @api_router.post("/campaigns/{campaign_id}/start")
