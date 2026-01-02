@@ -2290,11 +2290,27 @@ async def list_users(admin: dict = Depends(get_admin_user)):
     return users
 
 @api_router.get("/admin/all-users")
-async def list_all_users(page: int = 1, limit: int = 10, admin: dict = Depends(get_admin_user)):
-    """List all users with pagination"""
+async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "all", admin: dict = Depends(get_admin_user)):
+    """List all users with pagination. owner_filter: 'all' or 'mine' (filters by created_by)"""
     skip = (page - 1) * limit
-    total = await db.users.count_documents({'role': {'$ne': 'admin'}})
-    users = await db.users.find({'role': {'$ne': 'admin'}}, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    
+    # Build query based on filter
+    base_query = {'role': {'$ne': 'admin'}}
+    if owner_filter == 'mine':
+        base_query['created_by'] = admin['id']
+    
+    total = await db.users.count_documents(base_query)
+    users = await db.users.find(base_query, {'_id': 0, 'password': 0}).skip(skip).limit(limit).to_list(limit)
+    
+    # Add creator username for admin view when showing all
+    if owner_filter == 'all':
+        for user in users:
+            if user.get('created_by'):
+                creator = await db.users.find_one({'id': user['created_by']}, {"_id": 0, "username": 1})
+                user['creator_username'] = creator['username'] if creator else 'Admin'
+            else:
+                user['creator_username'] = 'Sistema'
+    
     return {
         'users': users,
         'total': total,
