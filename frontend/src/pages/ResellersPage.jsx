@@ -115,6 +115,7 @@ export default function ResellersPage() {
   const [editData, setEditData] = useState({ max_connections: 1, active: true });
   const [creditsToAdd, setCreditsToAdd] = useState(10);
   const [actionLoading, setActionLoading] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState('all');
   const limit = 10;
 
   const isAdmin = user?.role === 'admin';
@@ -123,7 +124,7 @@ export default function ResellersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const endpoint = isAdmin ? `/admin/all-users?page=${page}&limit=${limit}` : `/master/resellers?page=${page}&limit=${limit}`;
+      const endpoint = isAdmin ? `/admin/all-users?page=${page}&limit=${limit}&owner_filter=${ownerFilter}` : `/master/resellers?page=${page}&limit=${limit}`;
       const response = await api.get(endpoint);
       setUsers(response.data.users);
       setTotalPages(response.data.total_pages);
@@ -133,11 +134,16 @@ export default function ResellersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, isAdmin]);
+  }, [page, isAdmin, ownerFilter]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [ownerFilter]);
 
   const handleCreate = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) {
