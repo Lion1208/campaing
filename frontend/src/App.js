@@ -20,6 +20,11 @@ import HistoryPage from "@/pages/HistoryPage";
 import MediaPage from "@/pages/MediaPage";
 import BlockedPage from "@/pages/BlockedPage";
 import DependenciesPage from "@/pages/DependenciesPage";
+import PlansPage from "@/pages/PlansPage";
+import GatewaysPage from "@/pages/GatewaysPage";
+import CreditShopPage from "@/pages/CreditShopPage";
+import FinancialPage from "@/pages/FinancialPage";
+import InviteLinksPage from "@/pages/InviteLinksPage";
 
 // Theme hook
 const useTheme = () => {
