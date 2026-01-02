@@ -143,19 +143,17 @@ class PlanResponse(BaseModel):
 class GatewayCreate(BaseModel):
     provider: str = "mercadopago"
     access_token: str
-    monthly_price: float
-    custom_prices: Optional[dict] = {}
+    active: bool = True
 
 class GatewayResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
     user_id: str
     provider: str
-    access_token_preview: str  # Only show first/last chars
-    monthly_price: float
-    custom_prices: dict
+    access_token_preview: str
     active: bool
     created_at: str
+    owner_username: Optional[str] = None
 
 class CreditPlanCreate(BaseModel):
     name: str
