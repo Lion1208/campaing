@@ -119,10 +119,25 @@ export default function PlansPage() {
           <h1 className="text-3xl font-bold text-foreground">Planos</h1>
           <p className="text-muted-foreground">Configure os planos de renovação</p>
         </div>
-        <Button onClick={() => openDialog()}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Plano
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos do Sistema</SelectItem>
+                <SelectItem value="mine">Apenas Meus</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => openDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Plano
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -142,6 +157,13 @@ export default function PlansPage() {
                 </Button>
               </div>
             </div>
+
+            {/* Owner badge for admin viewing all */}
+            {isAdmin && ownerFilter === 'all' && plan.creator_username && (
+              <Badge variant="outline" className="w-fit text-[10px] mb-3 bg-blue-500/10 text-blue-400 border-blue-500/20">
+                {plan.creator_username}
+              </Badge>
+            )}
             
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
