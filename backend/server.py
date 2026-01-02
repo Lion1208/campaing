@@ -2151,6 +2151,40 @@ async def mercadopago_webhook(data: dict):
                         {'$set': {'credits': new_credits}}
                     )
             
+            elif transaction['type'] == 'plan_purchase':
+                # Compra de plano - atualizar expiração e configurações do usuário
+                user = await db.users.find_one({'id': transaction['user_id']}, {"_id": 0})
+                if user:
+                    duration_months = transaction.get('duration_months', 1)
+                    max_connections = transaction.get('max_connections', 1)
+                    
+                    # Calcular nova expiração
+                    current_expiration = user.get('expires_at')
+                    if current_expiration:
+                        try:
+                            exp_date = datetime.fromisoformat(current_expiration.replace('Z', '+00:00'))
+                        except:
+                            exp_date = datetime.now(timezone.utc)
+                    else:
+                        exp_date = datetime.now(timezone.utc)
+                    
+                    # Se já expirou, começar de agora
+                    if exp_date < datetime.now(timezone.utc):
+                        exp_date = datetime.now(timezone.utc)
+                    
+                    new_expiration = exp_date + timedelta(days=30 * duration_months)
+                    
+                    await db.users.update_one(
+                        {'id': transaction['user_id']},
+                        {'$set': {
+                            'expires_at': new_expiration.isoformat(),
+                            'max_connections': max_connections,
+                            'active': True
+                        }}
+                    )
+                    
+                    logger.info(f"Plano ativado para usuário {user['username']}: {duration_months} meses, {max_connections} conexões")
+            
             logger.info(f"Pagamento aprovado: {transaction['id']}")
             return {'status': 'processed'}
         
