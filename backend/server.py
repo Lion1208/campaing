@@ -1708,6 +1708,351 @@ async def delete_credit_plan(plan_id: str, admin: dict = Depends(get_admin_user)
         raise HTTPException(status_code=404, detail="Plano não encontrado")
     return {'message': 'Plano deletado'}
 
+# ============= MONETIZATION - TRANSACTIONS & RENEWALS =============
+
+@api_router.get("/transactions", response_model=List[TransactionResponse])
+async def get_transactions(user: dict = Depends(get_current_user)):
+    """Get user's transactions"""
+    if user['role'] == 'admin':
+        transactions = await db.transactions.find({}, {"_id": 0}).to_list(1000)
+    elif user['role'] == 'master':
+        transactions = await db.transactions.find(
+            {'$or': [{'user_id': user['id']}, {'master_id': user['id']}]},
+            {"_id": 0}
+        ).to_list(1000)
+    else:
+        transactions = await db.transactions.find({'user_id': user['id']}, {"_id": 0}).to_list(1000)
+    
+    # Enrich with usernames
+    for tx in transactions:
+        if tx.get('user_id'):
+            u = await db.users.find_one({'id': tx['user_id']}, {"_id": 0, "username": 1})
+            if u:
+                tx['username'] = u['username']
+        if tx.get('master_id'):
+            m = await db.users.find_one({'id': tx['master_id']}, {"_id": 0, "username": 1})
+            if m:
+                tx['master_username'] = m['username']
+    
+    return sorted(transactions, key=lambda x: x['created_at'], reverse=True)
+
+@api_router.post("/renew/{user_id}")
+async def initiate_renewal(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Initiate renewal payment (master renews reseller, user renews self)"""
+    
+    # Get target user
+    target_user = await db.users.find_one({'id': user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Permission check
+    if current_user['role'] == 'reseller' and current_user['id'] != user_id:
+        raise HTTPException(status_code=403, detail="Você só pode renovar sua própria conta")
+    
+    if current_user['role'] == 'master':
+        # Master renewing someone else
+        if target_user.get('created_by') != current_user['id']:
+            raise HTTPException(status_code=403, detail="Você só pode renovar usuários criados por você")
+        
+        # Check credits
+        if current_user.get('credits', 0) <= 1:
+            raise HTTPException(status_code=400, detail="Créditos insuficientes. Você precisa ter mais de 1 crédito para renovar.")
+    
+    # Get master's gateway (if master renewing) or admin gateway
+    if current_user['role'] == 'master':
+        gateway = await db.gateways.find_one({'user_id': current_user['id'], 'active': True}, {"_id": 0})
+    else:
+        # Find admin gateway
+        admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+        gateway = await db.gateways.find_one({'user_id': admin['id'], 'active': True}, {"_id": 0}) if admin else None
+    
+    if not gateway:
+        raise HTTPException(status_code=400, detail="Gateway de pagamento não configurado")
+    
+    # Get price
+    price = gateway['custom_prices'].get(user_id, gateway['monthly_price'])
+    
+    # Create transaction
+    transaction = {
+        'id': str(uuid.uuid4()),
+        'type': 'renewal',
+        'user_id': user_id,
+        'master_id': current_user['id'] if current_user['role'] == 'master' else None,
+        'amount': price,
+        'status': 'pending',
+        'payment_id': None,
+        'qr_code': None,
+        'qr_code_text': None,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'paid_at': None
+    }
+    
+    # Generate PIX
+    try:
+        pix_data = await create_mercadopago_pix(
+            access_token=gateway['access_token'],
+            amount=price,
+            description=f"Renovação - {target_user['username']}",
+            external_reference=transaction['id']
+        )
+        
+        transaction['payment_id'] = pix_data['payment_id']
+        transaction['qr_code'] = pix_data['qr_code']
+        transaction['qr_code_text'] = pix_data['qr_code_text']
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar pagamento: {str(e)}")
+    
+    await db.transactions.insert_one(transaction)
+    return transaction
+
+@api_router.post("/purchase-credits/{plan_id}")
+async def purchase_credits(plan_id: str, user: dict = Depends(get_current_user)):
+    """Purchase credits (master only)"""
+    if user['role'] != 'master':
+        raise HTTPException(status_code=403, detail="Apenas masters podem comprar créditos")
+    
+    # Get credit plan
+    plan = await db.credit_plans.find_one({'id': plan_id, 'active': True}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plano não encontrado")
+    
+    # Get admin gateway
+    admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+    if not admin:
+        raise HTTPException(status_code=500, detail="Admin não encontrado")
+    
+    gateway = await db.gateways.find_one({'user_id': admin['id'], 'active': True}, {"_id": 0})
+    if not gateway:
+        raise HTTPException(status_code=400, detail="Gateway de pagamento não configurado")
+    
+    # Create transaction
+    transaction = {
+        'id': str(uuid.uuid4()),
+        'type': 'credit_purchase',
+        'user_id': user['id'],
+        'master_id': None,
+        'amount': plan['price'],
+        'credits_amount': plan['credits'],
+        'status': 'pending',
+        'payment_id': None,
+        'qr_code': None,
+        'qr_code_text': None,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'paid_at': None
+    }
+    
+    # Generate PIX
+    try:
+        pix_data = await create_mercadopago_pix(
+            access_token=gateway['access_token'],
+            amount=plan['price'],
+            description=f"Compra de {plan['credits']} créditos - {user['username']}",
+            external_reference=transaction['id']
+        )
+        
+        transaction['payment_id'] = pix_data['payment_id']
+        transaction['qr_code'] = pix_data['qr_code']
+        transaction['qr_code_text'] = pix_data['qr_code_text']
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar pagamento: {str(e)}")
+    
+    await db.transactions.insert_one(transaction)
+    return transaction
+
+@api_router.post("/webhook/mercadopago")
+async def mercadopago_webhook(data: dict):
+    """Webhook para receber notificações do Mercado Pago"""
+    logger.info(f"Webhook Mercado Pago: {data}")
+    
+    if data.get('action') == 'payment.updated' or data.get('type') == 'payment':
+        payment_id = str(data['data']['id'])
+        
+        # Find transaction
+        transaction = await db.transactions.find_one({'payment_id': payment_id}, {"_id": 0})
+        if not transaction:
+            return {'status': 'transaction not found'}
+        
+        if transaction['status'] == 'approved':
+            return {'status': 'already processed'}
+        
+        # Get gateway to check status
+        if transaction['type'] == 'credit_purchase':
+            admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+            gateway = await db.gateways.find_one({'user_id': admin['id']}, {"_id": 0}) if admin else None
+        else:
+            master_id = transaction.get('master_id')
+            if master_id:
+                gateway = await db.gateways.find_one({'user_id': master_id}, {"_id": 0})
+            else:
+                admin = await db.users.find_one({'role': 'admin'}, {"_id": 0})
+                gateway = await db.gateways.find_one({'user_id': admin['id']}, {"_id": 0}) if admin else None
+        
+        if not gateway:
+            return {'status': 'gateway not found'}
+        
+        # Check payment status
+        status = await check_mercadopago_payment(gateway['access_token'], payment_id)
+        
+        if status == 'approved':
+            # Update transaction
+            await db.transactions.update_one(
+                {'id': transaction['id']},
+                {'$set': {
+                    'status': 'approved',
+                    'paid_at': datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            # Process payment
+            if transaction['type'] == 'renewal':
+                # Extend expiration
+                user = await db.users.find_one({'id': transaction['user_id']}, {"_id": 0})
+                if user:
+                    current_expiration = user.get('expires_at')
+                    if current_expiration:
+                        try:
+                            exp_date = datetime.fromisoformat(current_expiration.replace('Z', '+00:00'))
+                        except:
+                            exp_date = datetime.now(timezone.utc)
+                    else:
+                        exp_date = datetime.now(timezone.utc)
+                    
+                    # If already expired, start from now
+                    if exp_date < datetime.now(timezone.utc):
+                        exp_date = datetime.now(timezone.utc)
+                    
+                    new_expiration = exp_date + timedelta(days=30)
+                    
+                    await db.users.update_one(
+                        {'id': transaction['user_id']},
+                        {'$set': {
+                            'expires_at': new_expiration.isoformat(),
+                            'active': True
+                        }}
+                    )
+                    
+                    # Deduct credit from master (if master renewed)
+                    if transaction.get('master_id'):
+                        master = await db.users.find_one({'id': transaction['master_id']}, {"_id": 0})
+                        if master:
+                            new_credits = max(0, master.get('credits', 0) - 1)
+                            await db.users.update_one(
+                                {'id': transaction['master_id']},
+                                {'$set': {'credits': new_credits}}
+                            )
+            
+            elif transaction['type'] == 'credit_purchase':
+                # Add credits
+                user = await db.users.find_one({'id': transaction['user_id']}, {"_id": 0})
+                if user:
+                    new_credits = user.get('credits', 0) + transaction['credits_amount']
+                    await db.users.update_one(
+                        {'id': transaction['user_id']},
+                        {'$set': {'credits': new_credits}}
+                    )
+            
+            logger.info(f"Pagamento aprovado: {transaction['id']}")
+            return {'status': 'processed'}
+        
+        elif status in ['cancelled', 'refunded']:
+            await db.transactions.update_one(
+                {'id': transaction['id']},
+                {'$set': {'status': status}}
+            )
+    
+    return {'status': 'ok'}
+
+# ============= MONETIZATION - INVITE LINKS =============
+
+@api_router.get("/invite-links", response_model=List[InviteLinkResponse])
+async def get_invite_links(user: dict = Depends(get_current_user)):
+    """Get user's invite links"""
+    if user['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    links = await db.invite_links.find({'created_by': user['id']}, {"_id": 0}).to_list(1000)
+    
+    # Add creator username
+    for link in links:
+        link['creator_username'] = user['username']
+    
+    return sorted(links, key=lambda x: x['created_at'], reverse=True)
+
+@api_router.post("/invite-links", response_model=InviteLinkResponse)
+async def create_invite_link(data: InviteLinkCreate, user: dict = Depends(get_current_user)):
+    """Create invite link (admin/master only)"""
+    if user['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    code = str(uuid.uuid4())[:8].upper()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=data.expires_in_hours)
+    
+    link = {
+        'id': str(uuid.uuid4()),
+        'code': code,
+        'created_by': user['id'],
+        'test_hours': data.test_hours,
+        'max_uses': data.max_uses,
+        'uses': 0,
+        'expires_at': expires_at.isoformat(),
+        'active': True,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.invite_links.insert_one(link)
+    link['creator_username'] = user['username']
+    return link
+
+@api_router.delete("/invite-links/{link_id}")
+async def delete_invite_link(link_id: str, user: dict = Depends(get_current_user)):
+    """Delete invite link"""
+    link = await db.invite_links.find_one({'id': link_id})
+    if not link or link['created_by'] != user['id']:
+        raise HTTPException(status_code=404, detail="Link não encontrado")
+    
+    await db.invite_links.delete_one({'id': link_id})
+    return {'message': 'Link deletado'}
+
+@api_router.post("/users/{user_id}/activate-trial")
+async def activate_trial(user_id: str, admin: dict = Depends(get_current_user)):
+    """Activate trial for user (admin/master only)"""
+    if admin['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    user = await db.users.find_one({'id': user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Check if created by this master
+    if admin['role'] == 'master' and user.get('created_by') != admin['id']:
+        raise HTTPException(status_code=403, detail="Você só pode ativar usuários criados por você")
+    
+    # Check if already had trial
+    if user.get('had_trial'):
+        raise HTTPException(status_code=400, detail="Usuário já teve teste anteriormente")
+    
+    # Get trial duration from invite link
+    if user.get('invite_link_id'):
+        link = await db.invite_links.find_one({'id': user['invite_link_id']}, {"_id": 0})
+        test_hours = link.get('test_hours', 24) if link else 24
+    else:
+        test_hours = 24
+    
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=test_hours)
+    
+    await db.users.update_one(
+        {'id': user_id},
+        {'$set': {
+            'active': True,
+            'expires_at': expires_at.isoformat(),
+            'had_trial': True
+        }}
+    )
+    
+    return {'message': 'Teste ativado', 'expires_at': expires_at.isoformat()}
+
 # ============= Templates =============
 
 @api_router.get("/templates")
