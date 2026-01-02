@@ -306,6 +306,12 @@ export default function ConnectionsPage() {
                     <CardTitle className="text-lg truncate">{connection.name}</CardTitle>
                     {getStatusBadge(connection)}
                   </div>
+                  {/* Owner badge for admin viewing all */}
+                  {isAdmin && ownerFilter === 'all' && connection.owner_username && (
+                    <Badge variant="outline" className="w-fit text-[10px] mt-1 bg-blue-500/10 text-blue-400 border-blue-500/20">
+                      {connection.owner_username}
+                    </Badge>
+                  )}
                   {connection.phone_number && (
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Phone className="w-3 h-3" />
