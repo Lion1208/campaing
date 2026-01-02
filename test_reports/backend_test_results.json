@@ -1,9 +1,9 @@
 {
   "summary": {
-    "total_tests": 28,
-    "passed_tests": 28,
-    "failed_tests": 0,
-    "success_rate": 100.0
+    "total_tests": 36,
+    "passed_tests": 34,
+    "failed_tests": 2,
+    "success_rate": 94.44444444444444
   },
   "test_results": [
     {
@@ -11,197 +11,253 @@
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:42.970770+00:00"
+      "timestamp": "2026-01-02T05:25:47.827200+00:00"
     },
     {
       "test_name": "Admin Login",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.232321+00:00"
+      "timestamp": "2026-01-02T05:25:48.333106+00:00"
     },
     {
       "test_name": "Get Current User",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.267541+00:00"
+      "timestamp": "2026-01-02T05:25:48.424256+00:00"
     },
     {
       "test_name": "Dashboard Stats",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.344998+00:00"
+      "timestamp": "2026-01-02T05:25:48.503360+00:00"
     },
     {
       "test_name": "Dashboard Stats Fields",
       "success": true,
       "details": "All required fields present",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.345682+00:00"
+      "timestamp": "2026-01-02T05:25:48.504069+00:00"
     },
     {
       "test_name": "List Connections",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.388160+00:00"
+      "timestamp": "2026-01-02T05:25:48.540406+00:00"
     },
     {
       "test_name": "Create Connection",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.427471+00:00"
+      "timestamp": "2026-01-02T05:25:48.632845+00:00"
     },
     {
       "test_name": "Get Connection",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.460545+00:00"
+      "timestamp": "2026-01-02T05:25:48.712771+00:00"
     },
     {
       "test_name": "Connect WhatsApp",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.497224+00:00"
+      "timestamp": "2026-01-02T05:25:49.158957+00:00"
     },
     {
       "test_name": "Simulate Connection",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.590139+00:00"
-    },
-    {
-      "test_name": "List Groups for Connection",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.624980+00:00"
-    },
-    {
-      "test_name": "Groups Created After Simulation",
-      "success": true,
-      "details": "Found 5 groups",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.625709+00:00"
-    },
-    {
-      "test_name": "Disconnect WhatsApp",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.662710+00:00"
-    },
-    {
-      "test_name": "Delete Connection",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.695725+00:00"
+      "success": false,
+      "details": "Expected 200, got 404",
+      "error": "Not Found",
+      "timestamp": "2026-01-02T05:25:49.213673+00:00"
     },
     {
       "test_name": "Create Connection for Campaign",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:43.736788+00:00"
+      "timestamp": "2026-01-02T05:25:49.290285+00:00"
     },
     {
       "test_name": "Simulate Connection for Campaign",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.772946+00:00"
-    },
-    {
-      "test_name": "Get Groups for Campaign",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.809567+00:00"
-    },
-    {
-      "test_name": "Create Campaign",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.860610+00:00"
-    },
-    {
-      "test_name": "List Campaigns",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.895759+00:00"
-    },
-    {
-      "test_name": "Get Campaign",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:43.929275+00:00"
-    },
-    {
-      "test_name": "Delete Campaign",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:45.962690+00:00"
-    },
-    {
-      "test_name": "Delete Campaign Connection",
-      "success": true,
-      "details": "Status: 200",
-      "error": "",
-      "timestamp": "2025-12-20T19:32:46.001952+00:00"
+      "success": false,
+      "details": "Expected 200, got 404",
+      "error": "Not Found",
+      "timestamp": "2026-01-02T05:25:49.372070+00:00"
     },
     {
       "test_name": "List Users",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.039549+00:00"
+      "timestamp": "2026-01-02T05:25:49.427170+00:00"
     },
     {
       "test_name": "Create User",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.334760+00:00"
+      "timestamp": "2026-01-02T05:25:49.948915+00:00"
     },
     {
       "test_name": "Update User",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.371227+00:00"
+      "timestamp": "2026-01-02T05:25:50.030878+00:00"
     },
     {
       "test_name": "Delete User",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.416520+00:00"
+      "timestamp": "2026-01-02T05:25:50.121360+00:00"
     },
     {
       "test_name": "Admin Stats",
       "success": true,
       "details": "Status: 200",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.453230+00:00"
+      "timestamp": "2026-01-02T05:25:50.198384+00:00"
     },
     {
       "test_name": "Admin Stats Fields",
       "success": true,
       "details": "All required fields present",
       "error": "",
-      "timestamp": "2025-12-20T19:32:46.453851+00:00"
+      "timestamp": "2026-01-02T05:25:50.199091+00:00"
+    },
+    {
+      "test_name": "Campaigns Paginated - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.239240+00:00"
+    },
+    {
+      "test_name": "Campaigns Paginated - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.319231+00:00"
+    },
+    {
+      "test_name": "Campaigns Paginated - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.398693+00:00"
+    },
+    {
+      "test_name": "Templates - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.430901+00:00"
+    },
+    {
+      "test_name": "Templates - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.513151+00:00"
+    },
+    {
+      "test_name": "Templates - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.547233+00:00"
+    },
+    {
+      "test_name": "Connections - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.625916+00:00"
+    },
+    {
+      "test_name": "Connections - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.703368+00:00"
+    },
+    {
+      "test_name": "Connections - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.741221+00:00"
+    },
+    {
+      "test_name": "Plans - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.816559+00:00"
+    },
+    {
+      "test_name": "Plans - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:50.937691+00:00"
+    },
+    {
+      "test_name": "Plans - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.039742+00:00"
+    },
+    {
+      "test_name": "Admin All Users - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.109362+00:00"
+    },
+    {
+      "test_name": "Admin All Users - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.144984+00:00"
+    },
+    {
+      "test_name": "Admin All Users - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.232477+00:00"
+    },
+    {
+      "test_name": "Invite Links - owner_filter=all",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.311913+00:00"
+    },
+    {
+      "test_name": "Invite Links - owner_filter=mine",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.346230+00:00"
+    },
+    {
+      "test_name": "Invite Links - default filter",
+      "success": true,
+      "details": "Status: 200",
+      "error": "",
+      "timestamp": "2026-01-02T05:25:51.424642+00:00"
     }
   ],
-  "timestamp": "2025-12-20T19:32:46.453884+00:00"
+  "timestamp": "2026-01-02T05:25:51.425318+00:00"
 }
