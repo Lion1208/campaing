@@ -2722,10 +2722,25 @@ async def list_connections(user: dict = Depends(get_current_user), quick: bool =
     return connections_list
 
 @api_router.get("/connections/quick", response_model=List[ConnectionResponse])
-async def list_connections_quick(user: dict = Depends(get_current_user)):
-    """Quick list of connections without status check - for faster initial page load"""
-    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
-    return await db.connections.find(query, {'_id': 0}).to_list(1000)
+async def list_connections_quick(user: dict = Depends(get_current_user), owner_filter: str = "all"):
+    """Quick list of connections without status check - for faster initial page load. owner_filter: 'all' or 'mine' (admin only)"""
+    if user['role'] == 'admin':
+        if owner_filter == 'mine':
+            query = {'user_id': user['id']}
+        else:
+            query = {}
+    else:
+        query = {'user_id': user['id']}
+    
+    connections_list = await db.connections.find(query, {'_id': 0}).to_list(1000)
+    
+    # Add owner username for admin view
+    if user['role'] == 'admin' and owner_filter == 'all':
+        for conn in connections_list:
+            owner = await db.users.find_one({'id': conn.get('user_id')}, {"_id": 0, "username": 1})
+            conn['owner_username'] = owner['username'] if owner else 'Admin'
+    
+    return connections_list
 
 @api_router.post("/connections", response_model=ConnectionResponse)
 async def create_connection(data: ConnectionCreate, user: dict = Depends(get_current_user)):
