@@ -1,0 +1,12 @@
+--2025-12-26 19:18:07--  https://raw.githubusercontent.com/Lion1208/campaing/main/update_vps.sh
+Resolving raw.githubusercontent.com (raw.githubusercontent.com)... 2606:50c0:8000::154, 2606:50c0:8003::154, 2606:50c0:8002::154, ...
+Connecting to raw.githubusercontent.com (raw.githubusercontent.com)|2606:50c0:8000::154|:443... failed: Connection timed out.
+Connecting to raw.githubusercontent.com (raw.githubusercontent.com)|2606:50c0:8003::154|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 7718 (7.5K) [text/plain]
+Saving to: ‘update_vps.sh’
+
+     0K .......                                               100% 62.3M=0s
+
+2025-12-26 19:20:18 (62.3 MB/s) - ‘update_vps.sh’ saved [7718/7718]
+
