@@ -2694,10 +2694,24 @@ async def delete_reseller(user_id: str, master: dict = Depends(get_master_user))
 # ============= Connections =============
 
 @api_router.get("/connections", response_model=List[ConnectionResponse])
-async def list_connections(user: dict = Depends(get_current_user), quick: bool = False):
-    """List connections. Use quick=true for faster loading without status check."""
-    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+async def list_connections(user: dict = Depends(get_current_user), quick: bool = False, owner_filter: str = "all"):
+    """List connections. Use quick=true for faster loading without status check. owner_filter: 'all' or 'mine' (admin only)"""
+    # Build query based on role and filter
+    if user['role'] == 'admin':
+        if owner_filter == 'mine':
+            query = {'user_id': user['id']}
+        else:
+            query = {}  # All connections
+    else:
+        query = {'user_id': user['id']}
+    
     connections_list = await db.connections.find(query, {'_id': 0}).to_list(1000)
+    
+    # Add owner username for admin view
+    if user['role'] == 'admin' and owner_filter == 'all':
+        for conn in connections_list:
+            owner = await db.users.find_one({'id': conn.get('user_id')}, {"_id": 0, "username": 1})
+            conn['owner_username'] = owner['username'] if owner else 'Admin'
     
     # Skip status update if quick mode requested
     if quick:
