@@ -115,7 +115,7 @@ export default function ResellersPage() {
   const [editData, setEditData] = useState({ max_connections: 1, active: true });
   const [creditsToAdd, setCreditsToAdd] = useState(10);
   const [actionLoading, setActionLoading] = useState(false);
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('mine');
   const limit = 10;
 
   const isAdmin = user?.role === 'admin';
