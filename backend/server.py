@@ -2431,18 +2431,41 @@ async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "al
     """List all users with pagination, search and sorting. owner_filter: 'all' or 'mine' (filters by created_by)"""
     skip = (page - 1) * limit
     
-    # Build query based on filter
-    base_query = {'role': {'$ne': 'admin'}}
+    # Build base query for stats (without search)
+    stats_query = {'role': {'$ne': 'admin'}}
     if owner_filter == 'mine':
-        base_query['created_by'] = admin['id']
+        stats_query['created_by'] = admin['id']
     
-    # Add search filter
+    # Calculate stats from ALL users (not paginated, not searched)
+    all_users_for_stats = await db.users.find(stats_query, {'_id': 0, 'expires_at': 1, 'active': 1}).to_list(10000)
+    now = datetime.now(timezone.utc)
+    
+    total_count = len(all_users_for_stats)
+    active_count = 0
+    expired_count = 0
+    
+    for u in all_users_for_stats:
+        expires_at = u.get('expires_at')
+        if expires_at:
+            try:
+                exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if exp_date > now:
+                    active_count += 1
+                else:
+                    expired_count += 1
+            except:
+                pass
+        elif u.get('active'):
+            active_count += 1
+    
+    # Build query for listing (with search)
+    list_query = stats_query.copy()
     if search:
-        base_query['username'] = {'$regex': search, '$options': 'i'}
+        list_query['username'] = {'$regex': search, '$options': 'i'}
     
-    total = await db.users.count_documents(base_query)
+    total = await db.users.count_documents(list_query)
     # Sort by created_at descending (newest first)
-    users = await db.users.find(base_query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    users = await db.users.find(list_query, {'_id': 0, 'password': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
     
     # Add creator username for admin view when showing all
     if owner_filter == 'all':
@@ -2458,7 +2481,12 @@ async def list_all_users(page: int = 1, limit: int = 10, owner_filter: str = "al
         'total': total,
         'page': page,
         'limit': limit,
-        'total_pages': (total + limit - 1) // limit
+        'total_pages': (total + limit - 1) // limit,
+        'stats': {
+            'total': total_count,
+            'active': active_count,
+            'expired': expired_count
+        }
     }
 
 @api_router.post("/admin/users", response_model=UserResponse)
