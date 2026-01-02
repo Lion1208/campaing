@@ -703,8 +703,8 @@ async def register_via_invite(invite_code: str, data: UserLogin):
     if existing:
         raise HTTPException(status_code=400, detail="Usuário já existe")
     
-    # Find invite link
-    link = await db.invite_links.find_one({'code': invite_code, 'active': True}, {"_id": 0})
+    # Find invite link (case insensitive)
+    link = await db.invite_links.find_one({'code': invite_code.upper(), 'active': True}, {"_id": 0})
     if not link:
         raise HTTPException(status_code=404, detail="Link de convite inválido")
     
