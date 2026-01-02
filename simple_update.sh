@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# NEXUZAP - Atualização Simples (sem git)
+# NEXUZAP - Atualização Completa (sem git)
 ################################################################################
 
 set -e
@@ -23,7 +23,7 @@ warn() { echo -e "${YELLOW}[AVISO]${NC} $1"; }
 
 clear
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     🔄 NexuZap - Atualização Simples (Download)       ║${NC}"
+echo -e "${BLUE}║     🔄 NexuZap - Atualização Completa                 ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -39,10 +39,10 @@ mkdir -p "$BACKUP_DIR"
 # ETAPA 1: BACKUP DO MONGODB
 ################################################################################
 
-log "[1/6] 💾 Fazendo backup do MongoDB..."
+log "[1/7] 💾 Fazendo backup do MongoDB..."
 
 if command -v mongodump >/dev/null 2>&1; then
-    mongodump --db nexuzap_production --out "$BACKUP_DIR/mongo_$DATE" --quiet 2>/dev/null || {
+    mongodump --db test_database --out "$BACKUP_DIR/mongo_$DATE" --quiet 2>/dev/null || {
         warn "Falha no backup MongoDB"
     }
     log "✅ Backup MongoDB salvo: $BACKUP_DIR/mongo_$DATE"
@@ -54,7 +54,7 @@ fi
 # ETAPA 2: BACKUP DE .ENV FILES
 ################################################################################
 
-log "[2/6] 💾 Fazendo backup das configurações..."
+log "[2/7] 💾 Fazendo backup das configurações..."
 
 cp "$APP_DIR/backend/.env" "/tmp/backend.env.bak" 2>/dev/null || warn "Backend .env não encontrado"
 cp "$APP_DIR/frontend/.env" "/tmp/frontend.env.bak" 2>/dev/null || warn "Frontend .env não encontrado"
@@ -66,7 +66,7 @@ log "✅ Configurações salvas"
 # ETAPA 3: PARAR SERVIÇOS
 ################################################################################
 
-log "[3/6] ⏸️  Parando serviços..."
+log "[3/7] ⏸️  Parando serviços..."
 
 supervisorctl stop nexuzap:* 2>/dev/null || warn "Alguns serviços já estavam parados"
 sleep 2
@@ -77,7 +77,7 @@ log "✅ Serviços parados"
 # ETAPA 4: BAIXAR ARQUIVOS ATUALIZADOS
 ################################################################################
 
-log "[4/6] 📥 Baixando arquivos do GitHub..."
+log "[4/7] 📥 Baixando arquivos do GitHub..."
 
 cd "$APP_DIR"
 
@@ -85,9 +85,22 @@ cd "$APP_DIR"
 log "  → Atualizando backend/server.py..."
 wget -q -O backend/server.py "$GITHUB_RAW/backend/server.py" || error "Falha ao baixar server.py"
 
-# Frontend  
-log "  → Atualizando frontend/src/pages/EditCampaignPage.jsx..."
-wget -q -O frontend/src/pages/EditCampaignPage.jsx "$GITHUB_RAW/frontend/src/pages/EditCampaignPage.jsx" || error "Falha ao baixar EditCampaignPage.jsx"
+log "  → Atualizando backend/requirements.txt..."
+wget -q -O backend/requirements.txt "$GITHUB_RAW/backend/requirements.txt" || warn "Falha ao baixar requirements.txt"
+
+# Frontend
+log "  → Atualizando frontend/src/pages..."
+wget -q -O frontend/src/pages/EditCampaignPage.jsx "$GITHUB_RAW/frontend/src/pages/EditCampaignPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/ConnectionsPage.jsx "$GITHUB_RAW/frontend/src/pages/ConnectionsPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/CreateCampaignPage.jsx "$GITHUB_RAW/frontend/src/pages/CreateCampaignPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/PlansPage.jsx "$GITHUB_RAW/frontend/src/pages/PlansPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/GatewaysPage.jsx "$GITHUB_RAW/frontend/src/pages/GatewaysPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/CreditShopPage.jsx "$GITHUB_RAW/frontend/src/pages/CreditShopPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/FinancialPage.jsx "$GITHUB_RAW/frontend/src/pages/FinancialPage.jsx" || warn "Falha"
+wget -q -O frontend/src/pages/InviteLinksPage.jsx "$GITHUB_RAW/frontend/src/pages/InviteLinksPage.jsx" || warn "Falha"
+
+log "  → Atualizando frontend/src/App.js..."
+wget -q -O frontend/src/App.js "$GITHUB_RAW/frontend/src/App.js" || warn "Falha ao baixar App.js"
 
 # WhatsApp Service
 log "  → Atualizando whatsapp-service/index.js..."
@@ -96,23 +109,44 @@ wget -q -O whatsapp-service/index.js "$GITHUB_RAW/whatsapp-service/index.js" || 
 log "✅ Arquivos atualizados"
 
 ################################################################################
-# ETAPA 5: BUILD DO FRONTEND
+# ETAPA 5: INSTALAR DEPENDÊNCIAS DO BACKEND
 ################################################################################
 
-log "[5/6] 🔨 Compilando frontend (pode demorar ~1 minuto)..."
+log "[5/7] 📦 Instalando dependências do backend..."
+
+cd "$APP_DIR/backend"
+
+# Instalar mercadopago e outras dependências
+pip install mercadopago==2.2.3 --quiet 2>/dev/null || warn "Erro ao instalar mercadopago"
+pip install -r requirements.txt --quiet 2>/dev/null || warn "Algumas dependências falharam"
+
+log "✅ Dependências do backend instaladas"
+
+################################################################################
+# ETAPA 6: BUILD DO FRONTEND
+################################################################################
+
+log "[6/7] 🔨 Compilando frontend (pode demorar ~1-2 minutos)..."
 
 cd "$APP_DIR/frontend"
+
+# Limpar cache
+rm -rf node_modules/.cache 2>/dev/null || true
+rm -rf build 2>/dev/null || true
+
+# Build
 npm run build > /tmp/nexuzap_build.log 2>&1 || {
     warn "Erro no build. Ver logs em /tmp/nexuzap_build.log"
+    cat /tmp/nexuzap_build.log | tail -20
 }
 
 log "✅ Frontend compilado"
 
 ################################################################################
-# ETAPA 6: RESTAURAR .ENV E REINICIAR
+# ETAPA 7: RESTAURAR .ENV E REINICIAR
 ################################################################################
 
-log "[6/6] 🔧 Restaurando configurações e reiniciando..."
+log "[7/7] 🔧 Restaurando configurações e reiniciando..."
 
 cd "$APP_DIR"
 
@@ -134,5 +168,12 @@ echo -e "${BLUE}═════════════════════�
 supervisorctl status nexuzap:*
 
 echo ""
-echo -e "${GREEN}🎉 Pronto! Limpe o cache do navegador (Ctrl+Shift+Del) e teste em: https://nexuzap.com${NC}"
+echo -e "${GREEN}🎉 Pronto! Limpe o cache do navegador (Ctrl+Shift+Del) e acesse: https://nexuzap.com${NC}"
+echo ""
+echo -e "${YELLOW}📋 Novas funcionalidades disponíveis:${NC}"
+echo -e "${YELLOW}  • Planos (Admin)${NC}"
+echo -e "${YELLOW}  • Gateways (Admin/Master)${NC}"
+echo -e "${YELLOW}  • Loja de Créditos (Master)${NC}"
+echo -e "${YELLOW}  • Financeiro (Admin/Master)${NC}"
+echo -e "${YELLOW}  • Links de Convite (Admin/Master)${NC}"
 echo ""
