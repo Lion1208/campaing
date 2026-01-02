@@ -3,7 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore, useUIStore } from "@/store";
-import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, Image, Package } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Calendar, Users, LogOut, Menu, X, Sun, Moon, FileText, History, User, Coins, Shield, Image, Package, CreditCard, ShoppingCart, DollarSign, Link2 } from "lucide-react";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
