@@ -3640,12 +3640,28 @@ async def list_campaigns(page: int = 1, limit: int = 20, user: dict = Depends(ge
     return campaigns
 
 @api_router.get("/campaigns/paginated")
-async def list_campaigns_paginated(page: int = 1, limit: int = 12, user: dict = Depends(get_current_user)):
-    """List campaigns with pagination info"""
-    query = {} if user['role'] == 'admin' else {'user_id': user['id']}
+async def list_campaigns_paginated(page: int = 1, limit: int = 12, owner_filter: str = "all", user: dict = Depends(get_current_user)):
+    """List campaigns with pagination info. owner_filter: 'all' or 'mine' (admin only)"""
+    # Build query based on role and filter
+    if user['role'] == 'admin':
+        # Admin can filter: all = todos, mine = apenas do admin
+        if owner_filter == 'mine':
+            query = {'user_id': user['id']}
+        else:
+            query = {}  # All campaigns
+    else:
+        query = {'user_id': user['id']}  # Non-admin always sees only their own
+    
     skip = (page - 1) * limit
     total = await db.campaigns.count_documents(query)
     campaigns = await db.campaigns.find(query, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
+    
+    # Add owner username for admin view
+    if user['role'] == 'admin' and owner_filter == 'all':
+        for campaign in campaigns:
+            owner = await db.users.find_one({'id': campaign.get('user_id')}, {"_id": 0, "username": 1})
+            campaign['owner_username'] = owner['username'] if owner else 'Admin'
+    
     return {
         'campaigns': campaigns,
         'total': total,
