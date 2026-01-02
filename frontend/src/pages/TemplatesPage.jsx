@@ -322,6 +322,13 @@ export default function TemplatesPage() {
                     </Badge>
                   )}
                 </div>
+
+                {/* Owner badge for admin viewing all */}
+                {isAdmin && ownerFilter === 'all' && template.owner_username && (
+                  <Badge variant="outline" className="w-fit text-[10px] mb-2 bg-blue-500/10 text-blue-400 border-blue-500/20">
+                    {template.owner_username}
+                  </Badge>
+                )}
                 
                 <p className="text-sm text-muted-foreground line-clamp-3 mb-4 min-h-[3.5rem]">
                   {template.message}
