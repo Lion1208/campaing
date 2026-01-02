@@ -327,14 +327,28 @@ export default function ResellersPage() {
             )}
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Revendedor
-              {isMaster && <span className="ml-1 text-xs opacity-75">(1 crédito)</span>}
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos do Sistema</SelectItem>
+                <SelectItem value="mine">Criados por Mim</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow">
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Revendedor
+                {isMaster && <span className="ml-1 text-xs opacity-75">(1 crédito)</span>}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="glass-card border-border mx-4 max-w-sm">
             <DialogHeader>
               <DialogTitle className="text-foreground">Novo Revendedor</DialogTitle>
