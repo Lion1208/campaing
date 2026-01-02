@@ -9,6 +9,7 @@ import ExpirationWarning from "@/components/ExpirationWarning";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConnectionsPage from "@/pages/ConnectionsPage";
 import CampaignsPage from "@/pages/CampaignsPage";
