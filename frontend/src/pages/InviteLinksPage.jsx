@@ -4,28 +4,39 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Link2, Plus, Trash2, Copy, Users } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { Link2, Plus, Trash2, Copy, Users, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function InviteLinksPage() {
-  const { api } = useAuthStore();
+  const { api, user } = useAuthStore();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState('all');
   const [formData, setFormData] = useState({
     test_hours: 24,
     max_uses: 0,
     expires_in_hours: 24
   });
 
+  const isAdmin = user?.role === 'admin';
+
   useEffect(() => {
     fetchLinks();
-  }, []);
+  }, [ownerFilter]);
 
   const fetchLinks = async () => {
     try {
-      const response = await api.get('/invite-links');
+      const response = await api.get(`/invite-links?owner_filter=${ownerFilter}`);
       setLinks(response.data);
     } catch (error) {
       toast.error('Erro ao carregar links');
