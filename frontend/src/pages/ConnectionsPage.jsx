@@ -236,10 +236,25 @@ export default function ConnectionsPage() {
             {connections.length} de {maxConnections} conexões
           </p>
         </div>
-        <Button onClick={() => fetchConnections()} variant="outline" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas do Sistema</SelectItem>
+                <SelectItem value="mine">Apenas Minhas</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => fetchConnections(false, ownerFilter)} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Formulário de criação */}
