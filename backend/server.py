@@ -1708,6 +1708,26 @@ async def delete_gateway(gateway_id: str, user: dict = Depends(get_current_user)
     await db.gateways.delete_one({'id': gateway_id})
     return {'message': 'Gateway deletado'}
 
+class GatewayToggle(BaseModel):
+    active: bool
+
+@api_router.put("/gateways/{provider}/toggle")
+async def toggle_gateway(provider: str, data: GatewayToggle, user: dict = Depends(get_current_user)):
+    """Toggle gateway active status"""
+    if user['role'] not in ['admin', 'master']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    gateway = await db.gateways.find_one({'user_id': user['id'], 'provider': provider})
+    if not gateway:
+        raise HTTPException(status_code=404, detail="Gateway não encontrado. Configure o token primeiro.")
+    
+    await db.gateways.update_one(
+        {'user_id': user['id'], 'provider': provider},
+        {'$set': {'active': data.active}}
+    )
+    
+    return {'message': 'Gateway atualizado', 'active': data.active}
+
 # ============= MONETIZATION - CREDIT PLANS =============
 
 @api_router.get("/admin/credit-plans", response_model=List[CreditPlanResponse])
