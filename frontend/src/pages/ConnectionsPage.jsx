@@ -20,18 +20,21 @@ export default function ConnectionsPage() {
   const [newConnectionName, setNewConnectionName] = useState('');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  
+  const isAdmin = user?.role === 'admin';
   
   // Estado para QR codes - cada conexão pode ter seu próprio QR
   const [qrStates, setQrStates] = useState({});
   const pollingRefs = useRef({});
 
   useEffect(() => {
-    fetchConnections();
+    fetchConnections(false, ownerFilter);
     return () => {
       // Limpar todos os pollings ao desmontar
       Object.values(pollingRefs.current).forEach(clearInterval);
     };
-  }, []);
+  }, [ownerFilter]);
 
   // Função para buscar QR de uma conexão específica
   const fetchQR = async (connectionId) => {
