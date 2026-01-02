@@ -182,13 +182,27 @@ export default function TemplatesPage() {
           <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Templates</h1>
           <p className="text-muted-foreground text-sm mt-1">Mensagens pré-prontas para suas campanhas</p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Template
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-3">
+          {/* Admin Filter */}
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[180px] bg-muted/50 border-border">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos do Sistema</SelectItem>
+                <SelectItem value="mine">Apenas Meus</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 btn-glow">
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Template
+              </Button>
+            </DialogTrigger>
           <DialogContent className="glass-card border-border mx-4 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-foreground">Novo Template</DialogTitle>
