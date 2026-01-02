@@ -126,12 +126,16 @@ const Layout = ({ children }) => {
   // Add admin-only pages
   if (user?.role === 'admin') {
     navItems.push({ path: '/plans', label: 'Planos', icon: Package });
+    navItems.push({ path: '/credit-plans', label: 'Pacotes de Créditos', icon: Coins });
   }
 
   // Add master/admin pages
   if (user?.role === 'admin' || user?.role === 'master') {
     navItems.push({ path: '/gateways', label: 'Gateways', icon: CreditCard });
-    navItems.push({ path: '/credit-shop', label: 'Loja de Créditos', icon: ShoppingCart });
+    // Loja de Créditos - apenas para masters (admin não precisa comprar)
+    if (user?.role === 'master') {
+      navItems.push({ path: '/credit-shop', label: 'Loja de Créditos', icon: ShoppingCart });
+    }
     navItems.push({ path: '/financial', label: 'Financeiro', icon: DollarSign });
     navItems.push({ path: '/resellers', label: 'Revendedores', icon: Users });
     navItems.push({ path: '/invite-links', label: 'Links de Convite', icon: Link2 });
