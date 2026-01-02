@@ -1590,9 +1590,25 @@ async def get_dashboard_stats(days: int = 7, user: dict = Depends(get_current_us
 # ============= MONETIZATION - PLANS =============
 
 @api_router.get("/plans", response_model=List[PlanResponse])
-async def get_plans(user: dict = Depends(get_current_user)):
-    """Get all plans"""
-    plans = await db.plans.find({}, {"_id": 0}).to_list(1000)
+async def get_plans(owner_filter: str = "all", user: dict = Depends(get_current_user)):
+    """Get all plans. owner_filter: 'all' or 'mine' (admin only)"""
+    # Plans are typically global, but admin can filter by created_by
+    if user['role'] == 'admin' and owner_filter == 'mine':
+        query = {'created_by': user['id']}
+    else:
+        query = {}
+    
+    plans = await db.plans.find(query, {"_id": 0}).to_list(1000)
+    
+    # Add creator username for admin view
+    if user['role'] == 'admin' and owner_filter == 'all':
+        for plan in plans:
+            if plan.get('created_by'):
+                creator = await db.users.find_one({'id': plan['created_by']}, {"_id": 0, "username": 1})
+                plan['creator_username'] = creator['username'] if creator else 'Admin'
+            else:
+                plan['creator_username'] = 'Sistema'
+    
     return plans
 
 @api_router.post("/admin/plans", response_model=PlanResponse)
